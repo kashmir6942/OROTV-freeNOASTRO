@@ -12,6 +12,7 @@ import { SetupCheck } from "@/components/setup-check"
 import { createClient } from "@/lib/supabase/client"
 import { setUserPreference, getUserPreference } from "@/lib/user-preferences"
 import { ChannelRequestModal } from "@/components/channel-request-modal"
+import { RatingModal } from "@/components/rating-modal"
 import { useTheme } from "next-themes"
 import { SupportPopup } from "@/components/support-popup"
 import { ReportModal } from "@/components/report-modal"
@@ -198,6 +199,7 @@ export default function Home() {
   const [wasInLiveTVBeforePlayer, setWasInLiveTVBeforePlayer] = useState(false)
   const [headerTitle, setHeaderTitle] = useState("Home")
   const [showChannelRequestModal, setShowChannelRequestModal] = useState(false)
+  const [showRatingModal, setShowRatingModal] = useState(false)
   const [recommendedChannels, setRecommendedChannels] = useState<Channel[]>([])
   const [currentRecommendedIndex, setCurrentRecommendedIndex] = useState(0)
   const [isNavTransparent, setIsNavTransparent] = useState(true)
@@ -992,6 +994,7 @@ export default function Home() {
         )}
         <IOSUnsupportedModal />
         <ReportModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />
+        <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} />
         <AnnouncementsSystem />
 
         {/* SAME HEADER */}
@@ -1022,6 +1025,12 @@ export default function Home() {
                     className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
                   >
                     Request
+                  </button>
+                  <button
+                    onClick={() => setShowRatingModal(true)}
+                    className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
+                  >
+                    Rate
                   </button>
                 </nav>
               </div>
@@ -1573,6 +1582,12 @@ export default function Home() {
                 >
                   Request
                 </button>
+                <button
+                  onClick={() => setShowRatingModal(true)}
+                  className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40 transition-all duration-200"
+                >
+                  Rate
+                </button>
               </nav>
             </div>
 
@@ -1802,6 +1817,7 @@ export default function Home() {
       />
 
       <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
+      <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} />
 
       {/* New Feature Modals */}
       <QuickChannelSwitch
