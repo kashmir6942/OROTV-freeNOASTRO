@@ -137,6 +137,9 @@ export function VideoPlayer({
   const [isUIHidden, setIsUIHidden] = useState(false)
   const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">("high-bitrate")
   const [archiveMode, setArchiveMode] = useState(false)
+  const bufferingSinceRef = useRef<number | null>(null)
+  const bufferingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastBufferingCheckRef = useRef<number>(0)
 
   const [lastSavedPosition, setLastSavedPosition] = useState(0)
   const positionSaveIntervalRef = useRef<NodeJS.Timeout>()
@@ -748,24 +751,40 @@ export function VideoPlayer({
         if (window.Hls.isSupported()) {
           console.log("[v0] HLS.js is supported, creating player, mode:", streamingMode)
           const isOptimized = streamingMode === "optimized"
+          
+          // OPTIMIZATION 1: Tuned HLS.js config to prevent constant rebuffering
           hlsRef.current = new window.Hls({
             enableWorker: !isAndroidTV,
             lowLatencyMode: false,
-            backBufferLength: isOptimized ? 10 : (isAndroidTV ? 30 : 60),
-            maxBufferLength: isOptimized ? 20 : (isAndroidTV ? 40 : 60),
-            maxMaxBufferLength: isOptimized ? 40 : (isAndroidTV ? 80 : 120),
-            manifestLoadingTimeOut: isOptimized ? 15000 : 8000,
-            manifestLoadingMaxRetry: isOptimized ? 6 : 3,
-            levelLoadingTimeOut: isOptimized ? 15000 : 8000,
-            fragLoadingTimeOut: isOptimized ? 20000 : 10000,
-            startLevel: isOptimized ? 0 : -1, // Lowest level for optimized, auto for high bitrate
+            // OPTIMIZATION 2: Larger buffers prevent micro-stalls
+            backBufferLength: isOptimized ? 15 : (isAndroidTV ? 45 : 90),
+            maxBufferLength: isOptimized ? 30 : (isAndroidTV ? 60 : 90),
+            maxMaxBufferLength: isOptimized ? 60 : (isAndroidTV ? 120 : 180),
+            // OPTIMIZATION 3: Longer timeouts prevent premature failures
+            manifestLoadingTimeOut: 20000,
+            manifestLoadingMaxRetry: 4,
+            levelLoadingTimeOut: 15000,
+            levelLoadingMaxRetry: 4,
+            fragLoadingTimeOut: 25000,
+            fragLoadingMaxRetry: 6,
+            // OPTIMIZATION 4: Start at auto level, let ABR decide
+            startLevel: isOptimized ? 0 : -1,
             autoStartLoad: true,
-            maxLoadingDelay: isOptimized ? 8 : 4,
-            maxBufferHole: isOptimized ? 1 : 0.5,
-            abrEwmaFastLive: isOptimized ? 3 : 3,
-            abrEwmaSlowLive: isOptimized ? 9 : 9,
-            abrBandWidthFactor: isOptimized ? 0.7 : 0.95,
-            abrBandWidthUpFactor: isOptimized ? 0.5 : 0.7,
+            // OPTIMIZATION 5: More tolerance for buffer holes
+            maxLoadingDelay: isOptimized ? 10 : 6,
+            maxBufferHole: 1.5,
+            // OPTIMIZATION 6: Smoother ABR switching to avoid quality ping-pong
+            abrEwmaFastLive: 3,
+            abrEwmaSlowLive: 9,
+            abrEwmaDefaultEstimate: 500000, // 500kbps default estimate
+            abrBandWidthFactor: isOptimized ? 0.6 : 0.85,
+            abrBandWidthUpFactor: isOptimized ? 0.4 : 0.6,
+            // OPTIMIZATION 7: Faster recovery from stalls
+            nudgeMaxRetry: 5,
+            nudgeOffset: 0.2,
+            // OPTIMIZATION 8: Progressive loading for smoother playback
+            progressive: true,
+            testBandwidth: true,
           })
 
           hlsRef.current.loadSource(channel.url)
@@ -912,25 +931,41 @@ export function VideoPlayer({
         console.log("[v0] Creating Shaka Player instance")
         playerRef.current = new window.shaka.Player(video)
 
-        if (isAndroidTV) {
-          playerRef.current.configure({
-            streaming: {
-              bufferBehind: 30,
-              bufferingGoal: 60,
-              rebufferingGoal: 10,
-              bufferAhead: 30,
+        const isOptimized = streamingMode === "optimized"
+        
+        // OPTIMIZATION: Tuned Shaka Player config for both modes
+        playerRef.current.configure({
+          streaming: {
+            // Larger buffers prevent rebuffering
+            bufferBehind: isOptimized ? 20 : (isAndroidTV ? 45 : 60),
+            bufferingGoal: isOptimized ? 30 : (isAndroidTV ? 60 : 90),
+            rebufferingGoal: isOptimized ? 8 : 5,
+            bufferAhead: isOptimized ? 20 : (isAndroidTV ? 45 : 60),
+            // Faster recovery
+            stallEnabled: true,
+            stallThreshold: 1,
+            stallSkip: 0.1,
+            // Prevent jumping around
+            jumpLargeGaps: true,
+            smallGapLimit: 1.5,
+          },
+          abr: {
+            // Smoother ABR to prevent quality ping-pong
+            enabled: true,
+            switchInterval: isOptimized ? 8 : 4,
+            bandwidthUpgradeTarget: isOptimized ? 0.6 : 0.85,
+            bandwidthDowngradeTarget: 0.95,
+          },
+          manifest: {
+            retryParameters: {
+              timeout: 25000,
+              maxAttempts: 6,
+              baseDelay: 1500,
+              backoffFactor: 2,
+              fuzzFactor: 0.5,
             },
-            manifest: {
-              retryParameters: {
-                timeout: 20000,
-                maxAttempts: 6,
-                baseDelay: 2000,
-                backoffFactor: 2,
-                fuzzFactor: 0.5,
-              },
-            },
-          })
-        }
+          },
+        })
 
         if (channel.drm?.clearkey) {
           console.log("[v0] Configuring DRM clearkeys")
@@ -1044,6 +1079,81 @@ export function VideoPlayer({
     setRetryCount((prev) => prev + 1)
     initializePlayer()
   }
+
+  // Smart reopen: close player, go home briefly, then reopen the same channel
+  // This is cleaner than a hard reload and prevents constant buffering
+  const smartReopenChannel = useCallback(() => {
+    console.log("[v0] Smart reopen: closing player and reopening channel")
+    
+    // Clean up current player completely
+    if (playerRef.current) {
+      playerRef.current.destroy().catch(() => {})
+      playerRef.current = null
+    }
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.src = ""
+      videoRef.current.load()
+    }
+    
+    // Reset states
+    setIsLoading(true)
+    setError(null)
+    setIsBuffering(false)
+    setConnectionStatus("reconnecting")
+    bufferingSinceRef.current = null
+    
+    // Brief delay then reinitialize (simulates close->reopen without full page reload)
+    setTimeout(() => {
+      initializePlayer()
+    }, 500)
+  }, [channel.id])
+
+  // Buffering watchdog: if buffering exceeds 10 seconds, smart reopen
+  useEffect(() => {
+    if (isBuffering) {
+      if (!bufferingSinceRef.current) {
+        bufferingSinceRef.current = Date.now()
+        console.log("[v0] Buffering started at:", new Date().toISOString())
+      }
+      
+      // Check every 2 seconds if we've been buffering too long
+      if (!bufferingCheckIntervalRef.current) {
+        bufferingCheckIntervalRef.current = setInterval(() => {
+          if (bufferingSinceRef.current && isBuffering) {
+            const bufferingDuration = Date.now() - bufferingSinceRef.current
+            console.log("[v0] Buffering duration:", bufferingDuration, "ms")
+            
+            if (bufferingDuration >= 10000) { // 10 seconds
+              console.log("[v0] Buffering exceeded 10s, triggering smart reopen")
+              if (bufferingCheckIntervalRef.current) {
+                clearInterval(bufferingCheckIntervalRef.current)
+                bufferingCheckIntervalRef.current = null
+              }
+              smartReopenChannel()
+            }
+          }
+        }, 2000)
+      }
+    } else {
+      // Not buffering anymore, reset
+      bufferingSinceRef.current = null
+      if (bufferingCheckIntervalRef.current) {
+        clearInterval(bufferingCheckIntervalRef.current)
+        bufferingCheckIntervalRef.current = null
+      }
+    }
+    
+    return () => {
+      if (bufferingCheckIntervalRef.current) {
+        clearInterval(bufferingCheckIntervalRef.current)
+        bufferingCheckIntervalRef.current = null
+      }
+    }
+  }, [isBuffering, smartReopenChannel])
 
   const togglePlayPause = () => {
     if (videoRef.current) {
@@ -1731,10 +1841,13 @@ export function VideoPlayer({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
-                  setStreamingMode("high-bitrate")
-                  setTimeout(() => initializePlayer(), 300)
+                  if (streamingMode !== "high-bitrate") {
+                    setStreamingMode("high-bitrate")
+                    setShowSettings(false)
+                    setTimeout(() => smartReopenChannel(), 100)
+                  }
                 }}
-                className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
+                className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
                   streamingMode === "high-bitrate"
                     ? "border-white text-white bg-white/10"
                     : "border-white/30 text-white/50 hover:border-white/60"
@@ -1745,10 +1858,13 @@ export function VideoPlayer({
               </button>
               <button
                 onClick={() => {
-                  setStreamingMode("optimized")
-                  setTimeout(() => initializePlayer(), 300)
+                  if (streamingMode !== "optimized") {
+                    setStreamingMode("optimized")
+                    setShowSettings(false)
+                    setTimeout(() => smartReopenChannel(), 100)
+                  }
                 }}
-                className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
+                className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
                   streamingMode === "optimized"
                     ? "border-white text-white bg-white/10"
                     : "border-white/30 text-white/50 hover:border-white/60"
