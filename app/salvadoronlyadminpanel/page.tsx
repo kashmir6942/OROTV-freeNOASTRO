@@ -1,0 +1,1868 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { createClient } from "@/lib/supabase/client"
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck } from 'lucide-react'
+
+interface TokenData {
+  id: string
+  token_number: number
+  expires_at: string
+  user_ip: string
+  user_agent: string
+  used_count: number
+  viewers: number // Use correct column name from database
+  is_permanent: boolean
+  created_at: string
+}
+
+interface SessionData {
+  id: string
+  user_ip: string
+  user_agent: string
+  last_token_generated: string
+  created_at: string
+}
+
+interface PHCornerUsername {
+  id: string
+  username: string
+  password?: string // Added password field
+  token_hash: string
+  user_ip: string
+  user_agent: string
+  created_at: string
+}
+
+interface MaintenanceMode {
+  id: string
+  is_active: boolean
+  title: string
+  message: string
+  custom_color: string
+  updated_at: string
+}
+
+export default function AdminPanel() {
+  const [tokens, setTokens] = useState<TokenData[]>([])
+  const [sessions, setSessions] = useState<SessionData[]>([])
+  const [phcornerUsernames, setPhcornerUsernames] = useState<PHCornerUsername[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [dbError, setDbError] = useState<string | null>(null)
+  const [stats, setStats] = useState({
+    totalTokens: 0,
+    activeTokens: 0,
+    totalUsage: 0,
+    currentActiveUsage: 0, // This will now represent currentActiveViewers
+    uniqueUsers: 0,
+  })
+  const [activeTab, setActiveTab] = useState("overview")
+  const [showPasswordsTab, setShowPasswordsTab] = useState(false)
+  const [newTokenConfig, setNewTokenConfig] = useState({
+    count: 1,
+    durationType: "hours",
+    duration: 48,
+    isUnlimited: false,
+    description: "",
+  })
+  const [generatedTokens, setGeneratedTokens] = useState<string[]>([])
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [userReports, setUserReports] = useState<any[]>([])
+  const [channelAnalytics, setChannelAnalytics] = useState<any[]>([])
+  const [viewerStats, setViewerStats] = useState<any[]>([])
+  const [announcements, setAnnouncements] = useState<any[]>([])
+  const [maintenanceMode, setMaintenanceMode] = useState<MaintenanceMode | null>(null)
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: "",
+    message: "",
+    type: "info",
+    show_popup: false,
+    auto_dismiss_seconds: null as number | null,
+  })
+  const [editingMaintenance, setEditingMaintenance] = useState({
+    title: "",
+    message: "",
+    custom_color: "#ef4444", // Added custom_color field with default red
+  })
+
+  const [analyticsData, setAnalyticsData] = useState<any>({
+    total_active_viewers: 0,
+    total_active_channels: 0,
+    peak_channel_id: "N/A",
+    peak_channel_viewers: 0,
+    total_tokens: 0,
+  })
+
+  const [channelRequests, setChannelRequests] = useState<any[]>([])
+
+  useEffect(() => {
+    loadData()
+    const interval = setInterval(loadData, 5000) // Changed from 10000 to 5000ms for faster updates
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadData = async () => {
+    const supabase = createClient()
+
+    try {
+      await fetchTokens()
+
+      try {
+        const analyticsResponse = await fetch("/api/analytics")
+        if (analyticsResponse.ok) {
+          const analyticsResult = await analyticsResponse.json()
+          if (analyticsResult.success) {
+            setAnalyticsData(analyticsResult.analytics)
+            setViewerStats(analyticsResult.topChannels)
+            console.log("[v0] Analytics data loaded:", analyticsResult)
+          }
+        } else {
+          console.error("[v0] Analytics API returned error:", analyticsResponse.status)
+          setAnalyticsData({
+            total_active_viewers: 0,
+            total_active_channels: 0,
+            peak_channel_id: "N/A",
+            peak_channel_viewers: 0,
+            total_tokens: 0,
+          })
+        }
+      } catch (analyticsError) {
+        console.error("[v0] Failed to load analytics:", analyticsError)
+        // Set default values on error
+        setAnalyticsData({
+          total_active_viewers: 0,
+          total_active_channels: 0,
+          peak_channel_id: "N/A",
+          peak_channel_viewers: 0,
+          total_tokens: 0,
+        })
+      }
+
+      // Load sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from("user_sessions")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (sessionsError && !sessionsError.message.includes('relation "user_sessions" does not exist')) {
+        throw sessionsError
+      }
+
+      const { data: usernamesData, error: usernamesError } = await supabase
+        .from("phcorner_usernames")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (usernamesError && !usernamesError.message.includes('relation "phcorner_usernames" does not exist')) {
+        console.error("Error loading PHCorner usernames:", usernamesError)
+      }
+
+      const { data: reportsData } = await supabase
+        .from("user_reports")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      const { data: analyticsData } = await supabase
+        .from("channel_analytics")
+        .select("*")
+        .order("date", { ascending: false })
+
+      // const { data: topChannelsData, error: topChannelsError } = await supabase.rpc("get_top_viewed_channels", {
+      //   limit_count: 10,
+      // })
+
+      // Load announcements
+      const { data: announcementsData } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      // Load maintenance mode
+      const { data: maintenanceData } = await supabase.from("maintenance_mode").select("*").single()
+
+      const { data: channelRequestsData } = await supabase
+        .from("channel_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      setSessions(sessionsData || [])
+      setPhcornerUsernames(usernamesData || [])
+      setUserReports(reportsData || [])
+      setChannelAnalytics(analyticsData || [])
+      setAnnouncements(announcementsData || [])
+      setMaintenanceMode(maintenanceData)
+      setChannelRequests(channelRequestsData || [])
+
+      console.log("Admin panel data loaded successfully")
+    } catch (error) {
+      console.error("Error loading admin data:", error)
+      setDbError("Failed to load admin data. Check database connection.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchTokens = async () => {
+    try {
+      const supabase = createClient()
+
+      const { data: tokensData, error: tokensError } = await supabase
+        .from("access_tokens")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (tokensError) {
+        if (tokensError.message.includes('relation "access_tokens" does not exist')) {
+          setDbError("Database tables not found. Please run the setup scripts first.")
+          setIsLoading(false)
+          return
+        }
+        throw tokensError
+      }
+
+      setTokens(tokensData || [])
+
+      const now = new Date()
+      const activeTokens = tokensData?.filter((token) => new Date(token.expires_at) > now).length || 0
+
+      const currentActiveViewers = tokensData?.reduce((sum, token) => sum + (token.viewers || 0), 0) || 0
+      const totalUsage = tokensData?.reduce((sum, token) => sum + (token.used_count || 0), 0) || 0
+      const uniqueIPs = new Set(tokensData?.map((token) => token.user_ip)).size
+
+      setStats({
+        totalTokens: tokensData?.length || 0,
+        activeTokens,
+        totalUsage,
+        currentActiveUsage: currentActiveViewers, // Use viewers count
+        uniqueUsers: uniqueIPs,
+      })
+    } catch (error) {
+      console.error("Error fetching tokens:", error)
+      setDbError("Failed to load tokens. Check database connection.")
+    }
+  }
+
+  const deleteToken = async (tokenId: string) => {
+    const supabase = createClient()
+
+    // Add confirmation dialog
+    const confirmed = window.confirm("Are you sure you want to delete this token? This action cannot be undone.")
+    if (!confirmed) return
+
+    try {
+      // First cleanup any active sessions for this token
+      const { error: sessionError } = await supabase.from("active_sessions").delete().eq("token_id", tokenId)
+
+      if (sessionError) throw sessionError
+
+      // Then delete the token
+      const { error } = await supabase.from("access_tokens").delete().eq("id", tokenId)
+
+      if (error) throw error
+
+      console.log("[v0] Token deleted successfully")
+      await loadData() // Refresh the data
+    } catch (error) {
+      console.error("[v0] Error deleting token:", error)
+    }
+  }
+
+  const resetTokenUsage = async (tokenId: string) => {
+    const supabase = createClient()
+
+    try {
+      const { error } = await supabase.rpc("reset_token_usage", {
+        token_id: tokenId,
+      })
+
+      if (error) throw error
+
+      console.log("[v0] Token usage reset successfully")
+      await loadData() // Refresh the data
+    } catch (error) {
+      console.error("[v0] Error resetting token usage:", error)
+    }
+  }
+
+  const getActiveSessionsForToken = async (tokenHash: string) => {
+    const supabase = createClient()
+
+    try {
+      const { data, error } = await supabase.rpc("get_active_token_sessions", {
+        token_hash_param: tokenHash,
+      })
+
+      if (error) throw error
+      return data || 0
+    } catch (error) {
+      console.error("[v0] Error getting active sessions:", error)
+      return 0
+    }
+  }
+
+  const generateBulkTokens = async () => {
+    setIsGenerating(true)
+    const supabase = createClient()
+    const newTokens: string[] = []
+
+    try {
+      for (let i = 0; i < newTokenConfig.count; i++) {
+        const response = await fetch("/api/generate-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            durationType: newTokenConfig.durationType,
+            duration: newTokenConfig.duration,
+            isUnlimited: newTokenConfig.isUnlimited || newTokenConfig.durationType === "unlimited",
+            description: newTokenConfig.description,
+            isAdminGenerated: true,
+          }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          newTokens.push(data.token)
+        } else {
+          const errorData = await response.json()
+          console.error("Failed to generate token:", errorData.error)
+        }
+      }
+
+      setGeneratedTokens(newTokens)
+      await loadData() // Refresh the data
+    } catch (error) {
+      console.error("Error generating bulk tokens:", error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const copyToClipboard = async (token: string) => {
+    const fullUrl = `${window.location.origin}/${token}`
+    await navigator.clipboard.writeText(fullUrl)
+    setCopiedToken(token)
+    setTimeout(() => setCopiedToken(null), 2000)
+  }
+
+  const deleteAllExpiredTokens = async () => {
+    const supabase = createClient()
+    const now = new Date().toISOString()
+
+    try {
+      const { error } = await supabase.from("access_tokens").delete().lt("expires_at", now).eq("is_permanent", false)
+
+      if (error) throw error
+      await loadData()
+    } catch (error) {
+      console.error("Error deleting expired tokens:", error)
+    }
+  }
+
+  const exportData = () => {
+    const data = {
+      tokens,
+      sessions,
+      stats,
+      exportDate: new Date().toISOString(),
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `admin-data-${new Date().toISOString().split("T")[0]}.json`
+    a.click()
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString()
+  }
+
+  const isExpired = (expiresAt: string) => {
+    return new Date(expiresAt) < new Date()
+  }
+
+  const getUsernameForToken = (tokenId: string) => {
+    const username = phcornerUsernames.find((u) => u.token_hash === tokenId)
+    return username?.username || "Not provided"
+  }
+
+  const createAnnouncement = async () => {
+    if (!newAnnouncement.title || !newAnnouncement.message) {
+      alert("Please fill in title and message")
+      return
+    }
+
+    const supabase = createClient()
+    try {
+      console.log("[v0] Creating announcement with data:", newAnnouncement)
+
+      const { error } = await supabase.from("announcements").insert([
+        {
+          title: newAnnouncement.title,
+          message: newAnnouncement.message,
+          type: newAnnouncement.type,
+          show_on_home: newAnnouncement.show_popup,
+          auto_dismiss_seconds: newAnnouncement.auto_dismiss_seconds || null,
+        },
+      ])
+
+      if (error) {
+        console.log("[v0] Database error:", error)
+        throw error
+      }
+
+      setNewAnnouncement({
+        title: "",
+        message: "",
+        type: "info",
+        show_popup: false,
+        auto_dismiss_seconds: null,
+      })
+
+      await loadData()
+      alert("Announcement created successfully!")
+    } catch (error) {
+      console.error("Error creating announcement:", error)
+      alert(`Failed to create announcement: ${error.message}`)
+    }
+  }
+
+  const toggleAnnouncement = async (id: string, isActive: boolean) => {
+    const supabase = createClient()
+    try {
+      const { error } = await supabase
+        .from("announcements")
+        .update({ is_active: !isActive, updated_at: new Date().toISOString() })
+        .eq("id", id)
+
+      if (error) throw error
+      await loadData()
+    } catch (error) {
+      console.error("Error toggling announcement:", error)
+    }
+  }
+
+  const toggleMaintenanceMode = async () => {
+    const supabase = createClient()
+    try {
+      console.log("[v0] Toggling maintenance mode from:", maintenanceMode?.is_active)
+
+      const { error } = await supabase
+        .from("maintenance_mode")
+        .update({
+          is_active: !maintenanceMode?.is_active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", maintenanceMode.id)
+
+      if (error) throw error
+
+      setMaintenanceMode((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_active: !prev.is_active,
+              updated_at: new Date().toISOString(),
+            }
+          : null,
+      )
+
+      console.log("[v0] Maintenance mode toggled successfully")
+      await loadData()
+    } catch (error) {
+      console.error("Error toggling maintenance mode:", error)
+    }
+  }
+
+  const updateMaintenanceMode = async () => {
+    if (!editingMaintenance.title || !editingMaintenance.message) {
+      alert("Please fill in both title and message")
+      return
+    }
+
+    const supabase = createClient()
+    try {
+      const { error } = await supabase
+        .from("maintenance_mode")
+        .update({
+          title: editingMaintenance.title,
+          message: editingMaintenance.message,
+          custom_color: editingMaintenance.custom_color, // Added custom_color update
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", maintenanceMode.id)
+
+      if (error) throw error
+
+      setEditingMaintenance({ title: "", message: "", custom_color: "#ef4444" }) // Reset custom_color
+      await loadData()
+      alert("Maintenance mode updated successfully!")
+    } catch (error) {
+      console.error("Error updating maintenance mode:", error)
+      alert("Failed to update maintenance mode")
+    }
+  }
+
+  const resolveReport = async (reportId: string) => {
+    const supabase = createClient()
+    try {
+      const { error } = await supabase
+        .from("user_reports")
+        .update({
+          status: "resolved",
+          resolved_at: new Date().toISOString(),
+        })
+        .eq("id", reportId)
+
+      if (error) throw error
+      await loadData()
+    } catch (error) {
+      console.error("Error resolving report:", error)
+    }
+  }
+
+  const cleanupAllStaleSessions = async () => {
+    try {
+      const supabase = createClient()
+
+      // Delete all sessions older than 5 minutes
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+      const { error } = await supabase.from("active_sessions").delete().lt("last_heartbeat", fiveMinutesAgo)
+
+      if (error) {
+        console.error("Failed to cleanup stale sessions:", error)
+        alert("Failed to cleanup stale sessions")
+      } else {
+        console.log("Cleaned up stale sessions")
+        alert("Cleaned up all stale sessions")
+        loadData() // Refresh the data
+      }
+    } catch (error) {
+      console.error("Error cleaning up sessions:", error)
+      alert("Error cleaning up sessions")
+    }
+  }
+
+  const cleanupStaleSessions = async () => {
+    const supabase = createClient()
+
+    try {
+      const { error } = await supabase.rpc("cleanup_stale_sessions")
+
+      if (error) throw error
+
+      console.log("[v0] Stale sessions cleaned up successfully")
+      await loadData() // Refresh the data
+    } catch (error) {
+      console.error("[v0] Error cleaning up stale sessions:", error)
+    }
+  }
+
+  const updateChannelRequestStatus = async (requestId: string, status: string, adminNotes?: string) => {
+    const supabase = createClient()
+    try {
+      const { error } = await supabase
+        .from("channel_requests")
+        .update({
+          status,
+          admin_notes: adminNotes || null,
+          processed_by: "admin",
+          processed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", requestId)
+
+      if (error) throw error
+      await loadData()
+    } catch (error) {
+      console.error("Error updating channel request:", error)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading admin panel...</div>
+      </div>
+    )
+  }
+
+  if (dbError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Salvador Admin Panel</h1>
+            <p className="text-gray-400">Token management and usage statistics</p>
+          </div>
+
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2 text-yellow-400" />
+                Database Setup Required
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-gray-300 mb-4">{dbError}</div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <p className="text-sm text-gray-400 mb-2">To set up the database, run these scripts:</p>
+                <code className="text-green-400 text-sm">
+                  1. scripts/01-create-tables.sql
+                  <br />
+                  2. scripts/02-insert-permanent-token.sql
+                </code>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Salvador Admin Panel</h1>
+          <p className="text-gray-400">Advanced token management and system administration</p>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex flex-wrap gap-2 mb-8 bg-white/5 p-1 rounded-lg">
+          {[
+            { id: "overview", label: "Overview", icon: BarChart3 },
+            { id: "generate", label: "Generate Tokens", icon: Plus },
+            { id: "manage", label: "Manage Tokens", icon: Settings },
+            { id: "analytics", label: "Analytics", icon: Users },
+            { id: "usernames", label: "PHCorner Users", icon: UserCheck },
+            { id: "passwords", label: "Passwords On Each Token", icon: Shield },
+            { id: "viewers", label: "Viewer Analytics", icon: Users },
+            { id: "reports", label: "User Reports", icon: Shield },
+            { id: "announcements", label: "Announcements", icon: AlertTriangle },
+            { id: "maintenance", label: "Maintenance", icon: Settings },
+            { id: "channel-requests", label: "Channel Requests", icon: Plus },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                activeTab === tab.id ? "bg-white/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <tab.icon className="w-4 h-4 mr-2" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "overview" && (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400 flex items-center">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Total Tokens
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{stats.totalTokens}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400 flex items-center">
+                    <Clock className="w-4 h-4 mr-2" />
+                    Active Tokens
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-400">{stats.activeTokens}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400 flex items-center">
+                    <Users className="w-4 h-4 mr-2" />
+                    Unique Users
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-400">{stats.uniqueUsers}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white">Token Viewers</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-purple-500/20 rounded-lg p-4">
+                    <div className="text-purple-400 text-sm font-medium">Current Active Viewers</div>
+                    <span className="text-white text-2xl font-bold">{stats.currentActiveUsage || 0}</span>
+                  </div>
+
+                  <div className="bg-blue-500/20 rounded-lg p-4">
+                    <div className="text-blue-400 text-sm font-medium">Total Cumulative Usage</div>
+                    <span className="text-white text-2xl font-bold">{stats.totalUsage || 0}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white">Token Statistics</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-green-500/20 rounded-lg p-4">
+                    <div className="text-green-400 text-sm font-medium">Avg Usage Per Token</div>
+                    <span className="text-white">
+                      {stats.totalTokens > 0 ? (stats.totalUsage / stats.totalTokens).toFixed(1) : 0}
+                    </span>
+                  </div>
+
+                  <div className="bg-orange-500/20 rounded-lg p-4">
+                    <div className="text-orange-400 text-sm font-medium mb-2">Viewer Management</div>
+                    <Button
+                      onClick={cleanupStaleSessions}
+                      size="sm"
+                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                      Reset All Viewers
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
+              <CardHeader>
+                <CardTitle className="text-white">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-4">
+                  <Button
+                    onClick={() => setActiveTab("generate")}
+                    className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Generate Tokens
+                  </Button>
+                  <Button
+                    onClick={deleteAllExpiredTokens}
+                    variant="destructive"
+                    className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Expired
+                  </Button>
+                  <Button
+                    onClick={exportData}
+                    className="bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Data
+                  </Button>
+                  <Button
+                    onClick={loadData}
+                    className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                  <Button
+                    onClick={cleanupAllStaleSessions}
+                    className="bg-orange-500/20 text-orange-400 border-orange-500/30 hover:bg-orange-500/30"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Cleanup All Stale Sessions
+                  </Button>
+                  <Button
+                    onClick={() => (window.location.href = "/salvadoronlyadminpanel/playlisthome")}
+                    className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/30"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Playlist Generator
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {activeTab === "generate" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
+            <CardHeader>
+              <CardTitle className="text-white">Generate Custom Tokens</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-gray-300">Number of Tokens</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={newTokenConfig.count}
+                      onChange={(e) =>
+                        setNewTokenConfig({ ...newTokenConfig, count: Number.parseInt(e.target.value) || 1 })
+                      }
+                      className="bg-white/10 border-white/20 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-gray-300">Duration Type</Label>
+                    <Select
+                      value={newTokenConfig.durationType}
+                      onValueChange={(value) => setNewTokenConfig({ ...newTokenConfig, durationType: value })}
+                    >
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="minutes">Minutes</SelectItem>
+                        <SelectItem value="hours">Hours</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                        <SelectItem value="weeks">Weeks</SelectItem>
+                        <SelectItem value="months">Months</SelectItem>
+                        <SelectItem value="unlimited">Unlimited</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {newTokenConfig.durationType !== "unlimited" && (
+                    <div>
+                      <Label className="text-gray-300">Duration</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={newTokenConfig.duration}
+                        onChange={(e) =>
+                          setNewTokenConfig({ ...newTokenConfig, duration: Number.parseInt(e.target.value) || 1 })
+                        }
+                        className="bg-white/10 border-white/20 text-white"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-gray-300">Description (Optional)</Label>
+                    <Textarea
+                      value={newTokenConfig.description}
+                      onChange={(e) => setNewTokenConfig({ ...newTokenConfig, description: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white"
+                      placeholder="Token description or notes..."
+                    />
+                  </div>
+
+                  <Button
+                    onClick={generateBulkTokens}
+                    disabled={isGenerating}
+                    className="w-full bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Generate Tokens
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {generatedTokens.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-white font-semibold">Generated Tokens</h3>
+                    <div className="max-h-96 overflow-y-auto space-y-2">
+                      {generatedTokens.map((token, index) => (
+                        <div key={index} className="flex items-center justify-between bg-white/5 p-3 rounded-lg">
+                          <code className="text-green-400 text-sm">
+                            {window.location.origin}/{token}
+                          </code>
+                          <Button
+                            onClick={() => copyToClipboard(token)}
+                            size="sm"
+                            className="bg-white/10 hover:bg-white/20"
+                          >
+                            {copiedToken === token ? (
+                              <CheckCircle className="w-4 h-4 text-green-400" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "manage" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
+            <CardHeader>
+              <CardTitle className="text-white">Token Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/20">
+                      <th className="text-left py-3 px-4 text-gray-400">Token #</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Status</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Viewers</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Expires</th>
+                      <th className="text-left py-3 px-4 text-gray-400">User IP</th>
+                      <th className="text-left py-3 px-4 text-gray-400">PHCorner Username</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokens.map((token) => (
+                      <tr key={token.id} className="border-b border-white/10">
+                        <td className="py-3 px-4 text-white">
+                          {token.is_permanent ? "Permanent" : `#${token.token_number}`}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge
+                            variant={isExpired(token.expires_at) ? "destructive" : "default"}
+                            className={
+                              isExpired(token.expires_at) ? "" : "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                            }
+                          >
+                            {isExpired(token.expires_at) ? "Expired" : "Active"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-white">{token.viewers || 0}</td>
+                        <td className="py-3 px-4 text-gray-300">
+                          {token.is_permanent ? "Never" : formatDate(token.expires_at)}
+                        </td>
+                        <td className="py-3 px-4 text-gray-300">{token.user_ip}</td>
+                        <td className="py-3 px-4 text-purple-400">{getUsernameForToken(token.id)}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => resetTokenUsage(token.id)}
+                              size="sm"
+                              variant="outline"
+                              className="bg-yellow-500/20 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30"
+                            >
+                              Reset Viewers
+                            </Button>
+                            <Button
+                              onClick={() => resetTokenUsage(token.id)}
+                              size="sm"
+                              variant="outline"
+                              className="bg-blue-500/20 border-blue-500/30 text-blue-400 hover:bg-blue-500/30"
+                            >
+                              Reset Sessions
+                            </Button>
+                            <Button
+                              onClick={() => deleteToken(token.id)}
+                              size="sm"
+                              variant="outline"
+                              className="bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30"
+                            >
+                              Remove Token
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "analytics" && (
+          <>
+            {/* Enhanced Analytics Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white">Usage Analytics</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Average Usage per Token:</span>
+                      <span className="text-white">
+                        {stats.totalTokens > 0 ? (stats.totalUsage / stats.totalTokens).toFixed(1) : 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Active Rate:</span>
+                      <span className="text-emerald-400">
+                        {stats.totalTokens > 0 ? ((stats.activeTokens / stats.totalTokens) * 100).toFixed(1) : 0}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Tokens per User:</span>
+                      <span className="text-blue-400">
+                        {stats.uniqueUsers > 0 ? (stats.totalTokens / stats.uniqueUsers).toFixed(1) : 0}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white">System Health</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Database Status:</span>
+                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Connected</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Total Sessions:</span>
+                      <span className="text-white">{sessions.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Last Activity:</span>
+                      <span className="text-gray-300">
+                        {sessions.length > 0 && sessions[0].last_token_generated
+                          ? formatDate(sessions[0].last_token_generated)
+                          : "None"}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sessions Table */}
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">User Sessions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/20">
+                        <th className="text-left py-3 px-4 text-gray-400">User IP</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Last Token Generated</th>
+                        <th className="text-left py-3 px-4 text-gray-400">First Seen</th>
+                        <th className="text-left py-3 px-4 text-gray-400">User Agent</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sessions.map((session) => (
+                        <tr key={session.id} className="border-b border-white/10">
+                          <td className="py-3 px-4 text-white">{session.user_ip}</td>
+                          <td className="py-3 px-4 text-gray-300">{formatDate(session.last_token_generated)}</td>
+                          <td className="py-3 px-4 text-gray-300">{formatDate(session.created_at)}</td>
+                          <td className="py-3 px-4 text-gray-300 max-w-xs truncate">{session.user_agent}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {activeTab === "usernames" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <UserCheck className="w-5 h-5 mr-2" />
+                PHCorner Usernames ({phcornerUsernames.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/20">
+                      <th className="text-left py-3 px-4 text-gray-400">Username</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Password</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Token</th>
+                      <th className="text-left py-3 px-4 text-gray-400">User IP</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Submitted</th>
+                      <th className="text-left py-3 px-4 text-gray-400">User Agent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {phcornerUsernames.map((username) => (
+                      <tr key={username.id} className="border-b border-white/10">
+                        <td className="py-3 px-4 text-purple-400 font-medium">{username.username}</td>
+                        <td className="py-3 px-4 text-yellow-400 font-mono">{username.password || "Not provided"}</td>
+                        <td className="py-3 px-4 text-white">{username.token_hash}</td>
+                        <td className="py-3 px-4 text-gray-300">{username.user_ip}</td>
+                        <td className="py-3 px-4 text-gray-300">{formatDate(username.created_at)}</td>
+                        <td className="py-3 px-4 text-gray-300 max-w-xs truncate">{username.user_agent}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "passwords" && (
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <Shield className="w-5 h-5 mr-2" />
+                Passwords On Each Token
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {phcornerUsernames.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <UserCheck className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No PHCorner users found</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {phcornerUsernames.map((user) => {
+                      // Find the corresponding token for this user
+                      const correspondingToken = tokens.find(
+                        (token) =>
+                          token.id === user.token_hash ||
+                          token.token_number.toString() === user.token_hash.replace(/\D/g, ""),
+                      )
+
+                      return (
+                        <Card key={user.id} className="bg-gray-700/50 border-gray-600">
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                              <div>
+                                <div className="text-sm text-gray-400">Token</div>
+                                <div className="text-white font-mono text-sm">
+                                  {correspondingToken ? `Token #${correspondingToken.token_number}` : "Unknown Token"}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">{user.token_hash.substring(0, 8)}...</div>
+                              </div>
+
+                              <div>
+                                <div className="text-sm text-gray-400">PHCorner User</div>
+                                <div className="text-white font-medium">{user.username || "Not provided"}</div>
+                              </div>
+
+                              <div>
+                                <div className="text-sm text-gray-400">Password</div>
+                                <div className="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">
+                                  {user.password || "Not set"}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="text-sm text-gray-400">Created</div>
+                                <div className="text-white text-sm">{formatDate(user.created_at)}</div>
+                                <div className="text-xs text-gray-500">IP: {user.user_ip}</div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Viewer Analytics Tab */}
+        {activeTab === "viewers" && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400">Total Active Viewers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-400">{analyticsData.total_active_viewers || 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400">Active Channels</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-400">{analyticsData.total_active_channels || 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400">Peak Channel</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg font-bold text-slate-400">
+                    {analyticsData.peak_channel_id || "N/A"}
+                    {analyticsData.peak_channel_viewers > 0 && (
+                      <div className="text-sm text-gray-400 mt-1">{analyticsData.peak_channel_viewers} viewers</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
+              <CardHeader>
+                <CardTitle className="text-white">Top 5 Most Viewed Channels</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/20">
+                        <th className="text-left py-3 px-4 text-gray-400">Rank</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Channel ID</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Current Viewers</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Active Tokens</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Total Views</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viewerStats.slice(0, 5).map((stat, index) => (
+                        <tr key={stat.channel_id} className="border-b border-white/10">
+                          <td className="py-3 px-4 text-white font-bold">#{index + 1}</td>
+                          <td className="py-3 px-4 text-white font-mono">{stat.channel_id}</td>
+                          <td className="py-3 px-4 text-green-400 font-semibold">{stat.current_viewers || 0}</td>
+                          <td className="py-3 px-4 text-blue-400 font-semibold">{stat.token_count || 0}</td>
+                          <td className="py-3 px-4 text-slate-400 font-semibold">{stat.total_views || 0}</td>
+                          <td className="py-3 px-4">
+                            <Badge
+                              className={`${stat.current_viewers > 0 ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-gray-500/20 text-gray-400 border-gray-500/30"}`}
+                            >
+                              {stat.current_viewers > 0 ? "Active" : "Inactive"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                      {viewerStats.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-8 px-4 text-center text-gray-400">
+                            No channels currently have active viewers
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Channel Analytics History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/20">
+                        <th className="text-left py-3 px-4 text-gray-400">Channel ID</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Date</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Total Viewers</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Peak Viewers</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Watch Time (hrs)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {channelAnalytics.slice(0, 20).map((analytics) => (
+                        <tr key={`${analytics.channel_id}-${analytics.date}`} className="border-b border-white/10">
+                          <td className="py-3 px-4 text-white font-mono">{analytics.channel_id}</td>
+                          <td className="py-3 px-4 text-gray-300">{analytics.date}</td>
+                          <td className="py-3 px-4 text-blue-400">{analytics.total_viewers}</td>
+                          <td className="py-3 px-4 text-purple-400">{analytics.peak_viewers}</td>
+                          <td className="py-3 px-4 text-green-400">
+                            {Math.round((analytics.total_watch_time || 0) / 3600)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* User Reports Tab */}
+        {activeTab === "reports" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white">Automatic User Reports ({userReports.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/20">
+                      <th className="text-left py-3 px-4 text-gray-400">Channel ID</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Type</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Description</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Status</th>
+                      <th className="text-left py-3 px-4 text-gray-400">User IP</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Reported</th>
+                      <th className="text-left py-3 px-4 text-gray-400">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userReports.map((report) => (
+                      <tr key={report.id} className="border-b border-white/10">
+                        <td className="py-3 px-4 text-white font-mono">{report.channel_id}</td>
+                        <td className="py-3 px-4">
+                          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                            {report.report_type}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-gray-300 max-w-xs truncate">{report.description}</td>
+                        <td className="py-3 px-4">
+                          <Badge
+                            variant={report.status === "resolved" ? "default" : "destructive"}
+                            className={
+                              report.status === "resolved"
+                                ? "bg-green-500/20 text-green-400 border-green-500/30"
+                                : report.status === "investigating"
+                                  ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                                  : "bg-red-500/20 text-red-400 border-red-500/30"
+                            }
+                          >
+                            {report.status}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-gray-300">{report.user_ip}</td>
+                        <td className="py-3 px-4 text-gray-300">{formatDate(report.created_at)}</td>
+                        <td className="py-3 px-4">
+                          {report.status !== "resolved" && (
+                            <Button
+                              onClick={() => resolveReport(report.id)}
+                              size="sm"
+                              className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30"
+                            >
+                              Resolve
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Announcements Tab */}
+        {activeTab === "announcements" && (
+          <>
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
+              <CardHeader>
+                <CardTitle className="text-white">Create New Announcement</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-300">Title</Label>
+                    <Input
+                      value={newAnnouncement.title}
+                      onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
+                      placeholder="Announcement title..."
+                      className="bg-white/10 border-white/20 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-gray-300">Type</Label>
+                    <Select
+                      value={newAnnouncement.type}
+                      onValueChange={(value) => setNewAnnouncement({ ...newAnnouncement, type: value })}
+                    >
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="info">Info</SelectItem>
+                        <SelectItem value="warning">Warning</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                        <SelectItem value="success">Success</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-300">Message</Label>
+                  <Textarea
+                    value={newAnnouncement.message}
+                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, message: e.target.value })}
+                    placeholder="Announcement message..."
+                    className="bg-white/10 border-white/20 text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center space-x-2 pt-6">
+                    <input
+                      type="checkbox"
+                      checked={newAnnouncement.show_popup}
+                      onChange={(e) => setNewAnnouncement({ ...newAnnouncement, show_popup: e.target.checked })}
+                      className="rounded"
+                    />
+                    <Label className="text-gray-300">Show as Popup</Label>
+                  </div>
+                  <div>
+                    <Label className="text-gray-300">Auto Dismiss (seconds)</Label>
+                    <Input
+                      type="number"
+                      value={newAnnouncement.auto_dismiss_seconds || ""}
+                      onChange={(e) =>
+                        setNewAnnouncement({
+                          ...newAnnouncement,
+                          auto_dismiss_seconds: e.target.value ? Number.parseInt(e.target.value) : null,
+                        })
+                      }
+                      placeholder="Leave empty for manual"
+                      className="bg-white/10 border-white/20 text-white"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={createAnnouncement}
+                  className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Announcement
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Active Announcements ({announcements.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/20">
+                        <th className="text-left py-3 px-4 text-gray-400">Title</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Type</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Status</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Popup</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Auto Dismiss</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Created</th>
+                        <th className="text-left py-3 px-4 text-gray-400">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {announcements.map((announcement) => (
+                        <tr key={announcement.id} className="border-b border-white/10">
+                          <td className="py-3 px-4 text-white font-semibold">{announcement.title}</td>
+                          <td className="py-3 px-4">
+                            <Badge
+                              className={`
+                              ${announcement.type === "warning" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : ""}
+                              ${announcement.type === "maintenance" ? "bg-red-500/20 text-red-400 border-red-500/30" : ""}
+                              ${announcement.type === "success" ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}
+                              ${announcement.type === "info" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" : ""}
+                            `}
+                            >
+                              {announcement.type}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge
+                              variant={announcement.is_active ? "default" : "destructive"}
+                              className={
+                                announcement.is_active
+                                  ? "bg-green-500/20 text-green-400 border-green-500/30"
+                                  : "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                              }
+                            >
+                              {announcement.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-gray-300">{announcement.show_on_home ? "Yes" : "No"}</td>
+                          <td className="py-3 px-4 text-gray-300">
+                            {announcement.auto_dismiss_seconds ? `${announcement.auto_dismiss_seconds}s` : "Manual"}
+                          </td>
+                          <td className="py-3 px-4 text-gray-300">{formatDate(announcement.created_at)}</td>
+                          <td className="py-3 px-4">
+                            <Button
+                              onClick={() => toggleAnnouncement(announcement.id, announcement.is_active)}
+                              size="sm"
+                              className={
+                                announcement.is_active
+                                  ? "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
+                                  : "bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30"
+                              }
+                            >
+                              {announcement.is_active ? "Deactivate" : "Activate"}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Maintenance Tab */}
+        {activeTab === "maintenance" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white">Maintenance Mode Control</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                <div>
+                  <h3 className="text-white font-semibold">Maintenance Mode</h3>
+                  <p className="text-gray-400">
+                    {maintenanceMode?.is_active ? "System is currently in maintenance mode" : "System is operational"}
+                  </p>
+                </div>
+                <Button
+                  onClick={toggleMaintenanceMode}
+                  className={
+                    maintenanceMode?.is_active
+                      ? "bg-green-500/20 text-green-400 border-green-500/30"
+                      : "bg-red-500/20 text-red-400 border-red-500/30"
+                  }
+                >
+                  {maintenanceMode?.is_active ? "Disable Maintenance" : "Enable Maintenance"}
+                </Button>
+              </div>
+
+              {maintenanceMode && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-gray-300">Current Title</Label>
+                    <div className="p-3 bg-white/5 rounded-lg text-white">{maintenanceMode.title}</div>
+                  </div>
+                  <div>
+                    <Label className="text-gray-300">Current Message</Label>
+                    <div className="p-3 bg-white/5 rounded-lg text-white">{maintenanceMode.message}</div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <h4 className="text-white font-semibold mb-4">Update Maintenance Mode</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-gray-300">New Title</Label>
+                        <Input
+                          value={editingMaintenance.title}
+                          onChange={(e) => setEditingMaintenance({ ...editingMaintenance, title: e.target.value })}
+                          placeholder="Enter maintenance title..."
+                          className="bg-white/10 border-white/20 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-gray-300">New Message</Label>
+                        <Textarea
+                          value={editingMaintenance.message}
+                          onChange={(e) => setEditingMaintenance({ ...editingMaintenance, message: e.target.value })}
+                          placeholder="Enter maintenance message..."
+                          className="bg-white/10 border-white/20 text-white"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-gray-300">Custom Color</Label>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="color"
+                            value={editingMaintenance.custom_color}
+                            onChange={(e) =>
+                              setEditingMaintenance({ ...editingMaintenance, custom_color: e.target.value })
+                            }
+                            className="w-12 h-10 rounded border border-white/20 bg-transparent cursor-pointer"
+                          />
+                          <Input
+                            value={editingMaintenance.custom_color}
+                            onChange={(e) =>
+                              setEditingMaintenance({ ...editingMaintenance, custom_color: e.target.value })
+                            }
+                            placeholder="#ef4444"
+                            className="bg-white/10 border-white/20 text-white flex-1"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        onClick={updateMaintenanceMode}
+                        className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
+                      >
+                        Update Maintenance Mode
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {" "}
+                    {/* Changed to 3 columns to include color */}
+                    <div>
+                      <Label className="text-gray-300">Status</Label>
+                      <div className="p-3 bg-white/5 rounded-lg">
+                        <Badge
+                          variant={maintenanceMode.is_active ? "destructive" : "default"}
+                          className={
+                            maintenanceMode.is_active
+                              ? "bg-red-500/20 text-red-400 border-red-500/30"
+                              : "bg-green-500/20 text-green-400 border-green-500/30"
+                          }
+                        >
+                          {maintenanceMode.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Current Color</Label>
+                      <div className="p-3 bg-white/5 rounded-lg flex items-center space-x-2">
+                        <div
+                          className="w-4 h-4 rounded border border-white/20"
+                          style={{ backgroundColor: maintenanceMode.custom_color }}
+                        ></div>
+                        <span className="text-white text-sm">{maintenanceMode.custom_color}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Last Updated</Label>
+                      <div className="p-3 bg-white/5 rounded-lg text-white">
+                        {formatDate(maintenanceMode.updated_at)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "channel-requests" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white">Channel Requests ({channelRequests.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {channelRequests.map((request) => (
+                  <Card key={request.id} className="bg-white/5 border-white/10">
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                        {/* Channel Info */}
+                        <div className="lg:col-span-2">
+                          <div className="flex items-center space-x-3">
+                            <img
+                              src={request.channel_logo || "/placeholder.svg"}
+                              alt={request.channel_name}
+                              className="w-12 h-12 object-contain rounded-lg bg-white/10 p-1"
+                              onError={(e) => {
+                                e.currentTarget.src = "/generic-channel-logo.png"
+                              }}
+                            />
+                            <div>
+                              <h3 className="text-white font-semibold text-sm">{request.channel_name}</h3>
+                              <p className="text-gray-400 text-xs">{formatDate(request.created_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stream URL */}
+                        <div className="lg:col-span-4">
+                          <Label className="text-gray-400 text-xs">Stream URL</Label>
+                          <div className="bg-gray-800/50 rounded-lg p-3 mt-1">
+                            <div className="flex items-center justify-between">
+                              <code className="text-green-400 text-xs break-all font-mono leading-relaxed">
+                                {request.channel_link}
+                              </code>
+                              <Button
+                                onClick={() => navigator.clipboard.writeText(request.channel_link)}
+                                size="sm"
+                                variant="ghost"
+                                className="ml-2 h-6 w-6 p-0 text-gray-400 hover:text-white"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Clearkey */}
+                        <div className="lg:col-span-3">
+                          <Label className="text-gray-400 text-xs">Clearkey DRM</Label>
+                          <div className="bg-gray-800/50 rounded-lg p-3 mt-1">
+                            {request.clearkey_drm ? (
+                              <div className="flex items-center justify-between">
+                                <code className="text-yellow-400 text-xs break-all font-mono leading-relaxed">
+                                  {request.clearkey_drm}
+                                </code>
+                                <Button
+                                  onClick={() => navigator.clipboard.writeText(request.clearkey_drm)}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="ml-2 h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500 text-xs">No DRM required</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status & Actions */}
+                        <div className="lg:col-span-3">
+                          <div className="flex flex-col space-y-3">
+                            <div>
+                              <Label className="text-gray-400 text-xs">Status</Label>
+                              <div className="mt-1">
+                                <Badge
+                                  className={`
+                                    ${request.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : ""}
+                                    ${request.status === "approved" ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}
+                                    ${request.status === "rejected" ? "bg-red-500/20 text-red-400 border-red-500/30" : ""}
+                                  `}
+                                >
+                                  {request.status}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            {request.status === "pending" && (
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => updateChannelRequestStatus(request.id, "approved")}
+                                  size="sm"
+                                  className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30 flex-1"
+                                >
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    const reason = prompt("Rejection reason (optional):")
+                                    updateChannelRequestStatus(request.id, "rejected", reason || "Not suitable")
+                                  }}
+                                  size="sm"
+                                  className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 flex-1"
+                                >
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Additional Info for Processed Requests */}
+                            {request.status !== "pending" && (
+                              <div className="text-xs text-gray-400">
+                                <div>Processed: {request.processed_at ? formatDate(request.processed_at) : "N/A"}</div>
+                                {request.admin_notes && (
+                                  <div className="mt-1 p-2 bg-gray-800/30 rounded text-gray-300">
+                                    Note: {request.admin_notes}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Additional Details Row */}
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <span className="text-gray-400">Submitted by:</span>
+                            <span className="text-white ml-2">{request.user_ip || "Unknown"}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Request ID:</span>
+                            <span className="text-gray-300 ml-2 font-mono">{request.id.substring(0, 8)}...</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Category:</span>
+                            <span className="text-blue-400 ml-2">{request.category || "General"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {channelRequests.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <Plus className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg">No channel requests yet</p>
+                      <p className="text-sm">Channel requests will appear here when users submit them</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary Stats */}
+              {channelRequests.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-white">
+                        {channelRequests.filter((r) => r.status === "pending").length}
+                      </div>
+                      <div className="text-yellow-400 text-sm">Pending</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-white">
+                        {channelRequests.filter((r) => r.status === "approved").length}
+                      </div>
+                      <div className="text-green-400 text-sm">Approved</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-white">
+                        {channelRequests.filter((r) => r.status === "rejected").length}
+                      </div>
+                      <div className="text-red-400 text-sm">Rejected</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-white">{channelRequests.length}</div>
+                      <div className="text-blue-400 text-sm">Total</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Player</title>
+  
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  
+    <!-- HLS.js for playing M3U8 streams -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+    <!-- Icon Library (for Play button, etc.) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0c0c0c;
+            color: #fff;
+        }
+
+        .hero-gradient {
+            background-image: linear-gradient(to right, rgba(0,0,0,0.8) 20%, rgba(0,0,0,0.2) 60%, transparent 100%);
+        }
+
+        .row-container::-webkit-scrollbar { display: none; } /* Hide scrollbar */
+        .row-container { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .channel-tile {
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+            flex-shrink: 0;
+        }
+
+        .channel-tile:hover, .channel-tile:focus {
+            transform: scale(1.08);
+            z-index: 20;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+      
+        .channel-tile:focus {
+             outline: 3px solid white;
+        }
+      
+        .row-arrow {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            background-color: rgba(0,0,0,0.5);
+        }
+      
+        /* Use group-hover to show arrows on desktop */
+        .row:hover .row-arrow {
+            opacity: 1;
+        }
+
+        .loader {
+            border: 5px solid #4b5563;
+            border-top: 5px solid #e50914;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1.2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .view {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .view.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <!-- Main Browse View -->
+    <div id="browseView" class="view">
+        <!-- Hero Section -->
+        <section id="hero" class="relative h-[60vh] min-h-[400px] w-full flex items-center text-white bg-cover bg-center bg-no-repeat" style="background-image: url('https://placehold.co/1920x1080/1a202c/718096?text=IPTV+Player');">
+            <div class="hero-gradient absolute inset-0"></div>
+            <div class="relative z-10 p-8 md:p-16 max-w-2xl">
+                <h1 id="heroChannelName" class="text-4xl md:text-6xl font-extrabold drop-shadow-lg">Channel Name</h1>
+                <p class="mt-4 text-lg max-w-prose text-gray-200 drop-shadow-md">
+                    Welcome to your modern IPTV experience. Select a channel from the rows below or press play to start the featured channel.
+                </p>
+                <div class="mt-8 flex space-x-4">
+                    <button id="heroPlayButton" class="flex items-center justify-center bg-white text-black font-bold py-3 px-8 rounded-md hover:bg-gray-200 transition-colors">
+                        <i class="fas fa-play mr-2"></i> Play
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Channel Rows Container -->
+        <main id="rowsContainer" class="p-8 md:p-12 -mt-16 relative z-10">
+            <!-- Rows will be dynamically inserted here -->
+        </main>
+    </div>
+
+    <!-- Player View -->
+    <div id="playerView" class="view hidden fixed inset-0 bg-black flex items-center justify-center z-50">
+        <video id="videoPlayer" class="w-full h-full" controls autoplay></video>
+        <div id="loading" class="loader absolute hidden"></div>
+        <button id="backToBrowse" class="absolute top-5 left-5 z-50 bg-black bg-opacity-50 rounded-full w-12 h-12 flex items-center justify-center text-2xl hover:bg-opacity-75 transition-all">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const browseView = document.getElementById('browseView');
+        const playerView = document.getElementById('playerView');
+        const video = document.getElementById('videoPlayer');
+        const loading = document.getElementById('loading');
+        const backToBrowseBtn = document.getElementById('backToBrowse');
+        const rowsContainer = document.getElementById('rowsContainer');
+        const heroSection = document.getElementById('hero');
+        const heroChannelName = document.getElementById('heroChannelName');
+        const heroPlayButton = document.getElementById('heroPlayButton');
+
+        let hls = null;
+        let featuredChannel = null;
+
+        // --- Channel Data & Categorization ---
+        const channels = new Map([
+            ['Example1, no add', 'link.playlist']
+        ]);
+
+        const categories = {
+            "Movies": ['movie', 'hbo', 'cinemax', 'hits', 'thrill', 'celestial', 'tvn'],
+            "Entertainment": ['axn', 'warner', 'one', 'paramount', 'rock', 'animax', 'dreamworks', 'scm', 'kplus'],
+            "Documentaries": ['natgeo', 'discovery', 'history', 'animal planet', 'bbc earth', 'crime'],
+            "Lifestyle": ['lifestyle', 'tlc', 'food', 'hgtv', 'fashion']
+        };
+
+        function categorizeChannels() {
+            const categorized = {};
+            for (const category in categories) {
+                categorized[category] = [];
+            }
+
+            channels.forEach((url, name) => {
+                let found = false;
+                const lowerCaseName = name.toLowerCase();
+                for (const category in categories) {
+                    if (categories[category].some(keyword => lowerCaseName.includes(keyword))) {
+                        categorized[category].push({ name, url });
+                        found = true;
+                        break;
+                    }
+                }
+            });
+            return categorized;
+        }
+
+        // --- UI Rendering ---
+      
+        function createChannelTile(channel) {
+            const tile = document.createElement('div');
+            tile.className = 'channel-tile w-60 h-36 bg-gray-800 rounded-md flex items-center justify-center p-3 cursor-pointer text-center relative overflow-hidden';
+            tile.tabIndex = 0;
+            tile.innerHTML = `<span class="relative z-10 font-bold text-lg">${channel.name}</span><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>`;
+          
+            tile.addEventListener('click', () => {
+                loadChannel(channel.url, channel.name);
+                showPlayerView();
+            });
+            return tile;
+        }
+
+        function createRow(category, channels) {
+            const rowWrapper = document.createElement('div');
+            // Added 'group' class for hover effects on children
+            rowWrapper.className = 'mb-8 row group';
+
+            const title = document.createElement('h2');
+            title.className = 'text-2xl font-bold mb-4';
+            title.textContent = category;
+
+            const rowContainer = document.createElement('div');
+            rowContainer.className = 'relative';
+
+            const rowContent = document.createElement('div');
+            rowContent.className = 'row-container flex items-center space-x-4 overflow-x-auto pb-4';
+          
+            channels.forEach(channel => rowContent.appendChild(createChannelTile(channel)));
+
+            // --- NEW: Scroll Arrow Buttons ---
+            const leftArrow = document.createElement('button');
+            leftArrow.className = 'row-arrow absolute left-0 top-0 bottom-0 px-4 z-20 hover:bg-black/75';
+            leftArrow.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            leftArrow.addEventListener('click', () => {
+                const scrollAmount = rowContent.clientWidth * 0.8;
+                rowContent.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            });
+
+            const rightArrow = document.createElement('button');
+            rightArrow.className = 'row-arrow absolute right-0 top-0 bottom-0 px-4 z-20 hover:bg-black/75';
+            rightArrow.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            rightArrow.addEventListener('click', () => {
+                const scrollAmount = rowContent.clientWidth * 0.8;
+                rowContent.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            });
+            // --- End of New Code ---
+
+            rowContainer.append(leftArrow, rightArrow, rowContent);
+            rowWrapper.append(title, rowContainer);
+            return rowWrapper;
+        }
+
+        function renderUI() {
+            const categorized = categorizeChannels();
+            rowsContainer.innerHTML = '';
+            for (const category in categorized) {
+                if (categorized[category].length > 0) {
+                    rowsContainer.appendChild(createRow(category, categorized[category]));
+                }
+            }
+          
+            // Set up hero section
+            const movieChannels = categorized["Movies"] || [];
+            if (movieChannels.length > 0) {
+                featuredChannel = movieChannels[Math.floor(Math.random() * movieChannels.length)];
+                heroChannelName.textContent = featuredChannel.name;
+                const placeholderImageUrl = `https://placehold.co/1920x1080/1f2937/a0aec0?text=${encodeURIComponent(featuredChannel.name)}`;
+                heroSection.style.backgroundImage = `url('${placeholderImageUrl}')`;
+            }
+        }
+
+        // --- View & Player Logic ---
+
+        function showPlayerView() {
+            browseView.classList.add('hidden');
+            playerView.classList.remove('hidden');
+        }
+
+        function showBrowseView() {
+            playerView.classList.add('hidden');
+            browseView.classList.remove('hidden');
+            if (hls) hls.destroy();
+            video.pause();
+            video.src = "";
+        }
+
+        function loadChannel(url, name) {
+            loading.classList.remove('hidden');
+            if (hls) hls.destroy();
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    startLevel: -1,
+                    capLevelToPlayerSize: true,
+                });
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(e => console.error("Autoplay prevented:", e));
+                    loading.classList.add('hidden');
+                });
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        loading.classList.add('hidden');
+                        alert(`Error loading channel: ${name}. Stream may be offline.`);
+                        showBrowseView();
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => {
+                    video.play().catch(e => console.error("Autoplay prevented:", e));
+                    loading.classList.add('hidden');
+                });
+            } else {
+                alert("Your browser does not support HLS streaming.");
+                loading.classList.add('hidden');
+                showBrowseView();
+            }
+        }
+
+        // --- Event Listeners ---
+        backToBrowseBtn.addEventListener('click', showBrowseView);
+        heroPlayButton.addEventListener('click', () => {
+            if (featuredChannel) {
+                loadChannel(featuredChannel.url, featuredChannel.name);
+                showPlayerView();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !playerView.classList.contains('hidden')) {
+                showBrowseView();
+            }
+        });
+
+        // --- Initialization ---
+        renderUI();
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+// Final channels before adding new ones from playlist
+A2Z - Entertainment
+ABC Australia - News  
+Al Jazeera - News
+Animal Planet - Documentary
+Animax - Kids
+Arirang - News
+Asian Food Network - Lifestyle
+AXN - Entertainment
+BBC Earth HD - Documentary
+BBC Lifestyle - Lifestyle
+BBC News - News
+Bilyonaryo News Channel - News
+Bloomberg - News
+Buko - Entertainment
+CBeebies - Kids (m3u8)
+Cartoon Network - Kids (m3u8)
+CCTV 4 - News
+CGTN Documentary - Documentary
+Cinemax HD - Movies
+CNA - News
+CNN HD - News
+Crime & Investigation - Documentary
+DepEd TV - Educational
+Discovery Channel SD - Documentary
+DreamWorks (Tagalized) - Kids
+DreamWorks HD - Kids
+Fashion TV HD - Lifestyle
+Food Network HD - Lifestyle
+France 24 - News
+Global Trekker - Documentary
+HBO Family HD - Movies
+HBO HD - Movies
+HBO Hits HD - Movies
+HBO Signature HD - Movies
+HGTV HD - Lifestyle
+History HD - Documentary
+Hits HD - Entertainment
+HITS Movies - Movies
+HITS Now - Entertainment
+IBC - Entertainment
+KBS World SD - Entertainment
+Kix HD - Entertainment
+Knowledge Channel - Educational
+Lifetime SD - Lifestyle
+Lotus Macau - Entertainment
+Moonbug Kids - Kids
+MPTV - Entertainment
+NBA TV Philippines (Cignal) - Sports
+NBA TV Philippines (Pilipinas Live) - Sports
+NHK World Japan - News
+Nick Jr - Kids
+Nickelodeon SD - Kids
+One News HD - News
+One PH - Entertainment
+One Sports HD - Sports
+One Sports+ - Sports
+PBA Rush HD - Sports
+PBO - Entertainment
+Premier Sports - Sports
+Premier Sports 2 - Sports
+PTV 4 - Entertainment
+Rock Entertainment - Entertainment
+Rock Action - Entertainment
+RPTV - News
+Sari-Sari - Entertainment
+SPOTV HD - Sports
+SPOTV 2 HD - Sports
+Tagalized Movie Channel - Movies
+Tap Action Flix HD - Movies
+Tap Movies HD - Movies
+Tap Sports - Sports
+Tap TV - Entertainment
+TechStorm - Documentary
+Thrill SD - Entertainment
+Travel Channel SD - Lifestyle
+True FM TV - Entertainment
+TV Maria - Religious
+TV5 HD - Entertainment
+TV5 Monde - Entertainment
+tvN Movies Pinoy - Movies
+tvN Premium HD - Entertainment
+TVUP - Entertainment
+UAAP Varsity Channel - Sports
+Viva Cinema - Movies
+Warner TV HD - Entertainment
