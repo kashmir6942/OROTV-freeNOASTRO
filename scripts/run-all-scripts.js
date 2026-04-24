@@ -22,6 +22,9 @@ const client = new Client({
   connectionTimeoutMillis: 60000,
   idleTimeoutMillis: 60000,
   statement_timeout: 60000,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 // All SQL scripts in order
