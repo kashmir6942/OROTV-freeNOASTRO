@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil } from 'lucide-react'
 import { allChannels } from "@/data/channels/all-channels"
 
 interface TokenData {
@@ -131,6 +131,18 @@ export default function AdminPanel() {
   })
   const [movingTextChannelSearch, setMovingTextChannelSearch] = useState("")
   const [addChannelForm, setAddChannelForm] = useState({
+    name: "",
+    logo: "",
+    url: "",
+    category: "Entertainment",
+    group: "Other",
+    drm_key_id: "",
+    drm_key: "",
+    is_hd: true,
+    non_hls: false,
+  })
+  const [editingChannel, setEditingChannel] = useState<any | null>(null)
+  const [editChannelForm, setEditChannelForm] = useState({
     name: "",
     logo: "",
     url: "",
@@ -663,10 +675,46 @@ export default function AdminPanel() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
-        <div className="text-white text-xl">Loading admin panel...</div>
-      </div>
+  return (
+    <div className="min-h-screen bg-white p-6">
+      <div className="max-w-[1600px] mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-black mb-2">Salvador Admin Panel</h1>
+          <p className="text-gray-600">Advanced token management and system administration</p>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex flex-wrap gap-2 mb-8 bg-gray-100 p-1 rounded-lg border border-gray-200">
+          {[
+            { id: "overview", label: "Overview", icon: BarChart3 },
+            { id: "generate", label: "Generate Tokens", icon: Plus },
+            { id: "manage", label: "Manage Tokens", icon: Settings },
+            { id: "analytics", label: "Analytics", icon: Users },
+            { id: "usernames", label: "PHCorner Users", icon: UserCheck },
+            { id: "passwords", label: "Passwords On Each Token", icon: Shield },
+            { id: "viewers", label: "Viewer Analytics", icon: Users },
+            { id: "reports", label: "User Reports", icon: Shield },
+            { id: "announcements", label: "Announcements", icon: AlertTriangle },
+            { id: "maintenance", label: "Maintenance", icon: Settings },
+            { id: "channel-requests", label: "Channel Requests", icon: Plus },
+            { id: "user-ratings", label: "User Ratings", icon: Star },
+            { id: "channel-manager", label: "Channel Manager", icon: Tv },
+            { id: "channel-status", label: "Channel Status", icon: AlertTriangle },
+            { id: "moving-text", label: "Moving Text", icon: MessageSquare },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                activeTab === tab.id ? "bg-black text-white" : "text-gray-600 hover:text-black hover:bg-gray-200"
+              }`}
+            >
+              <tab.icon className="w-4 h-4 mr-2" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
     )
   }
 
@@ -2084,14 +2132,14 @@ export default function AdminPanel() {
 
         {/* Channel Manager Tab */}
         {activeTab === "channel-manager" && (
-          <Card className="bg-white/5 border border-white/10">
+          <Card className="bg-white border border-gray-200 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-white text-2xl flex items-center gap-2">
-                  <Plus className="w-6 h-6" />
+                <CardTitle className="text-black text-2xl flex items-center gap-2">
+                  <Tv className="w-6 h-6" />
                   Channel Manager
                 </CardTitle>
-                <p className="text-gray-400 mt-1">{dbChannels.length} channels total</p>
+                <p className="text-gray-600 mt-1">{dbChannels.length} channels total</p>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -2115,7 +2163,6 @@ export default function AdminPanel() {
                       )
                       const failed = results.filter(r => r.status === "rejected").length
                       if (failed > 0) console.error(`${failed} channels failed to import`)
-                      // Refresh channel list
                       const { data } = await supabase.from("channels").select("*").order("name")
                       setDbChannels(data || [])
                       alert(`Imported ${allChannels.length - failed} of ${allChannels.length} channels successfully.`)
@@ -2124,14 +2171,14 @@ export default function AdminPanel() {
                       alert("Import failed. Check console for details.")
                     }
                   }}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-black hover:bg-gray-800 text-white"
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Import Hardcoded
                 </Button>
                 <Button
                   onClick={() => setShowAddChannelModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-black hover:bg-gray-800 text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Channel
@@ -2147,71 +2194,93 @@ export default function AdminPanel() {
                     placeholder="Search channels..."
                     value={channelManagerSearch}
                     onChange={(e) => setChannelManagerSearch(e.target.value)}
-                    className="bg-gray-800/50 border-gray-700 text-white pl-10"
+                    className="bg-white border-gray-300 text-black pl-10"
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {["All", "Entertainment", "Kids", "Sports", "Movies", "News", "International", "EU", "Mediaquest", "ABS-CBN", "GMA", "TV5", "Other"].map((cat) => (
-                    <Button
+                    <button
                       key={cat}
-                      size="sm"
-                      variant={channelManagerCategory === cat ? "default" : "outline"}
                       onClick={() => setChannelManagerCategory(cat)}
-                      className={channelManagerCategory === cat ? "bg-blue-600" : "border-gray-600 text-gray-400 hover:text-white"}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${channelManagerCategory === cat ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"}`}
                     >
                       {cat}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
 
-              {/* Channel Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Channel List */}
+              <div className="space-y-2">
                 {dbChannels
                   .filter(ch => {
                     const matchesSearch = ch.name?.toLowerCase().includes(channelManagerSearch.toLowerCase())
-                    const matchesCategory = channelManagerCategory === "All" || ch.category === channelManagerCategory
+                    const matchesCategory = channelManagerCategory === "All" || ch.category === channelManagerCategory || ch.group_name === channelManagerCategory
                     return matchesSearch && matchesCategory
                   })
                   .map((channel) => (
-                    <Card key={channel.id} className="bg-gray-800/50 border-gray-700">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          {channel.logo && (
-                            <img src={channel.logo} alt={channel.name} className="w-12 h-12 rounded object-contain bg-white" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-white font-medium truncate">{channel.name}</h3>
-                            <p className="text-gray-400 text-sm">{channel.category}</p>
-                          </div>
-                          <div className="flex gap-1">
-                            {channel.is_hd && (
-                              <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-1 rounded">HD</span>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={async () => {
-                                if (confirm(`Delete ${channel.name}?`)) {
-                                  const supabase = (await import("@/lib/supabase/client")).createClient()
-                                  await supabase.from("channels").delete().eq("id", channel.id)
-                                  setDbChannels(prev => prev.filter(c => c.id !== channel.id))
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                    <div key={channel.id} className="flex items-center gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {channel.logo ? (
+                          <img src={channel.logo} alt={channel.name} className="w-full h-full object-contain" />
+                        ) : (
+                          <Tv className="w-5 h-5 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-black font-medium truncate">{channel.name}</h3>
+                          {channel.is_hd && <span className="text-xs px-1.5 py-0.5 bg-black text-white rounded">HD</span>}
+                          {channel.drm && <span className="text-xs px-1.5 py-0.5 bg-gray-800 text-white rounded">DRM</span>}
                         </div>
-                      </CardContent>
-                    </Card>
+                        <p className="text-gray-500 text-sm truncate">{channel.url}</p>
+                      </div>
+                      <span className="text-gray-600 text-sm px-2 py-1 bg-gray-200 rounded">{channel.category || "Uncategorized"}</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingChannel(channel)
+                            const drmKey = channel.drm?.clearkey ? Object.keys(channel.drm.clearkey)[0] : ""
+                            const drmVal = channel.drm?.clearkey?.[drmKey] || ""
+                            setEditChannelForm({
+                              name: channel.name || "",
+                              logo: channel.logo || "",
+                              url: channel.url || "",
+                              category: channel.category || "Entertainment",
+                              group: channel.group_name || "Other",
+                              drm_key_id: drmKey,
+                              drm_key: drmVal,
+                              is_hd: channel.is_hd || false,
+                              non_hls: false,
+                            })
+                          }}
+                          className="p-2 rounded-lg hover:bg-gray-200 text-gray-600 hover:text-black transition-colors"
+                          title="Edit channel"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Delete ${channel.name}?`)) {
+                              const supabase = createClient()
+                              await supabase.from("channels").delete().eq("id", channel.id)
+                              setDbChannels(prev => prev.filter(c => c.id !== channel.id))
+                            }
+                          }}
+                          className="p-2 rounded-lg hover:bg-gray-200 text-gray-600 hover:text-black transition-colors"
+                          title="Delete channel"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
               </div>
 
               {dbChannels.length === 0 && (
-                <div className="text-center py-12">
-                  <Tv className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-                  <p className="text-gray-400 text-lg">No channels found. Add your first channel above.</p>
+                <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
+                  <Tv className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-600 text-lg">No channels found. Add your first channel above.</p>
                 </div>
               )}
             </CardContent>
@@ -2220,26 +2289,26 @@ export default function AdminPanel() {
 
         {/* Channel Status Manager Tab */}
         {activeTab === "channel-status" && (
-          <Card className="bg-white/5 border border-white/10">
+          <Card className="bg-white border border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white text-2xl flex items-center gap-2">
-                <AlertTriangle className="w-6 h-6 text-orange-500" />
+              <CardTitle className="text-black text-2xl flex items-center gap-2">
+                <AlertTriangle className="w-6 h-6" />
                 Channel Status Manager
               </CardTitle>
-              <p className="text-gray-400">Manage channel availability and shutdown notices</p>
+              <p className="text-gray-600">Manage channel availability and shutdown notices</p>
             </CardHeader>
             <CardContent>
               {/* Ceased Channels Alert */}
               {ceasedChannels.length === 0 ? (
-                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                  <p className="text-green-400 flex items-center gap-2">
+                <div className="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+                  <p className="text-gray-700 flex items-center gap-2">
                     <CheckCircle className="w-5 h-5" />
                     No channels are currently marked as ceased.
                   </p>
                 </div>
               ) : (
-                <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                  <p className="text-orange-400 flex items-center gap-2">
+                <div className="mb-6 p-4 bg-gray-100 border border-gray-400 rounded-lg">
+                  <p className="text-black flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5" />
                     {ceasedChannels.length} channel(s) are currently marked as ceased.
                   </p>
@@ -2248,13 +2317,13 @@ export default function AdminPanel() {
 
               {/* Channel Selector */}
               <div className="mb-6">
-                <label className="text-white text-sm font-medium mb-2 block">Select Channel</label>
+                <label className="text-black text-sm font-medium mb-2 block">Select Channel</label>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search channels..."
                     value={channelStatusSearch}
-                    className="bg-gray-800/50 border-gray-700 text-white pl-10"
+                    className="bg-white border-gray-300 text-black pl-10"
                     onChange={(e) => setChannelStatusSearch(e.target.value)}
                   />
                 </div>
@@ -2279,7 +2348,7 @@ export default function AdminPanel() {
                       }
                     }
                   }}
-                  className="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white"
+                  className="w-full p-3 bg-white border border-gray-300 rounded-lg text-black"
                   size={8}
                 >
                   <option value="">Choose a channel...</option>
@@ -2289,17 +2358,17 @@ export default function AdminPanel() {
                       <option key={ch.id} value={ch.id}>{ch.name} ({ch.id})</option>
                     ))}
                 </select>
-                <p className="text-gray-400 text-sm mt-2">{allChannels.length} channels found</p>
+                <p className="text-gray-600 text-sm mt-2">{allChannels.length} channels found</p>
               </div>
 
               {/* Channel Status Form */}
               {selectedCeasedChannel && (
-                <div className="space-y-6 border-t border-white/10 pt-6">
+                <div className="space-y-6 border-t border-gray-200 pt-6">
                   {/* Mark as Ceased Toggle */}
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setCeasedChannelForm(prev => ({ ...prev, is_ceased: !prev.is_ceased }))}
-                      className={`w-12 h-12 rounded flex items-center justify-center ${ceasedChannelForm.is_ceased ? "bg-red-500" : "bg-gray-700"}`}
+                      className={`w-12 h-12 rounded border-2 flex items-center justify-center ${ceasedChannelForm.is_ceased ? "bg-black border-black" : "bg-white border-gray-300"}`}
                     >
                       {ceasedChannelForm.is_ceased && (
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
@@ -2307,58 +2376,58 @@ export default function AdminPanel() {
                         </svg>
                       )}
                     </button>
-                    <span className="text-white font-medium">Mark as Ceased</span>
+                    <span className="text-black font-medium">Mark as Ceased</span>
                   </div>
 
                   {/* Status Message */}
                   <div>
-                    <label className="text-white text-sm mb-2 block">Status Message (shown to users)</label>
+                    <label className="text-black text-sm mb-2 block">Status Message (shown to users)</label>
                     <Input
                       placeholder="E.g., This channel is temporarily unavailable"
                       value={ceasedChannelForm.status_message}
                       onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, status_message: e.target.value }))}
-                      className="bg-gray-800/50 border-gray-700 text-white"
+                      className="bg-white border-gray-300 text-black"
                     />
                   </div>
 
                   {/* Reason */}
                   <div>
-                    <label className="text-white text-sm mb-2 block">Reason (internal notes)</label>
+                    <label className="text-black text-sm mb-2 block">Reason (internal notes)</label>
                     <Input
                       placeholder="E.g., License expired, technical issues, etc."
                       value={ceasedChannelForm.reason}
                       onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, reason: e.target.value }))}
-                      className="bg-gray-800/50 border-gray-700 text-white"
+                      className="bg-white border-gray-300 text-black"
                     />
                   </div>
 
                   {/* Shutdown Image */}
                   <div>
-                    <label className="text-white text-sm mb-2 block">Shutdown Image URL</label>
+                    <label className="text-black text-sm mb-2 block">Shutdown Image URL</label>
                     <Input
                       placeholder="URL to display when channel is down"
                       value={ceasedChannelForm.shutdown_image}
                       onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, shutdown_image: e.target.value }))}
-                      className="bg-gray-800/50 border-gray-700 text-white"
+                      className="bg-white border-gray-300 text-black"
                     />
                   </div>
 
                   {/* Shutdown Video */}
                   <div>
-                    <label className="text-white text-sm mb-2 block">Shutdown Video URL (Repeating)</label>
+                    <label className="text-black text-sm mb-2 block">Shutdown Video URL (Repeating)</label>
                     <Input
                       placeholder="Video to loop when channel is down"
                       value={ceasedChannelForm.shutdown_video}
                       onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, shutdown_video: e.target.value }))}
-                      className="bg-gray-800/50 border-gray-700 text-white"
+                      className="bg-white border-gray-300 text-black"
                     />
                   </div>
 
                   {/* Preview */}
                   {(ceasedChannelForm.shutdown_image || ceasedChannelForm.shutdown_video) && (
                     <div>
-                      <label className="text-white text-sm mb-2 block">Preview</label>
-                      <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                      <label className="text-black text-sm mb-2 block">Preview</label>
+                      <div className="aspect-video bg-gray-100 border border-gray-300 rounded-lg overflow-hidden">
                         {ceasedChannelForm.shutdown_video ? (
                           <video src={ceasedChannelForm.shutdown_video} className="w-full h-full object-contain" controls loop muted />
                         ) : ceasedChannelForm.shutdown_image ? (
@@ -2384,12 +2453,11 @@ export default function AdminPanel() {
                         alert("Failed to save: " + error.message)
                         return
                       }
-                      // Refresh ceased channels list
                       const { data } = await supabase.from("channel_status").select("*").eq("is_ceased", true)
                       setCeasedChannels(data || [])
                       alert("Channel status saved successfully!")
                     }}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    className="w-full bg-black hover:bg-gray-800 text-white"
                   >
                     <Shield className="w-4 h-4 mr-2" />
                     Save Changes
@@ -2403,36 +2471,36 @@ export default function AdminPanel() {
         {/* Moving Text Announcements Tab */}
         {activeTab === "moving-text" && (
           <div className="space-y-6">
-            <Card className="bg-white/5 border border-white/10">
+            <Card className="bg-white border border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white text-2xl flex items-center gap-2">
-                  <MessageSquare className="w-6 h-6 text-orange-400" />
+                <CardTitle className="text-black text-2xl flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6" />
                   Moving Text Announcements
                 </CardTitle>
-                <p className="text-gray-400">Create ticker announcements that scroll on the bottom of videos</p>
+                <p className="text-gray-600">Create ticker announcements that scroll on the bottom of videos</p>
               </CardHeader>
               <CardContent>
-                <div className="bg-gray-800/60 rounded-xl p-6 space-y-5">
-                  <h3 className="text-white font-semibold">Create New Announcement</h3>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 space-y-5">
+                  <h3 className="text-black font-semibold">Create New Announcement</h3>
 
                   {/* Message */}
                   <div>
-                    <label className="text-gray-300 text-sm mb-1 block">Announcement Message</label>
+                    <label className="text-gray-700 text-sm mb-1 block">Announcement Message</label>
                     <Textarea
                       placeholder="E.g., Channel will shutdown on Dec 31, 2026. Thank you for watching!"
                       value={newMovingText.message}
                       onChange={(e) => setNewMovingText(prev => ({ ...prev, message: e.target.value }))}
-                      className="bg-gray-900/60 border-gray-700 text-white min-h-[80px]"
+                      className="bg-white border-gray-300 text-black min-h-[80px]"
                     />
                   </div>
 
                   {/* Display Mode */}
                   <div>
-                    <label className="text-gray-300 text-sm mb-2 block">Display Mode</label>
+                    <label className="text-gray-700 text-sm mb-2 block">Display Mode</label>
                     <div className="flex gap-2">
                       {(["scrolling", "static"] as const).map(mode => (
                         <button key={mode} onClick={() => setNewMovingText(prev => ({ ...prev, display_mode: mode }))}
-                          className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize ${newMovingText.display_mode === mode ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize ${newMovingText.display_mode === mode ? "bg-black text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"}`}>
                           {mode}
                         </button>
                       ))}
@@ -2442,14 +2510,14 @@ export default function AdminPanel() {
                   {/* Scroll Direction */}
                   {newMovingText.display_mode === "scrolling" && (
                     <div>
-                      <label className="text-gray-300 text-sm mb-2 block">Scroll Direction</label>
+                      <label className="text-gray-700 text-sm mb-2 block">Scroll Direction</label>
                       <div className="flex gap-2">
                         <button onClick={() => setNewMovingText(prev => ({ ...prev, scroll_direction: "left" }))}
-                          className={`px-4 py-2 rounded-lg text-sm font-semibold ${newMovingText.scroll_direction === "left" ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold ${newMovingText.scroll_direction === "left" ? "bg-black text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"}`}>
                           ← Scroll Left
                         </button>
                         <button onClick={() => setNewMovingText(prev => ({ ...prev, scroll_direction: "right" }))}
-                          className={`px-4 py-2 rounded-lg text-sm font-semibold ${newMovingText.scroll_direction === "right" ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold ${newMovingText.scroll_direction === "right" ? "bg-black text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"}`}>
                           Scroll Right →
                         </button>
                       </div>
@@ -2458,12 +2526,12 @@ export default function AdminPanel() {
 
                   {/* Font */}
                   <div>
-                    <label className="text-gray-300 text-sm mb-2 block">Font</label>
+                    <label className="text-gray-700 text-sm mb-2 block">Font</label>
                     <div className="flex flex-wrap gap-2">
                       {["Segoe UI", "Arial", "Tahoma", "Verdana", "Comic Sans MS"].map(font => (
                         <button key={font} onClick={() => setNewMovingText(prev => ({ ...prev, font }))}
                           style={{ fontFamily: font }}
-                          className={`px-3 py-2 rounded-lg text-sm ${newMovingText.font === font ? "bg-green-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          className={`px-3 py-2 rounded-lg text-sm ${newMovingText.font === font ? "bg-black text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"}`}>
                           {font}
                         </button>
                       ))}
@@ -2473,29 +2541,29 @@ export default function AdminPanel() {
                   {/* Scroll Speed */}
                   {newMovingText.display_mode === "scrolling" && (
                     <div>
-                      <label className="text-gray-300 text-sm mb-2 block">Scroll Speed</label>
+                      <label className="text-gray-700 text-sm mb-2 block">Scroll Speed</label>
                       <div className="flex gap-2 items-center">
                         {[["Fast (10s)", 10], ["Normal (20s)", 20], ["Slow (30s)", 30]].map(([label, val]) => (
                           <button key={label as string} onClick={() => setNewMovingText(prev => ({ ...prev, scroll_speed: val as number }))}
-                            className={`px-3 py-2 rounded-lg text-sm ${newMovingText.scroll_speed === val ? "bg-orange-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                            className={`px-3 py-2 rounded-lg text-sm ${newMovingText.scroll_speed === val ? "bg-black text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"}`}>
                             {label as string}
                           </button>
                         ))}
                         <Input type="number" value={newMovingText.scroll_speed}
                           onChange={(e) => setNewMovingText(prev => ({ ...prev, scroll_speed: Number(e.target.value) }))}
-                          className="w-20 bg-gray-900/60 border-gray-700 text-white" />
-                        <span className="text-gray-400 text-sm">seconds</span>
+                          className="w-20 bg-white border-gray-300 text-black" />
+                        <span className="text-gray-600 text-sm">seconds</span>
                       </div>
                     </div>
                   )}
 
                   {/* Target */}
                   <div>
-                    <label className="text-gray-300 text-sm mb-2 block">Target</label>
+                    <label className="text-gray-700 text-sm mb-2 block">Target</label>
                     <div className="flex gap-2">
                       {([["single", "Single Channel"], ["multiple", "Multiple Channels"], ["all", "All Channels"]] as const).map(([val, label]) => (
                         <button key={val} onClick={() => setNewMovingText(prev => ({ ...prev, target: val, channel_ids: [] }))}
-                          className={`px-3 py-2 rounded-lg text-sm ${newMovingText.target === val ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          className={`px-3 py-2 rounded-lg text-sm ${newMovingText.target === val ? "bg-black text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300"}`}>
                           {label}
                         </button>
                       ))}
@@ -2505,15 +2573,15 @@ export default function AdminPanel() {
                   {/* Channel Selector */}
                   {newMovingText.target !== "all" && (
                     <div>
-                      <label className="text-gray-300 text-sm mb-2 block">Select Channels</label>
+                      <label className="text-gray-700 text-sm mb-2 block">Select Channels</label>
                       <div className="relative mb-2">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <Input placeholder="Search channels..."
                           value={movingTextChannelSearch}
                           onChange={(e) => setMovingTextChannelSearch(e.target.value)}
-                          className="bg-gray-900/60 border-gray-700 text-white pl-10" />
+                          className="bg-white border-gray-300 text-black pl-10" />
                       </div>
-                      <div className="border border-gray-700 rounded-lg max-h-48 overflow-y-auto">
+                      <div className="border border-gray-300 rounded-lg max-h-48 overflow-y-auto bg-white">
                         {allChannels
                           .filter(ch => ch.name.toLowerCase().includes(movingTextChannelSearch.toLowerCase()))
                           .map(ch => (
@@ -2531,9 +2599,9 @@ export default function AdminPanel() {
                                   }))
                                 }
                               }}
-                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-0 ${newMovingText.channel_ids.includes(ch.id) ? "bg-blue-500/20" : ""}`}>
-                              {ch.logo && <img src={ch.logo} alt="" className="w-8 h-8 rounded object-contain bg-white/10" />}
-                              <span className="text-white text-sm flex-1">{ch.name}</span>
+                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-100 border-b border-gray-200 last:border-0 ${newMovingText.channel_ids.includes(ch.id) ? "bg-gray-100" : ""}`}>
+                              {ch.logo && <img src={ch.logo} alt="" className="w-8 h-8 rounded object-contain bg-gray-100" />}
+                              <span className="text-black text-sm flex-1">{ch.name}</span>
                               <span className="text-gray-500 text-xs">{ch.id}</span>
                             </div>
                           ))}
@@ -2570,7 +2638,7 @@ export default function AdminPanel() {
                       setNewMovingText({ message: "", display_mode: "scrolling", scroll_direction: "left", font: "Segoe UI", scroll_speed: 20, target: "all", channel_ids: [], is_active: true })
                       alert("Announcement created!")
                     }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    className="w-full bg-black hover:bg-gray-800 text-white"
                   >
                     Create Announcement
                   </Button>
@@ -2579,45 +2647,46 @@ export default function AdminPanel() {
             </Card>
 
             {/* Active Moving Text Announcements */}
-            <Card className="bg-white/5 border border-white/10">
+            <Card className="bg-white border border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Active Ticker Announcements ({movingTextAnnouncements.length})</CardTitle>
+                <CardTitle className="text-black">Active Ticker Announcements ({movingTextAnnouncements.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 {movingTextAnnouncements.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">No moving text announcements yet.</p>
+                  <p className="text-gray-500 text-center py-8">No moving text announcements yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {movingTextAnnouncements.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{item.message}</p>
+                          <p className="text-black text-sm font-medium truncate">{item.message}</p>
                           <div className="flex gap-2 mt-1">
-                            <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded">{item.display_mode}</span>
-                            <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded">{item.target === "all" ? "All Channels" : `${item.channel_ids?.length || 0} channels`}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded ${item.is_active ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-400"}`}>{item.is_active ? "Active" : "Inactive"}</span>
+                            <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{item.display_mode}</span>
+                            <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{item.target === "all" ? "All Channels" : `${item.channel_ids?.length || 0} channels`}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${item.is_active ? "bg-black text-white" : "bg-gray-200 text-gray-600"}`}>{item.is_active ? "Active" : "Inactive"}</span>
                           </div>
                         </div>
                         <div className="flex gap-2 ml-4">
-                          <Button size="sm" variant="outline"
+                          <button
                             onClick={async () => {
                               const supabase = createClient()
                               await supabase.from("moving_text_announcements").update({ is_active: !item.is_active }).eq("id", item.id)
                               const { data } = await supabase.from("moving_text_announcements").select("*").order("created_at", { ascending: false })
                               setMovingTextAnnouncements(data || [])
                             }}
-                            className="border-gray-600 text-gray-300 hover:text-white text-xs">
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300">
                             {item.is_active ? "Deactivate" : "Activate"}
-                          </Button>
-                          <Button size="sm" variant="destructive"
+                          </button>
+                          <button
                             onClick={async () => {
                               if (!confirm("Delete this announcement?")) return
                               const supabase = createClient()
                               await supabase.from("moving_text_announcements").delete().eq("id", item.id)
                               setMovingTextAnnouncements(prev => prev.filter(a => a.id !== item.id))
-                            }}>
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300">
                             <Trash2 className="w-3 h-3" />
-                          </Button>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -2630,11 +2699,11 @@ export default function AdminPanel() {
 
         {/* Add Channel Modal */}
         {showAddChannelModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                <h2 className="text-white text-xl font-bold">Add New Channel</h2>
-                <button onClick={() => setShowAddChannelModal(false)} className="text-gray-400 hover:text-white">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-gray-300 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-black text-xl font-bold">Add New Channel</h2>
+                <button onClick={() => setShowAddChannelModal(false)} className="text-gray-500 hover:text-black">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -2642,32 +2711,32 @@ export default function AdminPanel() {
                 {/* Name + Logo */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-white text-sm mb-1 block font-medium">Name <span className="text-red-400">*</span></label>
+                    <label className="text-black text-sm mb-1 block font-medium">Name *</label>
                     <Input placeholder="e.g. CNN Philippines" value={addChannelForm.name}
                       onChange={(e) => setAddChannelForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white" />
+                      className="bg-white border-gray-300 text-black" />
                   </div>
                   <div>
-                    <label className="text-white text-sm mb-1 block font-medium">Logo URL</label>
+                    <label className="text-black text-sm mb-1 block font-medium">Logo URL</label>
                     <Input placeholder="https://..." value={addChannelForm.logo}
                       onChange={(e) => setAddChannelForm(prev => ({ ...prev, logo: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white" />
+                      className="bg-white border-gray-300 text-black" />
                   </div>
                 </div>
                 {/* Stream URL */}
                 <div>
-                  <label className="text-white text-sm mb-1 block font-medium">Stream URL <span className="text-red-400">*</span></label>
+                  <label className="text-black text-sm mb-1 block font-medium">Stream URL *</label>
                   <Input placeholder="https://... (.m3u8, .mpd, etc.)" value={addChannelForm.url}
                     onChange={(e) => setAddChannelForm(prev => ({ ...prev, url: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white" />
+                    className="bg-white border-gray-300 text-black" />
                 </div>
                 {/* Category */}
                 <div>
-                  <label className="text-white text-sm mb-2 block font-medium">Category</label>
+                  <label className="text-black text-sm mb-2 block font-medium">Category</label>
                   <div className="flex flex-wrap gap-2">
                     {["Entertainment", "News", "Sports", "Kids", "Movies", "Anime", "Documentary", "Educational", "Music", "International"].map(cat => (
                       <button key={cat} onClick={() => setAddChannelForm(prev => ({ ...prev, category: cat }))}
-                        className={`px-3 py-1.5 rounded-lg text-sm ${addChannelForm.category === cat ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                        className={`px-3 py-1.5 rounded-lg text-sm ${addChannelForm.category === cat ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"}`}>
                         {cat}
                       </button>
                     ))}
@@ -2675,11 +2744,11 @@ export default function AdminPanel() {
                 </div>
                 {/* Section/Group */}
                 <div>
-                  <label className="text-white text-sm mb-2 block font-medium">Section (Group)</label>
+                  <label className="text-black text-sm mb-2 block font-medium">Section (Group)</label>
                   <div className="flex flex-wrap gap-2">
                     {["Mediaquest", "ABS-CBN", "GMA", "TV5", "International", "Kids", "Sports", "News", "EU", "Other"].map(grp => (
                       <button key={grp} onClick={() => setAddChannelForm(prev => ({ ...prev, group: grp }))}
-                        className={`px-3 py-1.5 rounded-lg text-sm ${addChannelForm.group === grp ? "bg-green-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                        className={`px-3 py-1.5 rounded-lg text-sm ${addChannelForm.group === grp ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"}`}>
                         {grp}
                       </button>
                     ))}
@@ -2688,40 +2757,40 @@ export default function AdminPanel() {
                 {/* DRM */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-gray-400 text-sm mb-1 block">DRM Key ID <span className="text-gray-500">(optional)</span></label>
+                    <label className="text-gray-600 text-sm mb-1 block">DRM Key ID (optional)</label>
                     <Input placeholder="e.g. ff8085fd9469913a..." value={addChannelForm.drm_key_id}
                       onChange={(e) => setAddChannelForm(prev => ({ ...prev, drm_key_id: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white font-mono text-sm" />
+                      className="bg-white border-gray-300 text-black font-mono text-sm" />
                   </div>
                   <div>
-                    <label className="text-gray-400 text-sm mb-1 block">DRM Key <span className="text-gray-500">(optional)</span></label>
+                    <label className="text-gray-600 text-sm mb-1 block">DRM Key (optional)</label>
                     <Input placeholder="e.g. 2496ee469b2d1a19..." value={addChannelForm.drm_key}
                       onChange={(e) => setAddChannelForm(prev => ({ ...prev, drm_key: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white font-mono text-sm" />
+                      className="bg-white border-gray-300 text-black font-mono text-sm" />
                   </div>
                 </div>
                 {/* Toggles */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg cursor-pointer" onClick={() => setAddChannelForm(prev => ({ ...prev, is_hd: !prev.is_hd }))}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${addChannelForm.is_hd ? "bg-blue-600" : "bg-gray-700"}`}>
-                      <div className="w-4 h-4 rounded-full bg-white" />
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer" onClick={() => setAddChannelForm(prev => ({ ...prev, is_hd: !prev.is_hd }))}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${addChannelForm.is_hd ? "bg-black border-black" : "bg-white border-gray-300"}`}>
+                      {addChannelForm.is_hd && <div className="w-4 h-4 rounded-full bg-white" />}
                     </div>
                     <div>
-                      <p className="text-white font-medium">HD Channel</p>
+                      <p className="text-black font-medium">HD Channel</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg cursor-pointer" onClick={() => setAddChannelForm(prev => ({ ...prev, non_hls: !prev.non_hls }))}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${addChannelForm.non_hls ? "bg-blue-600" : "bg-gray-700"}`}>
-                      <div className="w-4 h-4 rounded-full bg-white" />
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer" onClick={() => setAddChannelForm(prev => ({ ...prev, non_hls: !prev.non_hls }))}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${addChannelForm.non_hls ? "bg-black border-black" : "bg-white border-gray-300"}`}>
+                      {addChannelForm.non_hls && <div className="w-4 h-4 rounded-full bg-white" />}
                     </div>
                     <div>
-                      <p className="text-white font-medium">Non-HLS Fallback (MP4/WEBM/OGG)</p>
-                      <p className="text-gray-400 text-sm">Enable direct video playback for non-HLS streams</p>
+                      <p className="text-black font-medium">Non-HLS Fallback (MP4/WEBM/OGG)</p>
+                      <p className="text-gray-500 text-sm">Enable direct video playback for non-HLS streams</p>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="flex gap-3 p-6 border-t border-gray-700">
+              <div className="flex gap-3 p-6 border-t border-gray-200">
                 <Button
                   onClick={async () => {
                     if (!addChannelForm.name.trim() || !addChannelForm.url.trim()) {
@@ -2750,14 +2819,135 @@ export default function AdminPanel() {
                     setAddChannelForm({ name: "", logo: "", url: "", category: "Entertainment", group: "Other", drm_key_id: "", drm_key: "", is_hd: true, non_hls: false })
                     alert("Channel added successfully!")
                   }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="flex-1 bg-black hover:bg-gray-800 text-white"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Add Channel
                 </Button>
-                <Button variant="outline" onClick={() => setShowAddChannelModal(false)} className="border-gray-600 text-gray-300 hover:text-white">
+                <button onClick={() => setShowAddChannelModal(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Channel Modal */}
+        {editingChannel && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-gray-300 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-black text-xl font-bold">Edit Channel: {editingChannel.name}</h2>
+                <button onClick={() => setEditingChannel(null)} className="text-gray-500 hover:text-black">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Name + Logo */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-black text-sm mb-1 block font-medium">Name *</label>
+                    <Input placeholder="e.g. CNN Philippines" value={editChannelForm.name}
+                      onChange={(e) => setEditChannelForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="bg-white border-gray-300 text-black" />
+                  </div>
+                  <div>
+                    <label className="text-black text-sm mb-1 block font-medium">Logo URL</label>
+                    <Input placeholder="https://..." value={editChannelForm.logo}
+                      onChange={(e) => setEditChannelForm(prev => ({ ...prev, logo: e.target.value }))}
+                      className="bg-white border-gray-300 text-black" />
+                  </div>
+                </div>
+                {/* Stream URL */}
+                <div>
+                  <label className="text-black text-sm mb-1 block font-medium">Stream URL *</label>
+                  <Input placeholder="https://... (.m3u8, .mpd, etc.)" value={editChannelForm.url}
+                    onChange={(e) => setEditChannelForm(prev => ({ ...prev, url: e.target.value }))}
+                    className="bg-white border-gray-300 text-black" />
+                </div>
+                {/* Category */}
+                <div>
+                  <label className="text-black text-sm mb-2 block font-medium">Category</label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Entertainment", "News", "Sports", "Kids", "Movies", "Anime", "Documentary", "Educational", "Music", "International"].map(cat => (
+                      <button key={cat} onClick={() => setEditChannelForm(prev => ({ ...prev, category: cat }))}
+                        className={`px-3 py-1.5 rounded-lg text-sm ${editChannelForm.category === cat ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"}`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Section/Group */}
+                <div>
+                  <label className="text-black text-sm mb-2 block font-medium">Section (Group)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Mediaquest", "ABS-CBN", "GMA", "TV5", "International", "Kids", "Sports", "News", "EU", "Other"].map(grp => (
+                      <button key={grp} onClick={() => setEditChannelForm(prev => ({ ...prev, group: grp }))}
+                        className={`px-3 py-1.5 rounded-lg text-sm ${editChannelForm.group === grp ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"}`}>
+                        {grp}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* DRM */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-gray-600 text-sm mb-1 block">DRM Key ID (optional)</label>
+                    <Input placeholder="e.g. ff8085fd9469913a..." value={editChannelForm.drm_key_id}
+                      onChange={(e) => setEditChannelForm(prev => ({ ...prev, drm_key_id: e.target.value }))}
+                      className="bg-white border-gray-300 text-black font-mono text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-gray-600 text-sm mb-1 block">DRM Key (optional)</label>
+                    <Input placeholder="e.g. 2496ee469b2d1a19..." value={editChannelForm.drm_key}
+                      onChange={(e) => setEditChannelForm(prev => ({ ...prev, drm_key: e.target.value }))}
+                      className="bg-white border-gray-300 text-black font-mono text-sm" />
+                  </div>
+                </div>
+                {/* HD Toggle */}
+                <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer" onClick={() => setEditChannelForm(prev => ({ ...prev, is_hd: !prev.is_hd }))}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${editChannelForm.is_hd ? "bg-black border-black" : "bg-white border-gray-300"}`}>
+                    {editChannelForm.is_hd && <div className="w-4 h-4 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className="text-black font-medium">HD Channel</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 p-6 border-t border-gray-200">
+                <Button
+                  onClick={async () => {
+                    if (!editChannelForm.name.trim() || !editChannelForm.url.trim()) {
+                      alert("Name and Stream URL are required.")
+                      return
+                    }
+                    const supabase = createClient()
+                    const drmObj = editChannelForm.drm_key_id && editChannelForm.drm_key
+                      ? { clearkey: { [editChannelForm.drm_key_id]: editChannelForm.drm_key } }
+                      : null
+                    const { error } = await supabase.from("channels").update({
+                      name: editChannelForm.name,
+                      url: editChannelForm.url,
+                      logo: editChannelForm.logo || null,
+                      category: editChannelForm.category,
+                      group_name: editChannelForm.group,
+                      is_hd: editChannelForm.is_hd,
+                      drm: drmObj,
+                    }).eq("id", editingChannel.id)
+                    if (error) { alert("Failed: " + error.message); return }
+                    const { data } = await supabase.from("channels").select("*").order("name")
+                    setDbChannels(data || [])
+                    setEditingChannel(null)
+                    alert("Channel updated successfully!")
+                  }}
+                  className="flex-1 bg-black hover:bg-gray-800 text-white"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Save Changes
                 </Button>
+                <button onClick={() => setEditingChannel(null)} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
