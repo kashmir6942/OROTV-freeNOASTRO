@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { createClient } from "@/lib/supabase/client"
 
 // Define the Channel type for better type safety
 interface Channel {
@@ -145,6 +146,9 @@ export function VideoPlayer({
 
   const [lastSavedPosition, setLastSavedPosition] = useState(0)
   const positionSaveIntervalRef = useRef<NodeJS.Timeout>()
+  
+  // Moving text announcements
+  const [movingTextAnnouncements, setMovingTextAnnouncements] = useState<any[]>([])
 
   const startViewerSession = async () => {
     try {
@@ -1417,6 +1421,48 @@ export function VideoPlayer({
     }
   }, [channel])
 
+  // Load moving text announcements for this channel
+  useEffect(() => {
+    const loadMovingTextAnnouncements = async () => {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from("moving_text_announcements")
+          .select("*")
+          .eq("is_active", true)
+        
+        if (data) {
+          // Filter announcements that apply to this channel
+          const relevantAnnouncements = data.filter((ann: any) => {
+            if (ann.target === "all") return true
+            if (ann.target === "single" || ann.target === "multiple") {
+              return ann.channel_ids?.includes(channel.id)
+            }
+            return false
+          })
+          setMovingTextAnnouncements(relevantAnnouncements)
+        }
+      } catch (error) {
+        console.error("[v0] Failed to load moving text announcements:", error)
+      }
+    }
+    
+    loadMovingTextAnnouncements()
+    
+    // Set up realtime subscription
+    const supabase = createClient()
+    const subscription = supabase
+      .channel("moving-text-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "moving_text_announcements" }, () => {
+        loadMovingTextAnnouncements()
+      })
+      .subscribe()
+    
+    return () => {
+      supabase.removeChannel(subscription)
+    }
+  }, [channel.id])
+
   useEffect(() => {
     return () => {
       console.log("[v0] VideoPlayer component unmounting, cleaning up...")
@@ -1957,7 +2003,53 @@ export function VideoPlayer({
           </div>
         </div>
 
+        {/* Moving Text Announcements Overlay */}
+        {movingTextAnnouncements.length > 0 && connectionStatus === "connected" && !error && !isBuffering && (
+          <div className="absolute bottom-16 left-0 right-0 z-20 pointer-events-none overflow-hidden">
+            {movingTextAnnouncements.map((announcement, index) => (
+              <div
+                key={announcement.id || index}
+                className="w-full py-2 px-4"
+                style={{
+                  fontFamily: announcement.font || "Segoe UI",
+                }}
+              >
+                {announcement.display_mode === "scrolling" ? (
+                  <div
+                    className="whitespace-nowrap text-white text-lg font-semibold drop-shadow-lg"
+                    style={{
+                      animation: `${announcement.scroll_direction === "right" ? "scrollRight" : "scrollLeft"} ${60 / (announcement.scroll_speed || 20)}s linear infinite`,
+                      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {announcement.message}
+                  </div>
+                ) : (
+                  <div
+                    className="text-center text-white text-lg font-semibold drop-shadow-lg"
+                    style={{
+                      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {announcement.message}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
+        {/* Moving Text Animation Styles */}
+        <style jsx>{`
+          @keyframes scrollLeft {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+          }
+          @keyframes scrollRight {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
 
         {showEPGOverlay && !isLoading && !error && (
           <div

@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useRef, useMemo } from "react"
 import { VideoPlayer } from "@/components/video-player"
-import { allChannels } from "@/data/channels/all-channels"
+import { allChannels as staticChannels } from "@/data/channels/all-channels"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Search, Menu, HomeIcon, Tv, X, Heart, Star, Clock, PictureInPicture, Keyboard, Zap, TrendingUp, LayoutGrid, List } from "lucide-react"
 import type { Channel } from "@/data/types/channel"
@@ -170,7 +170,10 @@ const ChannelGuideModal = ({
 export default function Home() {
   const { theme } = useTheme()
   const { hasAccess, isCheckingAccess, setHasAccess } = useAccessControl()
-
+  
+  // All channels - merged from static file and database
+  const [allChannels, setAllChannels] = useState<Channel[]>(staticChannels)
+  
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("All")
@@ -245,8 +248,45 @@ export default function Home() {
 
   // Initialize favorites and recently watched
   useEffect(() => {
-    setFavorites(getFavorites())
-    setRecentlyWatched(getRecentlyWatched())
+  setFavorites(getFavorites())
+  setRecentlyWatched(getRecentlyWatched())
+  }, [])
+  
+  // Load channels from database and merge with static channels
+  useEffect(() => {
+    const loadDbChannels = async () => {
+      try {
+        const supabase = createClient()
+        const { data: dbChannels } = await supabase
+          .from("channels")
+          .select("*")
+          .eq("is_active", true)
+        
+        if (dbChannels && dbChannels.length > 0) {
+          // Convert database channels to Channel type
+          const convertedDbChannels: Channel[] = dbChannels.map((ch: any) => ({
+            id: ch.id,
+            name: ch.name,
+            url: ch.url,
+            logo: ch.logo || undefined,
+            category: ch.category || "Entertainment",
+            group: ch.group_name || "Other",
+            isHD: ch.is_hd || false,
+            drm: ch.drm || undefined,
+          }))
+          
+          // Merge: static channels take priority, db channels fill in new ones
+          const staticIds = new Set(staticChannels.map(c => c.id))
+          const newDbChannels = convertedDbChannels.filter(c => !staticIds.has(c.id))
+          
+          setAllChannels([...staticChannels, ...newDbChannels])
+        }
+      } catch (error) {
+        console.error("[v0] Failed to load channels from database:", error)
+      }
+    }
+    
+    loadDbChannels()
   }, [])
 
 
@@ -900,7 +940,7 @@ export default function Home() {
 
     // If not in Live TV view and no search term, return empty array (Home view)
     return []
-  }, [searchQuery, isLiveTVView, selectedCategory])
+  }, [searchQuery, isLiveTVView, selectedCategory, allChannels])
 
   const categories = useMemo(() => {
     // Use filteredChannels if searching, otherwise use allChannels for category list
@@ -908,7 +948,7 @@ export default function Home() {
     const categorySet = new Set(channelsToUse.map((channel) => channel.category))
     // Ensure "All" is always an option
     return ["All", ...Array.from(categorySet).sort()]
-  }, [searchQuery, filteredChannels, isLiveTVView])
+  }, [searchQuery, filteredChannels, isLiveTVView, allChannels])
 
   if (isInitialLoading) {
     return (

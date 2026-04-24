@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil, Check } from 'lucide-react'
 import { allChannels } from "@/data/channels/all-channels"
 
 interface TokenData {
@@ -675,46 +675,13 @@ export default function AdminPanel() {
   }
 
   if (isLoading) {
-  return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-[1600px] mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2">Salvador Admin Panel</h1>
-          <p className="text-gray-600">Advanced token management and system administration</p>
+    return (
+      <div className="min-h-screen bg-white p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
         </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8 bg-gray-100 p-1 rounded-lg border border-gray-200">
-          {[
-            { id: "overview", label: "Overview", icon: BarChart3 },
-            { id: "generate", label: "Generate Tokens", icon: Plus },
-            { id: "manage", label: "Manage Tokens", icon: Settings },
-            { id: "analytics", label: "Analytics", icon: Users },
-            { id: "usernames", label: "PHCorner Users", icon: UserCheck },
-            { id: "passwords", label: "Passwords On Each Token", icon: Shield },
-            { id: "viewers", label: "Viewer Analytics", icon: Users },
-            { id: "reports", label: "User Reports", icon: Shield },
-            { id: "announcements", label: "Announcements", icon: AlertTriangle },
-            { id: "maintenance", label: "Maintenance", icon: Settings },
-            { id: "channel-requests", label: "Channel Requests", icon: Plus },
-            { id: "user-ratings", label: "User Ratings", icon: Star },
-            { id: "channel-manager", label: "Channel Manager", icon: Tv },
-            { id: "channel-status", label: "Channel Status", icon: AlertTriangle },
-            { id: "moving-text", label: "Moving Text", icon: MessageSquare },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-4 py-2 rounded-md transition-colors ${
-                activeTab === tab.id ? "bg-black text-white" : "text-gray-600 hover:text-black hover:bg-gray-200"
-              }`}
-            >
-              <tab.icon className="w-4 h-4 mr-2" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      </div>
     )
   }
 
@@ -2232,11 +2199,28 @@ export default function AdminPanel() {
                           <h3 className="text-black font-medium truncate">{channel.name}</h3>
                           {channel.is_hd && <span className="text-xs px-1.5 py-0.5 bg-black text-white rounded">HD</span>}
                           {channel.drm && <span className="text-xs px-1.5 py-0.5 bg-gray-800 text-white rounded">DRM</span>}
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${channel.is_active !== false ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                            {channel.is_active !== false ? "Active" : "Inactive"}
+                          </span>
                         </div>
                         <p className="text-gray-500 text-sm truncate">{channel.url}</p>
                       </div>
                       <span className="text-gray-600 text-sm px-2 py-1 bg-gray-200 rounded">{channel.category || "Uncategorized"}</span>
                       <div className="flex gap-2">
+                        {/* Activate/Deactivate Toggle */}
+                        <button
+                          onClick={async () => {
+                            const supabase = createClient()
+                            const newStatus = channel.is_active === false ? true : false
+                            await supabase.from("channels").update({ is_active: newStatus }).eq("id", channel.id)
+                            setDbChannels(prev => prev.map(c => c.id === channel.id ? { ...c, is_active: newStatus } : c))
+                          }}
+                          className={`p-2 rounded-lg transition-colors ${channel.is_active !== false ? "bg-green-100 text-green-600 hover:bg-green-200" : "bg-red-100 text-red-600 hover:bg-red-200"}`}
+                          title={channel.is_active !== false ? "Deactivate channel" : "Activate channel"}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        {/* Edit Button */}
                         <button
                           onClick={() => {
                             setEditingChannel(channel)
@@ -2259,6 +2243,7 @@ export default function AdminPanel() {
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
+                        {/* Delete Button */}
                         <button
                           onClick={async () => {
                             if (confirm(`Delete ${channel.name}?`)) {
@@ -2267,8 +2252,8 @@ export default function AdminPanel() {
                               setDbChannels(prev => prev.filter(c => c.id !== channel.id))
                             }
                           }}
-                          className="p-2 rounded-lg hover:bg-gray-200 text-gray-600 hover:text-black transition-colors"
-                          title="Delete channel"
+                          className="p-2 rounded-lg hover:bg-red-100 text-gray-600 hover:text-red-600 transition-colors"
+                          title="Remove channel"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
