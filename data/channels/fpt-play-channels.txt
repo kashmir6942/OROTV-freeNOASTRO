@@ -1,0 +1,17 @@
+FPT Play Channels Design
+Inside the musictv design, on the top, you can see FPT Play Mode, This fpt play mode has Vietnam Channels eg: Cartoon Network HD (FPT PLAY)
+This feature is good if your Vietnam user, if you tap the FPT Play Mode, robot arms will appear, and destroys the entire ui, and completely builds the ui back WITH the fpt play channels. if you tap the MusicTV Mode, robot arms will appear, and destroys the entire ui, and completely builds the ui back WITH the Pambanlo TV channels.
+FPT Play channels including:
+https://hls.mskycdn.online/tv/abcaustralia/index.m3u8
+https://hls.mskycdn.online/tv/axnhd/index.m3u8
+https://hls.mskycdn.online/tv/cinemaworldhd/index.m3u8
+https://hls.mskycdn.online/tv/cinemaxhd/index.m3u8
+https://hls.mskycdn.online/tv/cartoonhd/index.m3u8
+https://hls.mskycdn.online/tv/dreamworks/index.m3u8
+https://hls.mskycdn.online/tv/warnertvhd/index.m3u8
+https://hls.mskycdn.online/tv/discoveryhd/index.m3u8
+https://hls.mskycdn.online/tv/discoveryasiahd/index.m3u8
+https://hls.mskycdn.online/tv/animalhd/index.m3u8
+https://hls.mskycdn.online/tv/hbohd/index.m3u8
+https://hls.mskycdn.online/tv/fashionhd/index.m3u8
+https://hls.mskycdn.online/tv/cnn/index.m3u8

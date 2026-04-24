@@ -1,0 +1,36 @@
+/* Advanced Method 1: Target by common v0 styling patterns */
+div[class*="text-xs"][class*="opacity"],
+div[class*="text-sm"][class*="opacity"],
+span[class*="text-xs"][class*="opacity"],
+span[class*="text-sm"][class*="opacity"] {
+  display: none !important;
+}
+
+/* Advanced Method 2: Target elements with v0-like positioning */
+*[style*="position: fixed; bottom: 16px; right: 16px"],
+*[style*="position: fixed; bottom: 1rem; right: 1rem"],
+*[style*="position: absolute; bottom: 16px; right: 16px"],
+*[style*="position: absolute; bottom: 1rem; right: 1rem"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Advanced Method 3: Target by z-index patterns common in watermarks */
+*[style*="z-index: 9999"],
+*[style*="z-index: 999"],
+*[style*="z-index: 50"] {
+  display: none !important;
+}
+
+/* Target small text elements in corners */
+div[class*="fixed"][class*="bottom"][class*="right"] > *,
+div[class*="absolute"][class*="bottom"][class*="right"] > * {
+  display: none !important;
+}
+
+/* Nuclear option - hide any small text in bottom right */
+*[style*="bottom"][style*="right"] {
+  font-size: 0 !important;
+  color: transparent !important;
+  background: transparent !important;
+}
