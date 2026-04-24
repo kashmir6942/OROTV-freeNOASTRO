@@ -570,6 +570,8 @@ export default function AdminPanel() {
   const updateChannelRequestStatus = async (requestId: string, status: string, adminNotes?: string) => {
     const supabase = createClient()
     try {
+      console.log("[v0] Updating channel request:", requestId, "to status:", status)
+      
       const { error } = await supabase
         .from("channel_requests")
         .update({
@@ -581,10 +583,16 @@ export default function AdminPanel() {
         })
         .eq("id", requestId)
 
-      if (error) throw error
+      if (error) {
+        console.error("[v0] Database error updating channel request:", error)
+        throw error
+      }
+      
+      console.log("[v0] Channel request updated successfully")
       await loadData()
     } catch (error) {
-      console.error("Error updating channel request:", error)
+      console.error("[v0] Error updating channel request:", error)
+      alert(`Failed to update channel request: ${error.message}`)
     }
   }
 
