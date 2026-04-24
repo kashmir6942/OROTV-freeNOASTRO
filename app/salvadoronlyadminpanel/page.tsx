@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X } from 'lucide-react'
 
 interface TokenData {
   id: string
@@ -102,6 +102,20 @@ export default function AdminPanel() {
   })
 
   const [channelRequests, setChannelRequests] = useState<any[]>([])
+  const [userRatings, setUserRatings] = useState<any[]>([])
+  const [dbChannels, setDbChannels] = useState<any[]>([])
+  const [ceasedChannels, setCeasedChannels] = useState<any[]>([])
+  const [channelManagerSearch, setChannelManagerSearch] = useState("")
+  const [channelManagerCategory, setChannelManagerCategory] = useState("All")
+  const [showAddChannelModal, setShowAddChannelModal] = useState(false)
+  const [selectedCeasedChannel, setSelectedCeasedChannel] = useState<string | null>(null)
+  const [ceasedChannelForm, setCeasedChannelForm] = useState({
+    status_message: "",
+    reason: "",
+    shutdown_image: "",
+    shutdown_video: "",
+    is_ceased: false
+  })
 
   useEffect(() => {
     loadData()
@@ -193,7 +207,27 @@ export default function AdminPanel() {
         .select("*")
         .order("created_at", { ascending: false })
 
+      const { data: userRatingsData } = await supabase
+        .from("user_ratings")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      // Load channels for Channel Manager
+      const { data: channelsData } = await supabase
+        .from("channels")
+        .select("*")
+        .order("name", { ascending: true })
+
+      // Load channel status for ceased channels
+      const { data: ceasedData } = await supabase
+        .from("channel_status")
+        .select("*")
+        .eq("is_ceased", true)
+
       setSessions(sessionsData || [])
+      setDbChannels(channelsData || [])
+      setCeasedChannels(ceasedData || [])
+      setUserRatings(userRatingsData || [])
       setPhcornerUsernames(usernamesData || [])
       setUserReports(reportsData || [])
       setChannelAnalytics(analyticsData || [])
@@ -659,6 +693,9 @@ export default function AdminPanel() {
             { id: "announcements", label: "Announcements", icon: AlertTriangle },
             { id: "maintenance", label: "Maintenance", icon: Settings },
             { id: "channel-requests", label: "Channel Requests", icon: Plus },
+            { id: "user-ratings", label: "User Ratings", icon: Star },
+            { id: "channel-manager", label: "Channel Manager", icon: Tv },
+            { id: "channel-status", label: "Channel Status", icon: AlertTriangle },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1865,6 +1902,461 @@ export default function AdminPanel() {
                       <div className="text-blue-400 text-sm">Total</div>
                     </div>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "user-ratings" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white flex items-center">
+                  <Star className="w-5 h-5 mr-2 text-yellow-400" />
+                  User Ratings & Feedback
+                </CardTitle>
+                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                  {userRatings.length} Ratings
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Rating Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = userRatings.filter((r) => r.rating === star).length
+                  const percentage = userRatings.length > 0 ? (count / userRatings.length) * 100 : 0
+                  return (
+                    <div key={star} className="bg-white/5 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-2">
+                        {[...Array(star)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                        ))}
+                      </div>
+                      <div className="text-2xl font-bold text-white">{count}</div>
+                      <div className="text-gray-400 text-xs">{percentage.toFixed(1)}%</div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Average Rating */}
+              {userRatings.length > 0 && (
+                <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg p-6 mb-6 text-center">
+                  <div className="text-4xl font-bold text-white mb-2">
+                    {(userRatings.reduce((sum, r) => sum + r.rating, 0) / userRatings.length).toFixed(1)}
+                  </div>
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    {[...Array(5)].map((_, i) => {
+                      const avg = userRatings.reduce((sum, r) => sum + r.rating, 0) / userRatings.length
+                      return (
+                        <Star
+                          key={i}
+                          className={`w-6 h-6 ${i < Math.round(avg) ? "fill-yellow-400 text-yellow-400" : "text-gray-600"}`}
+                        />
+                      )
+                    })}
+                  </div>
+                  <div className="text-gray-400">Average Rating from {userRatings.length} reviews</div>
+                </div>
+              )}
+
+              {/* Ratings List */}
+              <div className="space-y-4">
+                {userRatings.map((rating) => (
+                  <Card key={rating.id} className="bg-white/5 border-white/10">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-white font-semibold">
+                              {rating.user_type}: {rating.username || "Anonymous"}
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${i < rating.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-600"}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="text-gray-400 text-xs">{formatDate(rating.created_at)}</div>
+                        </div>
+                        <Badge
+                          className={`
+                            ${rating.rating >= 4 ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}
+                            ${rating.rating === 3 ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : ""}
+                            ${rating.rating <= 2 ? "bg-red-500/20 text-red-400 border-red-500/30" : ""}
+                          `}
+                        >
+                          {rating.rating === 5 ? "Excellent" : rating.rating === 4 ? "Good" : rating.rating === 3 ? "Average" : rating.rating === 2 ? "Poor" : "Bad"}
+                        </Badge>
+                      </div>
+
+                      {rating.satisfaction_comment && (
+                        <div className="mb-3">
+                          <div className="text-gray-400 text-xs mb-1">Comment:</div>
+                          <div className="text-white text-sm bg-white/5 rounded p-2">{rating.satisfaction_comment}</div>
+                        </div>
+                      )}
+
+                      {rating.complaint && (
+                        <div className="mb-3">
+                          <div className="text-red-400 text-xs mb-1">Complaint:</div>
+                          <div className="text-white text-sm bg-red-500/10 border border-red-500/20 rounded p-2">{rating.complaint}</div>
+                        </div>
+                      )}
+
+                      {rating.issues && rating.issues.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-orange-400 text-xs mb-1">Issues:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {rating.issues.map((issue: string, i: number) => (
+                              <Badge key={i} className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">
+                                {issue}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {rating.features_to_add && (
+                        <div className="mb-3">
+                          <div className="text-blue-400 text-xs mb-1">Features Requested:</div>
+                          <div className="text-white text-sm bg-blue-500/10 border border-blue-500/20 rounded p-2">{rating.features_to_add}</div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-3 pt-3 border-t border-white/10">
+                        <span>IP: {rating.user_ip}</span>
+                        <span>ID: {rating.id.substring(0, 8)}...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {userRatings.length === 0 && (
+                  <div className="text-center py-12">
+                    <Star className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                    <p className="text-gray-400 text-lg">No user ratings yet</p>
+                    <p className="text-gray-500 text-sm">User ratings will appear here when submitted</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Channel Manager Tab */}
+        {activeTab === "channel-manager" && (
+          <Card className="bg-white/5 border border-white/10">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-white text-2xl flex items-center gap-2">
+                  <Plus className="w-6 h-6" />
+                  Channel Manager
+                </CardTitle>
+                <p className="text-gray-400 mt-1">{dbChannels.length} channels total</p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    try {
+                      const { channels } = await import("@/data/channels")
+                      const supabase = (await import("@/lib/supabase/client")).createClient()
+                      
+                      for (const channel of channels) {
+                        await supabase.from("channels").upsert({
+                          id: channel.id,
+                          name: channel.name,
+                          url: channel.url,
+                          logo: channel.logo,
+                          category: channel.category,
+                          is_hd: channel.isHD,
+                          drm: channel.drm,
+                          watermark: channel.watermark
+                        }, { onConflict: "id" })
+                      }
+                      
+                      // Refresh channel list
+                      const { data } = await supabase.from("channels").select("*").order("name")
+                      setDbChannels(data || [])
+                    } catch (err) {
+                      console.error("Failed to import channels:", err)
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import Hardcoded
+                </Button>
+                <Button
+                  onClick={() => setShowAddChannelModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Channel
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Search and Filter */}
+              <div className="mb-6 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search channels..."
+                    value={channelManagerSearch}
+                    onChange={(e) => setChannelManagerSearch(e.target.value)}
+                    className="bg-gray-800/50 border-gray-700 text-white pl-10"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {["All", "Entertainment", "Kids", "Sports", "Movies", "News", "International", "EU", "Mediaquest", "ABS-CBN", "GMA", "TV5", "Other"].map((cat) => (
+                    <Button
+                      key={cat}
+                      size="sm"
+                      variant={channelManagerCategory === cat ? "default" : "outline"}
+                      onClick={() => setChannelManagerCategory(cat)}
+                      className={channelManagerCategory === cat ? "bg-blue-600" : "border-gray-600 text-gray-400 hover:text-white"}
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Channel Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dbChannels
+                  .filter(ch => {
+                    const matchesSearch = ch.name?.toLowerCase().includes(channelManagerSearch.toLowerCase())
+                    const matchesCategory = channelManagerCategory === "All" || ch.category === channelManagerCategory
+                    return matchesSearch && matchesCategory
+                  })
+                  .map((channel) => (
+                    <Card key={channel.id} className="bg-gray-800/50 border-gray-700">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          {channel.logo && (
+                            <img src={channel.logo} alt={channel.name} className="w-12 h-12 rounded object-contain bg-white" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-medium truncate">{channel.name}</h3>
+                            <p className="text-gray-400 text-sm">{channel.category}</p>
+                          </div>
+                          <div className="flex gap-1">
+                            {channel.is_hd && (
+                              <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-1 rounded">HD</span>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                if (confirm(`Delete ${channel.name}?`)) {
+                                  const supabase = (await import("@/lib/supabase/client")).createClient()
+                                  await supabase.from("channels").delete().eq("id", channel.id)
+                                  setDbChannels(prev => prev.filter(c => c.id !== channel.id))
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+
+              {dbChannels.length === 0 && (
+                <div className="text-center py-12">
+                  <Tv className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                  <p className="text-gray-400 text-lg">No channels found. Add your first channel above.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Channel Status Manager Tab */}
+        {activeTab === "channel-status" && (
+          <Card className="bg-white/5 border border-white/10">
+            <CardHeader>
+              <CardTitle className="text-white text-2xl flex items-center gap-2">
+                <AlertTriangle className="w-6 h-6 text-orange-500" />
+                Channel Status Manager
+              </CardTitle>
+              <p className="text-gray-400">Manage channel availability and shutdown notices</p>
+            </CardHeader>
+            <CardContent>
+              {/* Ceased Channels Alert */}
+              {ceasedChannels.length === 0 ? (
+                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <p className="text-green-400 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    No channels are currently marked as ceased.
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                  <p className="text-orange-400 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    {ceasedChannels.length} channel(s) are currently marked as ceased.
+                  </p>
+                </div>
+              )}
+
+              {/* Channel Selector */}
+              <div className="mb-6">
+                <label className="text-white text-sm font-medium mb-2 block">Select Channel</label>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search channels..."
+                    className="bg-gray-800/50 border-gray-700 text-white pl-10"
+                    onChange={(e) => setChannelManagerSearch(e.target.value)}
+                  />
+                </div>
+                <select
+                  value={selectedCeasedChannel || ""}
+                  onChange={async (e) => {
+                    const channelId = e.target.value
+                    setSelectedCeasedChannel(channelId)
+                    if (channelId) {
+                      const supabase = (await import("@/lib/supabase/client")).createClient()
+                      const { data } = await supabase.from("channel_status").select("*").eq("channel_id", channelId).single()
+                      if (data) {
+                        setCeasedChannelForm({
+                          status_message: data.status_message || "",
+                          reason: data.reason || "",
+                          shutdown_image: data.shutdown_image || "",
+                          shutdown_video: data.shutdown_video || "",
+                          is_ceased: data.is_ceased || false
+                        })
+                      } else {
+                        setCeasedChannelForm({
+                          status_message: "",
+                          reason: "",
+                          shutdown_image: "",
+                          shutdown_video: "",
+                          is_ceased: false
+                        })
+                      }
+                    }
+                  }}
+                  className="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="">Choose a channel...</option>
+                  {dbChannels
+                    .filter(ch => ch.name?.toLowerCase().includes(channelManagerSearch.toLowerCase()))
+                    .map((ch) => (
+                      <option key={ch.id} value={ch.id}>{ch.name} ({ch.id})</option>
+                    ))}
+                </select>
+                <p className="text-gray-400 text-sm mt-2">{dbChannels.length} channels found</p>
+              </div>
+
+              {/* Channel Status Form */}
+              {selectedCeasedChannel && (
+                <div className="space-y-6 border-t border-white/10 pt-6">
+                  {/* Mark as Ceased Toggle */}
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setCeasedChannelForm(prev => ({ ...prev, is_ceased: !prev.is_ceased }))}
+                      className={`w-12 h-12 rounded flex items-center justify-center ${ceasedChannelForm.is_ceased ? "bg-red-500" : "bg-gray-700"}`}
+                    >
+                      {ceasedChannelForm.is_ceased && (
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className="text-white font-medium">Mark as Ceased</span>
+                  </div>
+
+                  {/* Status Message */}
+                  <div>
+                    <label className="text-white text-sm mb-2 block">Status Message (shown to users)</label>
+                    <Input
+                      placeholder="E.g., This channel is temporarily unavailable"
+                      value={ceasedChannelForm.status_message}
+                      onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, status_message: e.target.value }))}
+                      className="bg-gray-800/50 border-gray-700 text-white"
+                    />
+                  </div>
+
+                  {/* Reason */}
+                  <div>
+                    <label className="text-white text-sm mb-2 block">Reason (internal notes)</label>
+                    <Input
+                      placeholder="E.g., License expired, technical issues, etc."
+                      value={ceasedChannelForm.reason}
+                      onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, reason: e.target.value }))}
+                      className="bg-gray-800/50 border-gray-700 text-white"
+                    />
+                  </div>
+
+                  {/* Shutdown Image */}
+                  <div>
+                    <label className="text-white text-sm mb-2 block">Shutdown Image URL</label>
+                    <Input
+                      placeholder="URL to display when channel is down"
+                      value={ceasedChannelForm.shutdown_image}
+                      onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, shutdown_image: e.target.value }))}
+                      className="bg-gray-800/50 border-gray-700 text-white"
+                    />
+                  </div>
+
+                  {/* Shutdown Video */}
+                  <div>
+                    <label className="text-white text-sm mb-2 block">Shutdown Video URL (Repeating)</label>
+                    <Input
+                      placeholder="Video to loop when channel is down"
+                      value={ceasedChannelForm.shutdown_video}
+                      onChange={(e) => setCeasedChannelForm(prev => ({ ...prev, shutdown_video: e.target.value }))}
+                      className="bg-gray-800/50 border-gray-700 text-white"
+                    />
+                  </div>
+
+                  {/* Preview */}
+                  {(ceasedChannelForm.shutdown_image || ceasedChannelForm.shutdown_video) && (
+                    <div>
+                      <label className="text-white text-sm mb-2 block">Preview</label>
+                      <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                        {ceasedChannelForm.shutdown_video ? (
+                          <video src={ceasedChannelForm.shutdown_video} className="w-full h-full object-contain" controls loop muted />
+                        ) : ceasedChannelForm.shutdown_image ? (
+                          <img src={ceasedChannelForm.shutdown_image} alt="Shutdown preview" className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-500">No preview available</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Save Button */}
+                  <Button
+                    onClick={async () => {
+                      if (!selectedCeasedChannel) return
+                      const supabase = (await import("@/lib/supabase/client")).createClient()
+                      await supabase.from("channel_status").upsert({
+                        channel_id: selectedCeasedChannel,
+                        ...ceasedChannelForm,
+                        updated_at: new Date().toISOString()
+                      }, { onConflict: "channel_id" })
+                      
+                      // Refresh ceased channels list
+                      const { data } = await supabase.from("channel_status").select("*").eq("is_ceased", true)
+                      setCeasedChannels(data || [])
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </Button>
                 </div>
               )}
             </CardContent>
