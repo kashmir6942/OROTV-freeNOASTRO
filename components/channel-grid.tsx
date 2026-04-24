@@ -19,9 +19,11 @@ export function ChannelGrid({ channels, onChannelSelect, user }: ChannelGridProp
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
 
-  const categories = ["all", ...Array.from(new Set(channels.map((ch) => ch.category)))]
+  // Guard against undefined channels
+  const safeChannels = Array.isArray(channels) ? channels : []
+  const categories = ["all", ...Array.from(new Set(safeChannels.map((ch) => ch.category)))]
 
-  const filteredChannels = channels.filter((channel) => {
+  const filteredChannels = safeChannels.filter((channel) => {
     const matchesSearch = channel.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "all" || channel.category === selectedCategory
     return matchesSearch && matchesCategory
@@ -65,7 +67,7 @@ export function ChannelGrid({ channels, onChannelSelect, user }: ChannelGridProp
       <div className="flex items-center justify-between text-foreground animate-in slide-in-from-left-2 duration-500 delay-150">
         <h2 className="text-2xl font-bold">{selectedCategory === "all" ? "All Channels" : selectedCategory}</h2>
         <div className="text-sm text-muted-foreground">
-          {filteredChannels.length} of {channels.length} channels
+          {filteredChannels.length} of {safeChannels.length} channels
         </div>
       </div>
 
