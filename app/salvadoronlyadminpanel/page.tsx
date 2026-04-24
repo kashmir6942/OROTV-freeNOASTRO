@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil, Check } from 'lucide-react'
 import { allChannels } from "@/data/channels/all-channels"
 
 interface TokenData {
@@ -2232,11 +2232,28 @@ export default function AdminPanel() {
                           <h3 className="text-black font-medium truncate">{channel.name}</h3>
                           {channel.is_hd && <span className="text-xs px-1.5 py-0.5 bg-black text-white rounded">HD</span>}
                           {channel.drm && <span className="text-xs px-1.5 py-0.5 bg-gray-800 text-white rounded">DRM</span>}
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${channel.is_active !== false ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                            {channel.is_active !== false ? "Active" : "Inactive"}
+                          </span>
                         </div>
                         <p className="text-gray-500 text-sm truncate">{channel.url}</p>
                       </div>
                       <span className="text-gray-600 text-sm px-2 py-1 bg-gray-200 rounded">{channel.category || "Uncategorized"}</span>
                       <div className="flex gap-2">
+                        {/* Activate/Deactivate Toggle */}
+                        <button
+                          onClick={async () => {
+                            const supabase = createClient()
+                            const newStatus = channel.is_active === false ? true : false
+                            await supabase.from("channels").update({ is_active: newStatus }).eq("id", channel.id)
+                            setDbChannels(prev => prev.map(c => c.id === channel.id ? { ...c, is_active: newStatus } : c))
+                          }}
+                          className={`p-2 rounded-lg transition-colors ${channel.is_active !== false ? "bg-green-100 text-green-600 hover:bg-green-200" : "bg-red-100 text-red-600 hover:bg-red-200"}`}
+                          title={channel.is_active !== false ? "Deactivate channel" : "Activate channel"}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        {/* Edit Button */}
                         <button
                           onClick={() => {
                             setEditingChannel(channel)
@@ -2259,6 +2276,7 @@ export default function AdminPanel() {
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
+                        {/* Delete Button */}
                         <button
                           onClick={async () => {
                             if (confirm(`Delete ${channel.name}?`)) {
@@ -2267,8 +2285,8 @@ export default function AdminPanel() {
                               setDbChannels(prev => prev.filter(c => c.id !== channel.id))
                             }
                           }}
-                          className="p-2 rounded-lg hover:bg-gray-200 text-gray-600 hover:text-black transition-colors"
-                          title="Delete channel"
+                          className="p-2 rounded-lg hover:bg-red-100 text-gray-600 hover:text-red-600 transition-colors"
+                          title="Remove channel"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
