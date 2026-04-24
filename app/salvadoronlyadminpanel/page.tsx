@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare } from 'lucide-react'
+import { allChannels } from "@/data/channels/all-channels"
 
 interface TokenData {
   id: string
@@ -115,6 +116,30 @@ export default function AdminPanel() {
     shutdown_image: "",
     shutdown_video: "",
     is_ceased: false
+  })
+  const [channelStatusSearch, setChannelStatusSearch] = useState("")
+  const [movingTextAnnouncements, setMovingTextAnnouncements] = useState<any[]>([])
+  const [newMovingText, setNewMovingText] = useState({
+    message: "",
+    display_mode: "scrolling" as "scrolling" | "static",
+    scroll_direction: "left" as "left" | "right",
+    font: "Segoe UI",
+    scroll_speed: 20,
+    target: "all" as "single" | "multiple" | "all",
+    channel_ids: [] as string[],
+    is_active: true,
+  })
+  const [movingTextChannelSearch, setMovingTextChannelSearch] = useState("")
+  const [addChannelForm, setAddChannelForm] = useState({
+    name: "",
+    logo: "",
+    url: "",
+    category: "Entertainment",
+    group: "Other",
+    drm_key_id: "",
+    drm_key: "",
+    is_hd: true,
+    non_hls: false,
   })
 
   useEffect(() => {
@@ -224,9 +249,16 @@ export default function AdminPanel() {
         .select("*")
         .eq("is_ceased", true)
 
+      // Load moving text announcements
+      const { data: movingTextData } = await supabase
+        .from("moving_text_announcements")
+        .select("*")
+        .order("created_at", { ascending: false })
+
       setSessions(sessionsData || [])
       setDbChannels(channelsData || [])
       setCeasedChannels(ceasedData || [])
+      setMovingTextAnnouncements(movingTextData || [])
       setUserRatings(userRatingsData || [])
       setPhcornerUsernames(usernamesData || [])
       setUserReports(reportsData || [])
@@ -696,6 +728,7 @@ export default function AdminPanel() {
             { id: "user-ratings", label: "User Ratings", icon: Star },
             { id: "channel-manager", label: "Channel Manager", icon: Tv },
             { id: "channel-status", label: "Channel Status", icon: AlertTriangle },
+            { id: "moving-text", label: "Moving Text", icon: MessageSquare },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -2064,27 +2097,31 @@ export default function AdminPanel() {
                 <Button
                   onClick={async () => {
                     try {
-                      const { channels } = await import("@/data/channels")
-                      const supabase = (await import("@/lib/supabase/client")).createClient()
-                      
-                      for (const channel of channels) {
-                        await supabase.from("channels").upsert({
-                          id: channel.id,
-                          name: channel.name,
-                          url: channel.url,
-                          logo: channel.logo,
-                          category: channel.category,
-                          is_hd: channel.isHD,
-                          drm: channel.drm,
-                          watermark: channel.watermark
-                        }, { onConflict: "id" })
-                      }
-                      
+                      const supabase = createClient()
+                      const results = await Promise.allSettled(
+                        allChannels.map(channel =>
+                          supabase.from("channels").upsert({
+                            id: channel.id,
+                            name: channel.name,
+                            url: channel.url,
+                            logo: channel.logo || null,
+                            category: channel.category,
+                            is_hd: channel.isHD || false,
+                            drm: channel.drm || null,
+                            watermark: channel.watermark || null,
+                            group_name: channel.group || null,
+                          }, { onConflict: "id" })
+                        )
+                      )
+                      const failed = results.filter(r => r.status === "rejected").length
+                      if (failed > 0) console.error(`${failed} channels failed to import`)
                       // Refresh channel list
                       const { data } = await supabase.from("channels").select("*").order("name")
                       setDbChannels(data || [])
+                      alert(`Imported ${allChannels.length - failed} of ${allChannels.length} channels successfully.`)
                     } catch (err) {
                       console.error("Failed to import channels:", err)
+                      alert("Import failed. Check console for details.")
                     }
                   }}
                   className="bg-green-600 hover:bg-green-700 text-white"
@@ -2216,8 +2253,9 @@ export default function AdminPanel() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search channels..."
+                    value={channelStatusSearch}
                     className="bg-gray-800/50 border-gray-700 text-white pl-10"
-                    onChange={(e) => setChannelManagerSearch(e.target.value)}
+                    onChange={(e) => setChannelStatusSearch(e.target.value)}
                   />
                 </div>
                 <select
@@ -2226,7 +2264,7 @@ export default function AdminPanel() {
                     const channelId = e.target.value
                     setSelectedCeasedChannel(channelId)
                     if (channelId) {
-                      const supabase = (await import("@/lib/supabase/client")).createClient()
+                      const supabase = createClient()
                       const { data } = await supabase.from("channel_status").select("*").eq("channel_id", channelId).single()
                       if (data) {
                         setCeasedChannelForm({
@@ -2237,26 +2275,21 @@ export default function AdminPanel() {
                           is_ceased: data.is_ceased || false
                         })
                       } else {
-                        setCeasedChannelForm({
-                          status_message: "",
-                          reason: "",
-                          shutdown_image: "",
-                          shutdown_video: "",
-                          is_ceased: false
-                        })
+                        setCeasedChannelForm({ status_message: "", reason: "", shutdown_image: "", shutdown_video: "", is_ceased: false })
                       }
                     }
                   }}
                   className="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white"
+                  size={8}
                 >
                   <option value="">Choose a channel...</option>
-                  {dbChannels
-                    .filter(ch => ch.name?.toLowerCase().includes(channelManagerSearch.toLowerCase()))
+                  {allChannels
+                    .filter(ch => ch.name?.toLowerCase().includes(channelStatusSearch.toLowerCase()))
                     .map((ch) => (
                       <option key={ch.id} value={ch.id}>{ch.name} ({ch.id})</option>
                     ))}
                 </select>
-                <p className="text-gray-400 text-sm mt-2">{dbChannels.length} channels found</p>
+                <p className="text-gray-400 text-sm mt-2">{allChannels.length} channels found</p>
               </div>
 
               {/* Channel Status Form */}
@@ -2341,16 +2374,20 @@ export default function AdminPanel() {
                   <Button
                     onClick={async () => {
                       if (!selectedCeasedChannel) return
-                      const supabase = (await import("@/lib/supabase/client")).createClient()
-                      await supabase.from("channel_status").upsert({
+                      const supabase = createClient()
+                      const { error } = await supabase.from("channel_status").upsert({
                         channel_id: selectedCeasedChannel,
                         ...ceasedChannelForm,
                         updated_at: new Date().toISOString()
                       }, { onConflict: "channel_id" })
-                      
+                      if (error) {
+                        alert("Failed to save: " + error.message)
+                        return
+                      }
                       // Refresh ceased channels list
                       const { data } = await supabase.from("channel_status").select("*").eq("is_ceased", true)
                       setCeasedChannels(data || [])
+                      alert("Channel status saved successfully!")
                     }}
                     className="w-full bg-blue-600 hover:bg-blue-700"
                   >
@@ -2361,6 +2398,369 @@ export default function AdminPanel() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Moving Text Announcements Tab */}
+        {activeTab === "moving-text" && (
+          <div className="space-y-6">
+            <Card className="bg-white/5 border border-white/10">
+              <CardHeader>
+                <CardTitle className="text-white text-2xl flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6 text-orange-400" />
+                  Moving Text Announcements
+                </CardTitle>
+                <p className="text-gray-400">Create ticker announcements that scroll on the bottom of videos</p>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-800/60 rounded-xl p-6 space-y-5">
+                  <h3 className="text-white font-semibold">Create New Announcement</h3>
+
+                  {/* Message */}
+                  <div>
+                    <label className="text-gray-300 text-sm mb-1 block">Announcement Message</label>
+                    <Textarea
+                      placeholder="E.g., Channel will shutdown on Dec 31, 2026. Thank you for watching!"
+                      value={newMovingText.message}
+                      onChange={(e) => setNewMovingText(prev => ({ ...prev, message: e.target.value }))}
+                      className="bg-gray-900/60 border-gray-700 text-white min-h-[80px]"
+                    />
+                  </div>
+
+                  {/* Display Mode */}
+                  <div>
+                    <label className="text-gray-300 text-sm mb-2 block">Display Mode</label>
+                    <div className="flex gap-2">
+                      {(["scrolling", "static"] as const).map(mode => (
+                        <button key={mode} onClick={() => setNewMovingText(prev => ({ ...prev, display_mode: mode }))}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize ${newMovingText.display_mode === mode ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          {mode}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Scroll Direction */}
+                  {newMovingText.display_mode === "scrolling" && (
+                    <div>
+                      <label className="text-gray-300 text-sm mb-2 block">Scroll Direction</label>
+                      <div className="flex gap-2">
+                        <button onClick={() => setNewMovingText(prev => ({ ...prev, scroll_direction: "left" }))}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold ${newMovingText.scroll_direction === "left" ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          ← Scroll Left
+                        </button>
+                        <button onClick={() => setNewMovingText(prev => ({ ...prev, scroll_direction: "right" }))}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold ${newMovingText.scroll_direction === "right" ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          Scroll Right →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Font */}
+                  <div>
+                    <label className="text-gray-300 text-sm mb-2 block">Font</label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Segoe UI", "Arial", "Tahoma", "Verdana", "Comic Sans MS"].map(font => (
+                        <button key={font} onClick={() => setNewMovingText(prev => ({ ...prev, font }))}
+                          style={{ fontFamily: font }}
+                          className={`px-3 py-2 rounded-lg text-sm ${newMovingText.font === font ? "bg-green-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          {font}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Scroll Speed */}
+                  {newMovingText.display_mode === "scrolling" && (
+                    <div>
+                      <label className="text-gray-300 text-sm mb-2 block">Scroll Speed</label>
+                      <div className="flex gap-2 items-center">
+                        {[["Fast (10s)", 10], ["Normal (20s)", 20], ["Slow (30s)", 30]].map(([label, val]) => (
+                          <button key={label as string} onClick={() => setNewMovingText(prev => ({ ...prev, scroll_speed: val as number }))}
+                            className={`px-3 py-2 rounded-lg text-sm ${newMovingText.scroll_speed === val ? "bg-orange-500 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                            {label as string}
+                          </button>
+                        ))}
+                        <Input type="number" value={newMovingText.scroll_speed}
+                          onChange={(e) => setNewMovingText(prev => ({ ...prev, scroll_speed: Number(e.target.value) }))}
+                          className="w-20 bg-gray-900/60 border-gray-700 text-white" />
+                        <span className="text-gray-400 text-sm">seconds</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Target */}
+                  <div>
+                    <label className="text-gray-300 text-sm mb-2 block">Target</label>
+                    <div className="flex gap-2">
+                      {([["single", "Single Channel"], ["multiple", "Multiple Channels"], ["all", "All Channels"]] as const).map(([val, label]) => (
+                        <button key={val} onClick={() => setNewMovingText(prev => ({ ...prev, target: val, channel_ids: [] }))}
+                          className={`px-3 py-2 rounded-lg text-sm ${newMovingText.target === val ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Channel Selector */}
+                  {newMovingText.target !== "all" && (
+                    <div>
+                      <label className="text-gray-300 text-sm mb-2 block">Select Channels</label>
+                      <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input placeholder="Search channels..."
+                          value={movingTextChannelSearch}
+                          onChange={(e) => setMovingTextChannelSearch(e.target.value)}
+                          className="bg-gray-900/60 border-gray-700 text-white pl-10" />
+                      </div>
+                      <div className="border border-gray-700 rounded-lg max-h-48 overflow-y-auto">
+                        {allChannels
+                          .filter(ch => ch.name.toLowerCase().includes(movingTextChannelSearch.toLowerCase()))
+                          .map(ch => (
+                            <div key={ch.id}
+                              onClick={() => {
+                                const isSelected = newMovingText.channel_ids.includes(ch.id)
+                                if (newMovingText.target === "single") {
+                                  setNewMovingText(prev => ({ ...prev, channel_ids: isSelected ? [] : [ch.id] }))
+                                } else {
+                                  setNewMovingText(prev => ({
+                                    ...prev,
+                                    channel_ids: isSelected
+                                      ? prev.channel_ids.filter(id => id !== ch.id)
+                                      : [...prev.channel_ids, ch.id]
+                                  }))
+                                }
+                              }}
+                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-0 ${newMovingText.channel_ids.includes(ch.id) ? "bg-blue-500/20" : ""}`}>
+                              {ch.logo && <img src={ch.logo} alt="" className="w-8 h-8 rounded object-contain bg-white/10" />}
+                              <span className="text-white text-sm flex-1">{ch.name}</span>
+                              <span className="text-gray-500 text-xs">{ch.id}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Create Button */}
+                  <Button
+                    onClick={async () => {
+                      if (!newMovingText.message.trim()) {
+                        alert("Please enter an announcement message.")
+                        return
+                      }
+                      if (newMovingText.target !== "all" && newMovingText.channel_ids.length === 0) {
+                        alert("Please select at least one channel.")
+                        return
+                      }
+                      const supabase = createClient()
+                      const { error } = await supabase.from("moving_text_announcements").insert({
+                        message: newMovingText.message,
+                        display_mode: newMovingText.display_mode,
+                        scroll_direction: newMovingText.scroll_direction,
+                        font: newMovingText.font,
+                        scroll_speed: newMovingText.scroll_speed,
+                        target: newMovingText.target,
+                        channel_ids: newMovingText.target === "all" ? [] : newMovingText.channel_ids,
+                        is_active: true,
+                        created_at: new Date().toISOString(),
+                      })
+                      if (error) { alert("Failed to create: " + error.message); return }
+                      const { data } = await supabase.from("moving_text_announcements").select("*").order("created_at", { ascending: false })
+                      setMovingTextAnnouncements(data || [])
+                      setNewMovingText({ message: "", display_mode: "scrolling", scroll_direction: "left", font: "Segoe UI", scroll_speed: 20, target: "all", channel_ids: [], is_active: true })
+                      alert("Announcement created!")
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Create Announcement
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Moving Text Announcements */}
+            <Card className="bg-white/5 border border-white/10">
+              <CardHeader>
+                <CardTitle className="text-white">Active Ticker Announcements ({movingTextAnnouncements.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {movingTextAnnouncements.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8">No moving text announcements yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {movingTextAnnouncements.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{item.message}</p>
+                          <div className="flex gap-2 mt-1">
+                            <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded">{item.display_mode}</span>
+                            <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded">{item.target === "all" ? "All Channels" : `${item.channel_ids?.length || 0} channels`}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${item.is_active ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-400"}`}>{item.is_active ? "Active" : "Inactive"}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button size="sm" variant="outline"
+                            onClick={async () => {
+                              const supabase = createClient()
+                              await supabase.from("moving_text_announcements").update({ is_active: !item.is_active }).eq("id", item.id)
+                              const { data } = await supabase.from("moving_text_announcements").select("*").order("created_at", { ascending: false })
+                              setMovingTextAnnouncements(data || [])
+                            }}
+                            className="border-gray-600 text-gray-300 hover:text-white text-xs">
+                            {item.is_active ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button size="sm" variant="destructive"
+                            onClick={async () => {
+                              if (!confirm("Delete this announcement?")) return
+                              const supabase = createClient()
+                              await supabase.from("moving_text_announcements").delete().eq("id", item.id)
+                              setMovingTextAnnouncements(prev => prev.filter(a => a.id !== item.id))
+                            }}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Add Channel Modal */}
+        {showAddChannelModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-700">
+                <h2 className="text-white text-xl font-bold">Add New Channel</h2>
+                <button onClick={() => setShowAddChannelModal(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Name + Logo */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-white text-sm mb-1 block font-medium">Name <span className="text-red-400">*</span></label>
+                    <Input placeholder="e.g. CNN Philippines" value={addChannelForm.name}
+                      onChange={(e) => setAddChannelForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="bg-gray-800 border-gray-700 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-white text-sm mb-1 block font-medium">Logo URL</label>
+                    <Input placeholder="https://..." value={addChannelForm.logo}
+                      onChange={(e) => setAddChannelForm(prev => ({ ...prev, logo: e.target.value }))}
+                      className="bg-gray-800 border-gray-700 text-white" />
+                  </div>
+                </div>
+                {/* Stream URL */}
+                <div>
+                  <label className="text-white text-sm mb-1 block font-medium">Stream URL <span className="text-red-400">*</span></label>
+                  <Input placeholder="https://... (.m3u8, .mpd, etc.)" value={addChannelForm.url}
+                    onChange={(e) => setAddChannelForm(prev => ({ ...prev, url: e.target.value }))}
+                    className="bg-gray-800 border-gray-700 text-white" />
+                </div>
+                {/* Category */}
+                <div>
+                  <label className="text-white text-sm mb-2 block font-medium">Category</label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Entertainment", "News", "Sports", "Kids", "Movies", "Anime", "Documentary", "Educational", "Music", "International"].map(cat => (
+                      <button key={cat} onClick={() => setAddChannelForm(prev => ({ ...prev, category: cat }))}
+                        className={`px-3 py-1.5 rounded-lg text-sm ${addChannelForm.category === cat ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Section/Group */}
+                <div>
+                  <label className="text-white text-sm mb-2 block font-medium">Section (Group)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Mediaquest", "ABS-CBN", "GMA", "TV5", "International", "Kids", "Sports", "News", "EU", "Other"].map(grp => (
+                      <button key={grp} onClick={() => setAddChannelForm(prev => ({ ...prev, group: grp }))}
+                        className={`px-3 py-1.5 rounded-lg text-sm ${addChannelForm.group === grp ? "bg-green-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
+                        {grp}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* DRM */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-gray-400 text-sm mb-1 block">DRM Key ID <span className="text-gray-500">(optional)</span></label>
+                    <Input placeholder="e.g. ff8085fd9469913a..." value={addChannelForm.drm_key_id}
+                      onChange={(e) => setAddChannelForm(prev => ({ ...prev, drm_key_id: e.target.value }))}
+                      className="bg-gray-800 border-gray-700 text-white font-mono text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-gray-400 text-sm mb-1 block">DRM Key <span className="text-gray-500">(optional)</span></label>
+                    <Input placeholder="e.g. 2496ee469b2d1a19..." value={addChannelForm.drm_key}
+                      onChange={(e) => setAddChannelForm(prev => ({ ...prev, drm_key: e.target.value }))}
+                      className="bg-gray-800 border-gray-700 text-white font-mono text-sm" />
+                  </div>
+                </div>
+                {/* Toggles */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg cursor-pointer" onClick={() => setAddChannelForm(prev => ({ ...prev, is_hd: !prev.is_hd }))}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${addChannelForm.is_hd ? "bg-blue-600" : "bg-gray-700"}`}>
+                      <div className="w-4 h-4 rounded-full bg-white" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">HD Channel</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg cursor-pointer" onClick={() => setAddChannelForm(prev => ({ ...prev, non_hls: !prev.non_hls }))}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${addChannelForm.non_hls ? "bg-blue-600" : "bg-gray-700"}`}>
+                      <div className="w-4 h-4 rounded-full bg-white" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Non-HLS Fallback (MP4/WEBM/OGG)</p>
+                      <p className="text-gray-400 text-sm">Enable direct video playback for non-HLS streams</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 p-6 border-t border-gray-700">
+                <Button
+                  onClick={async () => {
+                    if (!addChannelForm.name.trim() || !addChannelForm.url.trim()) {
+                      alert("Name and Stream URL are required.")
+                      return
+                    }
+                    const supabase = createClient()
+                    const channelId = addChannelForm.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+                    const drmObj = addChannelForm.drm_key_id && addChannelForm.drm_key
+                      ? { clearkey: { [addChannelForm.drm_key_id]: addChannelForm.drm_key } }
+                      : null
+                    const { error } = await supabase.from("channels").upsert({
+                      id: channelId,
+                      name: addChannelForm.name,
+                      url: addChannelForm.url,
+                      logo: addChannelForm.logo || null,
+                      category: addChannelForm.category,
+                      group_name: addChannelForm.group,
+                      is_hd: addChannelForm.is_hd,
+                      drm: drmObj,
+                    }, { onConflict: "id" })
+                    if (error) { alert("Failed: " + error.message); return }
+                    const { data } = await supabase.from("channels").select("*").order("name")
+                    setDbChannels(data || [])
+                    setShowAddChannelModal(false)
+                    setAddChannelForm({ name: "", logo: "", url: "", category: "Entertainment", group: "Other", drm_key_id: "", drm_key: "", is_hd: true, non_hls: false })
+                    alert("Channel added successfully!")
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Add Channel
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddChannelModal(false)} className="border-gray-600 text-gray-300 hover:text-white">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
