@@ -92,9 +92,10 @@ export function AnnouncementsSystem() {
         return
       }
 
-      setAnnouncements(data || [])
+      const announcementData = Array.isArray(data) ? data : []
+      setAnnouncements(announcementData)
 
-      const popupAnnouncement = data?.find((ann) => ann.show_popup && !dismissedAnnouncements.includes(ann.id))
+      const popupAnnouncement = announcementData?.find((ann) => ann.show_popup && !dismissedAnnouncements.includes(ann.id))
 
       if (popupAnnouncement && !currentPopup) {
         setCurrentPopup(popupAnnouncement)
@@ -108,7 +109,7 @@ export function AnnouncementsSystem() {
       }
 
       // Show banner if there are active announcements
-      setShowBanner(data && data.length > 0)
+      setShowBanner(announcementData && announcementData.length > 0)
     } catch (error) {
       console.error("[v0] Error loading announcements:", error)
     }

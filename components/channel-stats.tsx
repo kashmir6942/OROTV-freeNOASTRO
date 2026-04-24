@@ -53,17 +53,21 @@ export function ChannelStats({ isOpen, onClose, allChannels, onChannelSelect }: 
 
       const statsMap = new Map<string, ChannelStats>()
       
-      if (data && data.length > 0) {
+      if (data && Array.isArray(data) && data.length > 0) {
         data.forEach((stat) => {
-          statsMap.set(stat.channel_id, {
-            channelId: stat.channel_id,
-            viewCount: stat.view_count || 0,
-            currentViewers: stat.total_viewers || 0,
-            peakViewers: stat.peak_viewers || 0,
-            avgWatchTime: stat.total_watch_time || 0,
-          })
+          if (stat && stat.channel_id) {
+            statsMap.set(stat.channel_id, {
+              channelId: stat.channel_id,
+              viewCount: stat.view_count || 0,
+              currentViewers: stat.total_viewers || 0,
+              peakViewers: stat.peak_viewers || 0,
+              avgWatchTime: stat.total_watch_time || 0,
+            })
+          }
         })
         console.log('[v0] Loaded stats for', statsMap.size, 'channels from Supabase')
+      } else if (!data) {
+        console.log('[v0] No data returned from channel_analytics query')
       }
 
       setStats(statsMap)

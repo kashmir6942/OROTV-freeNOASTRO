@@ -22,6 +22,9 @@ const client = new Client({
   connectionTimeoutMillis: 60000,
   idleTimeoutMillis: 60000,
   statement_timeout: 60000,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 // All SQL scripts in order
@@ -66,6 +69,70 @@ const sqlFiles = [
   'create-folders-favorites.sql',
 ];
 
+// Smart SQL statement splitter that respects dollar-quoted strings
+function splitSqlStatements(sql) {
+  const statements = [];
+  let currentStatement = '';
+  let inDollarQuote = false;
+  let dollarQuoteDelimiter = '';
+  let i = 0;
+
+  while (i < sql.length) {
+    const char = sql[i];
+
+    // Check for dollar quote start/end
+    if (char === '$') {
+      // Look ahead to find the dollar quote delimiter
+      let j = i + 1;
+      let delimiter = '';
+      while (j < sql.length && sql[j] !== '$') {
+        delimiter += sql[j];
+        j++;
+      }
+
+      if (j < sql.length && sql[j] === '$') {
+        const fullDelimiter = '$' + delimiter + '$';
+
+        if (!inDollarQuote) {
+          inDollarQuote = true;
+          dollarQuoteDelimiter = fullDelimiter;
+          currentStatement += fullDelimiter;
+          i = j + 1;
+          continue;
+        } else if (fullDelimiter === dollarQuoteDelimiter) {
+          inDollarQuote = false;
+          currentStatement += fullDelimiter;
+          i = j + 1;
+          continue;
+        }
+      }
+    }
+
+    // Handle statement terminator (semicolon) when not in dollar quote
+    if (char === ';' && !inDollarQuote) {
+      currentStatement += char;
+      const trimmed = currentStatement.trim();
+      if (trimmed.length > 0 && !trimmed.startsWith('--')) {
+        statements.push(trimmed);
+      }
+      currentStatement = '';
+      i++;
+      continue;
+    }
+
+    currentStatement += char;
+    i++;
+  }
+
+  // Add any remaining statement
+  const trimmed = currentStatement.trim();
+  if (trimmed.length > 0 && !trimmed.startsWith('--')) {
+    statements.push(trimmed);
+  }
+
+  return statements;
+}
+
 async function runMigrations() {
   try {
     await client.connect();
@@ -87,11 +154,8 @@ async function runMigrations() {
       try {
         const sql = fs.readFileSync(filePath, 'utf-8');
         
-        // Split by semicolon and filter empty statements
-        const statements = sql
-          .split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && !s.startsWith('--'));
+        // Use smart splitter that respects dollar-quoted strings
+        const statements = splitSqlStatements(sql);
 
         if (statements.length === 0) {
           console.log(`⏭️  Skipping ${file} (no valid statements)`);
@@ -99,6 +163,7 @@ async function runMigrations() {
           continue;
         }
 
+        let fileErrors = 0;
         for (const statement of statements) {
           try {
             await client.query(statement);
@@ -108,13 +173,19 @@ async function runMigrations() {
                 !error.message.includes('duplicate key') &&
                 !error.message.includes('Duplicate') &&
                 !error.message.includes('UNIQUE violation')) {
-              console.warn(`⚠️  Warning in ${file}: ${error.message}`);
+              console.warn(`⚠️  Error in ${file}: ${error.message}`);
+              fileErrors++;
             }
           }
         }
 
-        console.log(`✅ ${file}`);
-        successCount++;
+        if (fileErrors === 0) {
+          console.log(`✅ ${file}`);
+          successCount++;
+        } else {
+          console.log(`⚠️  ${file} (${fileErrors} errors)`);
+          failureCount++;
+        }
       } catch (error) {
         console.error(`❌ ${file}: ${error.message}`);
         failureCount++;
