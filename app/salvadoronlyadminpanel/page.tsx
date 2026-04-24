@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star } from 'lucide-react'
 
 interface TokenData {
   id: string
@@ -102,6 +102,7 @@ export default function AdminPanel() {
   })
 
   const [channelRequests, setChannelRequests] = useState<any[]>([])
+  const [userRatings, setUserRatings] = useState<any[]>([])
 
   useEffect(() => {
     loadData()
@@ -193,7 +194,13 @@ export default function AdminPanel() {
         .select("*")
         .order("created_at", { ascending: false })
 
+      const { data: userRatingsData } = await supabase
+        .from("user_ratings")
+        .select("*")
+        .order("created_at", { ascending: false })
+
       setSessions(sessionsData || [])
+      setUserRatings(userRatingsData || [])
       setPhcornerUsernames(usernamesData || [])
       setUserReports(reportsData || [])
       setChannelAnalytics(analyticsData || [])
@@ -651,6 +658,7 @@ export default function AdminPanel() {
             { id: "announcements", label: "Announcements", icon: AlertTriangle },
             { id: "maintenance", label: "Maintenance", icon: Settings },
             { id: "channel-requests", label: "Channel Requests", icon: Plus },
+            { id: "user-ratings", label: "User Ratings", icon: Star },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1859,6 +1867,147 @@ export default function AdminPanel() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "user-ratings" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white flex items-center">
+                  <Star className="w-5 h-5 mr-2 text-yellow-400" />
+                  User Ratings & Feedback
+                </CardTitle>
+                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                  {userRatings.length} Ratings
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Rating Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = userRatings.filter((r) => r.rating === star).length
+                  const percentage = userRatings.length > 0 ? (count / userRatings.length) * 100 : 0
+                  return (
+                    <div key={star} className="bg-white/5 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-2">
+                        {[...Array(star)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                        ))}
+                      </div>
+                      <div className="text-2xl font-bold text-white">{count}</div>
+                      <div className="text-gray-400 text-xs">{percentage.toFixed(1)}%</div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Average Rating */}
+              {userRatings.length > 0 && (
+                <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg p-6 mb-6 text-center">
+                  <div className="text-4xl font-bold text-white mb-2">
+                    {(userRatings.reduce((sum, r) => sum + r.rating, 0) / userRatings.length).toFixed(1)}
+                  </div>
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    {[...Array(5)].map((_, i) => {
+                      const avg = userRatings.reduce((sum, r) => sum + r.rating, 0) / userRatings.length
+                      return (
+                        <Star
+                          key={i}
+                          className={`w-6 h-6 ${i < Math.round(avg) ? "fill-yellow-400 text-yellow-400" : "text-gray-600"}`}
+                        />
+                      )
+                    })}
+                  </div>
+                  <div className="text-gray-400">Average Rating from {userRatings.length} reviews</div>
+                </div>
+              )}
+
+              {/* Ratings List */}
+              <div className="space-y-4">
+                {userRatings.map((rating) => (
+                  <Card key={rating.id} className="bg-white/5 border-white/10">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-white font-semibold">
+                              {rating.user_type}: {rating.username || "Anonymous"}
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${i < rating.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-600"}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="text-gray-400 text-xs">{formatDate(rating.created_at)}</div>
+                        </div>
+                        <Badge
+                          className={`
+                            ${rating.rating >= 4 ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}
+                            ${rating.rating === 3 ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : ""}
+                            ${rating.rating <= 2 ? "bg-red-500/20 text-red-400 border-red-500/30" : ""}
+                          `}
+                        >
+                          {rating.rating === 5 ? "Excellent" : rating.rating === 4 ? "Good" : rating.rating === 3 ? "Average" : rating.rating === 2 ? "Poor" : "Bad"}
+                        </Badge>
+                      </div>
+
+                      {rating.satisfaction_comment && (
+                        <div className="mb-3">
+                          <div className="text-gray-400 text-xs mb-1">Comment:</div>
+                          <div className="text-white text-sm bg-white/5 rounded p-2">{rating.satisfaction_comment}</div>
+                        </div>
+                      )}
+
+                      {rating.complaint && (
+                        <div className="mb-3">
+                          <div className="text-red-400 text-xs mb-1">Complaint:</div>
+                          <div className="text-white text-sm bg-red-500/10 border border-red-500/20 rounded p-2">{rating.complaint}</div>
+                        </div>
+                      )}
+
+                      {rating.issues && rating.issues.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-orange-400 text-xs mb-1">Issues:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {rating.issues.map((issue: string, i: number) => (
+                              <Badge key={i} className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">
+                                {issue}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {rating.features_to_add && (
+                        <div className="mb-3">
+                          <div className="text-blue-400 text-xs mb-1">Features Requested:</div>
+                          <div className="text-white text-sm bg-blue-500/10 border border-blue-500/20 rounded p-2">{rating.features_to_add}</div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-3 pt-3 border-t border-white/10">
+                        <span>IP: {rating.user_ip}</span>
+                        <span>ID: {rating.id.substring(0, 8)}...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {userRatings.length === 0 && (
+                  <div className="text-center py-12">
+                    <Star className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                    <p className="text-gray-400 text-lg">No user ratings yet</p>
+                    <p className="text-gray-500 text-sm">User ratings will appear here when submitted</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
