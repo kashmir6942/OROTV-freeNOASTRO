@@ -80,6 +80,8 @@ export default function AdminPanel() {
   const [viewerStats, setViewerStats] = useState<any[]>([])
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [maintenanceMode, setMaintenanceMode] = useState<MaintenanceMode | null>(null)
+  const [userRatings, setUserRatings] = useState<any[]>([])
+  const [ratingsFilter, setRatingsFilter] = useState<{rating?: number, startDate?: string, endDate?: string}>({})
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     message: "",
@@ -659,6 +661,7 @@ export default function AdminPanel() {
             { id: "announcements", label: "Announcements", icon: AlertTriangle },
             { id: "maintenance", label: "Maintenance", icon: Settings },
             { id: "channel-requests", label: "Channel Requests", icon: Plus },
+            { id: "user-ratings", label: "User Ratings", icon: BarChart3 },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1867,6 +1870,132 @@ export default function AdminPanel() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "user-ratings" && (
+          <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <BarChart3 className="w-5 h-5 mr-3" />
+                User Ratings & Feedback
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-gray-300">Filter by Rating</Label>
+                  <Select value={ratingsFilter.rating?.toString() || "all"} onValueChange={(val) => setRatingsFilter({...ratingsFilter, rating: val === "all" ? undefined : parseInt(val)})}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder="All ratings" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All ratings</SelectItem>
+                      <SelectItem value="5">⭐⭐⭐⭐⭐ 5 Stars</SelectItem>
+                      <SelectItem value="4">⭐⭐⭐⭐ 4 Stars</SelectItem>
+                      <SelectItem value="3">⭐⭐⭐ 3 Stars</SelectItem>
+                      <SelectItem value="2">⭐⭐ 2 Stars</SelectItem>
+                      <SelectItem value="1">⭐ 1 Star</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-gray-300">Start Date</Label>
+                  <Input type="date" value={ratingsFilter.startDate || ""} onChange={(e) => setRatingsFilter({...ratingsFilter, startDate: e.target.value})} className="bg-white/10 border-white/20 text-white" />
+                </div>
+                <div>
+                  <Label className="text-gray-300">End Date</Label>
+                  <Input type="date" value={ratingsFilter.endDate || ""} onChange={(e) => setRatingsFilter({...ratingsFilter, endDate: e.target.value})} className="bg-white/10 border-white/20 text-white" />
+                </div>
+              </div>
+
+              {/* Ratings Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{userRatings.length}</div>
+                  <div className="text-gray-400 text-sm">Total Ratings</div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-green-400">{(userRatings.filter(r => r.rating === 5).length / Math.max(userRatings.length, 1) * 100).toFixed(0)}%</div>
+                  <div className="text-gray-400 text-sm">5 Star %</div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-yellow-400">{(userRatings.reduce((sum, r) => sum + r.rating, 0) / Math.max(userRatings.length, 1)).toFixed(1)}</div>
+                  <div className="text-gray-400 text-sm">Avg Rating</div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-400">{userRatings.filter(r => r.satisfaction_comment).length}</div>
+                  <div className="text-gray-400 text-sm">With Comments</div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-red-400">{userRatings.filter(r => r.complaint).length}</div>
+                  <div className="text-gray-400 text-sm">Complaints</div>
+                </div>
+              </div>
+
+              {/* Ratings List */}
+              <div className="space-y-4">
+                {userRatings.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <p>No ratings yet</p>
+                  </div>
+                ) : (
+                  userRatings.map((rating) => (
+                    <Card key={rating.id} className="bg-white/5 border-white/10">
+                      <CardContent className="pt-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-white font-medium">{rating.user_identifier}</p>
+                              <p className="text-gray-400 text-sm">{new Date(rating.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-yellow-400">
+                                {"⭐".repeat(rating.rating)}{"☆".repeat(5 - rating.rating)}
+                              </div>
+                              <p className="text-gray-400 text-sm">{rating.rating} out of 5</p>
+                            </div>
+                          </div>
+
+                          {rating.satisfaction_comment && (
+                            <div className="bg-white/5 rounded p-3 border-l-2 border-blue-400">
+                              <p className="text-gray-400 text-sm font-medium">Feedback:</p>
+                              <p className="text-white text-sm mt-1">{rating.satisfaction_comment}</p>
+                            </div>
+                          )}
+
+                          {rating.complaint && (
+                            <div className="bg-red-500/10 rounded p-3 border-l-2 border-red-400">
+                              <p className="text-red-400 text-sm font-medium">Complaint:</p>
+                              <p className="text-white text-sm mt-1">{rating.complaint}</p>
+                            </div>
+                          )}
+
+                          {rating.issues && rating.issues.length > 0 && (
+                            <div className="bg-orange-500/10 rounded p-3 border-l-2 border-orange-400">
+                              <p className="text-orange-400 text-sm font-medium">Issues Reported:</p>
+                              <ul className="text-white text-sm mt-1 list-disc list-inside">
+                                {rating.issues.map((issue, idx) => (
+                                  <li key={idx}>{issue}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {rating.features_to_add && (
+                            <div className="bg-green-500/10 rounded p-3 border-l-2 border-green-400">
+                              <p className="text-green-400 text-sm font-medium">Requested Features:</p>
+                              <p className="text-white text-sm mt-1">{rating.features_to_add}</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
