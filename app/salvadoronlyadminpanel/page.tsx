@@ -675,46 +675,13 @@ export default function AdminPanel() {
   }
 
   if (isLoading) {
-  return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-[1600px] mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2">Salvador Admin Panel</h1>
-          <p className="text-gray-600">Advanced token management and system administration</p>
+    return (
+      <div className="min-h-screen bg-white p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
         </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8 bg-gray-100 p-1 rounded-lg border border-gray-200">
-          {[
-            { id: "overview", label: "Overview", icon: BarChart3 },
-            { id: "generate", label: "Generate Tokens", icon: Plus },
-            { id: "manage", label: "Manage Tokens", icon: Settings },
-            { id: "analytics", label: "Analytics", icon: Users },
-            { id: "usernames", label: "PHCorner Users", icon: UserCheck },
-            { id: "passwords", label: "Passwords On Each Token", icon: Shield },
-            { id: "viewers", label: "Viewer Analytics", icon: Users },
-            { id: "reports", label: "User Reports", icon: Shield },
-            { id: "announcements", label: "Announcements", icon: AlertTriangle },
-            { id: "maintenance", label: "Maintenance", icon: Settings },
-            { id: "channel-requests", label: "Channel Requests", icon: Plus },
-            { id: "user-ratings", label: "User Ratings", icon: Star },
-            { id: "channel-manager", label: "Channel Manager", icon: Tv },
-            { id: "channel-status", label: "Channel Status", icon: AlertTriangle },
-            { id: "moving-text", label: "Moving Text", icon: MessageSquare },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-4 py-2 rounded-md transition-colors ${
-                activeTab === tab.id ? "bg-black text-white" : "text-gray-600 hover:text-black hover:bg-gray-200"
-              }`}
-            >
-              <tab.icon className="w-4 h-4 mr-2" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      </div>
     )
   }
 
