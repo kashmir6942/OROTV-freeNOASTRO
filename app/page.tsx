@@ -207,6 +207,8 @@ export default function Home() {
   const recommendedIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [showChannelGuide, setShowChannelGuide] = useState(false)
+  const [pendingBitrateMode, setPendingBitrateMode] = useState<"high-bitrate" | "optimized" | null>(null)
+  const pendingChannelRef = useRef<Channel | null>(null)
   const [channelGuideSearch, setChannelGuideSearch] = useState("")
   const [epgData, setEpgData] = useState<any>({})
   const [currentPrograms, setCurrentPrograms] = useState<any>({})
@@ -573,6 +575,25 @@ export default function Home() {
     }, 100)
   }
 
+  // Handler for bitrate mode change - closes player, goes to home UI, then reopens
+  const handleBitrateModeChange = (mode: "high-bitrate" | "optimized") => {
+    // Store the current channel to reopen
+    pendingChannelRef.current = selectedChannel
+    setPendingBitrateMode(mode)
+    
+    // Close the player first (go to home UI)
+    setSelectedChannel(null)
+    
+    // After a brief delay, reopen the same channel
+    setTimeout(() => {
+      if (pendingChannelRef.current) {
+        setSelectedChannel(pendingChannelRef.current)
+        pendingChannelRef.current = null
+      }
+      setPendingBitrateMode(null)
+    }, 300)
+  }
+
   const handleVideoPositionUpdate = async (channelId: string, position: number) => {
     if (!userSessionId) return
 
@@ -924,6 +945,7 @@ export default function Home() {
           user={null}
           onClose={handleClosePlayer}
           onChannelChange={() => {}}
+          onBitrateModeChange={handleBitrateModeChange}
           availableChannels={allChannels}
           videoRef={videoRef}
           isMuted={isMuted}
@@ -1096,6 +1118,7 @@ export default function Home() {
                       setHeaderTitle("Live TV")
                     }}
                     onChannelChange={() => {}}
+                    onBitrateModeChange={handleBitrateModeChange}
                     availableChannels={allChannels}
                     videoRef={videoRef}
                     isMuted={isMuted}
@@ -1364,6 +1387,7 @@ export default function Home() {
                       setHeaderTitle("Live TV")
                     }}
                     onChannelChange={() => {}}
+                    onBitrateModeChange={handleBitrateModeChange}
                     availableChannels={allChannels}
                     videoRef={videoRef}
                     isMuted={isMuted}

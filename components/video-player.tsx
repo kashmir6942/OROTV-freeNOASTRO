@@ -70,6 +70,7 @@ interface ExtendedVideoPlayerProps extends VideoPlayerProps {
   onPositionUpdate?: (channelId: string, position: number) => void
   getSavedPosition?: (channelId: string) => Promise<number>
   embedded?: boolean
+  onBitrateModeChange?: (mode: "high-bitrate" | "optimized") => void
 }
 
 export function VideoPlayer({
@@ -97,6 +98,7 @@ export function VideoPlayer({
   onPositionUpdate,
   getSavedPosition,
   embedded = false,
+  onBitrateModeChange,
 }: ExtendedVideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -1839,40 +1841,52 @@ export function VideoPlayer({
           <div className="mb-4">
             <p className="text-white/50 text-[10px] uppercase tracking-widest mb-2 font-medium">Streaming Mode</p>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  if (streamingMode !== "high-bitrate") {
-                    setStreamingMode("high-bitrate")
-                    setShowSettings(false)
-                    setTimeout(() => smartReopenChannel(), 100)
-                  }
-                }}
-                className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
-                  streamingMode === "high-bitrate"
-                    ? "border-white text-white bg-white/10"
-                    : "border-white/30 text-white/50 hover:border-white/60"
-                }`}
-                style={{ pointerEvents: "auto" }}
-              >
-                High Bitrate
-              </button>
-              <button
-                onClick={() => {
-                  if (streamingMode !== "optimized") {
-                    setStreamingMode("optimized")
-                    setShowSettings(false)
-                    setTimeout(() => smartReopenChannel(), 100)
-                  }
-                }}
-                className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
-                  streamingMode === "optimized"
-                    ? "border-white text-white bg-white/10"
-                    : "border-white/30 text-white/50 hover:border-white/60"
-                }`}
-                style={{ pointerEvents: "auto" }}
-              >
-                Optimized
-              </button>
+                <button
+                  onClick={() => {
+                    if (streamingMode !== "high-bitrate") {
+                      setShowSettings(false)
+                      // Close player and reopen with new mode through parent
+                      if (onBitrateModeChange) {
+                        onBitrateModeChange("high-bitrate")
+                      } else {
+                        // Fallback: just change mode and reinitialize
+                        setStreamingMode("high-bitrate")
+                        setTimeout(() => smartReopenChannel(), 100)
+                      }
+                    }
+                  }}
+                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
+                    streamingMode === "high-bitrate"
+                      ? "border-white text-white bg-white/10"
+                      : "border-white/30 text-white/50 hover:border-white/60"
+                  }`}
+                  style={{ pointerEvents: "auto" }}
+                >
+                  High Bitrate
+                </button>
+                <button
+                  onClick={() => {
+                    if (streamingMode !== "optimized") {
+                      setShowSettings(false)
+                      // Close player and reopen with new mode through parent
+                      if (onBitrateModeChange) {
+                        onBitrateModeChange("optimized")
+                      } else {
+                        // Fallback: just change mode and reinitialize
+                        setStreamingMode("optimized")
+                        setTimeout(() => smartReopenChannel(), 100)
+                      }
+                    }
+                  }}
+                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
+                    streamingMode === "optimized"
+                      ? "border-white text-white bg-white/10"
+                      : "border-white/30 text-white/50 hover:border-white/60"
+                  }`}
+                  style={{ pointerEvents: "auto" }}
+                >
+                  Optimized
+                </button>
             </div>
             <p className="text-white/40 text-[10px] mt-1.5">
               {streamingMode === "high-bitrate"
@@ -1943,38 +1957,7 @@ export function VideoPlayer({
           </div>
         </div>
 
-        {connectionStatus === "connected" && !error && !isBuffering && (
-          <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center overflow-hidden">
-            {(() => {
-              return (
-                <div className="absolute inset-0 w-full h-full">
-                  <img
-                    src="/images/cignal-watermark.png"
-                    alt="Cignal Station"
-                    className="w-full h-full"
-                    loading="lazy"
-                    decoding="async"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      objectFit: "fill",
-                      opacity: 0.25,
-                      pointerEvents: "none",
-                      transform: "translate3d(0, 0, 0)",
-                      WebkitTransform: "translate3d(0, 0, 0)",
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                      willChange: "transform",
-                    }}
-                  />
-                </div>
-              )
-            })()}
-          </div>
-        )}
+
 
         {showEPGOverlay && !isLoading && !error && (
           <div
