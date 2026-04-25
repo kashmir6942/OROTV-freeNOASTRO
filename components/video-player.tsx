@@ -309,16 +309,17 @@ export function VideoPlayer({
       if (playerType === "hls" && hlsRef.current) {
         const levels = hlsRef.current.levels
         if (levels && levels.length > 0) {
-          // Extract available quality levels
+          // Extract available quality levels sorted by bitrate
           const qualities = levels.map((level: any, index: number) => ({
             index,
             height: level.height || 0,
+            bitrate: level.bitrate || 0,
             label: level.height ? `${level.height}p` : `Level ${index + 1}`,
-          })).sort((a: any, b: any) => b.height - a.height)
+          })).sort((a: any, b: any) => b.bitrate - a.bitrate)
           setAvailableQualities(qualities)
 
           if (isHighBitrate) {
-            // HD Mode: Force highest quality
+            // HD MODE: LOCK to highest quality, disable ABR switching down
             let highestLevel = 0
             let highestBitrate = 0
             levels.forEach((level: any, index: number) => {
@@ -327,19 +328,34 @@ export function VideoPlayer({
                 highestLevel = index
               }
             })
+            // Force highest and keep forcing it
             hlsRef.current.currentLevel = highestLevel
-            console.log("[v0] HD Mode: Forced to highest quality level", highestLevel)
+            hlsRef.current.loadLevel = highestLevel
+            hlsRef.current.nextLevel = highestLevel
+            // Disable auto-switching to keep max quality
+            hlsRef.current.autoLevelCapping = highestLevel
+            console.log("[v0] HD Mode: LOCKED to highest quality level", highestLevel, "bitrate:", highestBitrate)
           } else {
-            // Optimized Mode: Let ABR auto-select (set to -1 for auto)
-            hlsRef.current.currentLevel = -1
-            console.log("[v0] Optimized Mode: ABR auto-selection enabled")
+            // SD MODE: Force lowest quality or let ABR pick low
+            let lowestLevel = 0
+            let lowestBitrate = Infinity
+            levels.forEach((level: any, index: number) => {
+              if (level.bitrate < lowestBitrate) {
+                lowestBitrate = level.bitrate
+                lowestLevel = index
+              }
+            })
+            // Start at lowest, cap at middle quality
+            hlsRef.current.currentLevel = lowestLevel
+            hlsRef.current.autoLevelCapping = Math.min(Math.floor(levels.length / 2), levels.length - 1)
+            console.log("[v0] SD Mode: Starting at lowest level", lowestLevel, "capped at", hlsRef.current.autoLevelCapping)
           }
         }
       } else if (playerType === "shaka" && playerRef.current) {
         const tracks = playerRef.current.getVariantTracks()
         if (tracks && tracks.length > 0) {
           if (isHighBitrate) {
-            // HD Mode: Force highest quality track
+            // HD Mode: Force highest quality track, disable ABR
             let highestTrack = tracks[0]
             let highestBandwidth = 0
             tracks.forEach((track: any) => {
@@ -348,13 +364,32 @@ export function VideoPlayer({
                 highestTrack = track
               }
             })
-            playerRef.current.configure({ abr: { enabled: false } })
+            playerRef.current.configure({ 
+              abr: { enabled: false },
+              streaming: { bufferingGoal: 120, rebufferingGoal: 5 }
+            })
             playerRef.current.selectVariantTrack(highestTrack, true)
-            console.log("[v0] HD Mode: Forced to highest quality track")
+            console.log("[v0] HD Mode: LOCKED to highest track, bandwidth:", highestBandwidth)
           } else {
-            // Optimized Mode: Enable ABR
-            playerRef.current.configure({ abr: { enabled: true } })
-            console.log("[v0] Optimized Mode: ABR enabled")
+            // SD Mode: Enable ABR with strict bandwidth limits
+            let lowestTrack = tracks[0]
+            let lowestBandwidth = Infinity
+            tracks.forEach((track: any) => {
+              if (track.bandwidth < lowestBandwidth) {
+                lowestBandwidth = track.bandwidth
+                lowestTrack = track
+              }
+            })
+            playerRef.current.configure({ 
+              abr: { 
+                enabled: true,
+                defaultBandwidthEstimate: 500000, // 500kbps
+                restrictions: { maxBandwidth: 1500000 } // Cap at 1.5Mbps
+              },
+              streaming: { bufferingGoal: 30, rebufferingGoal: 2 }
+            })
+            playerRef.current.selectVariantTrack(lowestTrack, false) // Start low
+            console.log("[v0] SD Mode: ABR with 1.5Mbps cap, starting at lowest")
           }
         }
       }
@@ -803,40 +838,76 @@ export function VideoPlayer({
           console.log("[v0] HLS.js is supported, creating player, mode:", currentMode)
           const isOptimized = currentMode === "optimized"
           
-          // OPTIMIZATION 1: Tuned HLS.js config to prevent constant rebuffering
-          hlsRef.current = new window.Hls({
-            enableWorker: !isAndroidTV,
+          // HD MODE: Maximum quality, no limits, biggest buffers
+          // SD MODE: Strict bandwidth limits for budget/slow internet
+          const hlsConfig = isOptimized ? {
+            // SD/OPTIMIZED MODE - For budget internet
+            enableWorker: true,
             lowLatencyMode: false,
-            // OPTIMIZATION 2: Larger buffers prevent micro-stalls
-            backBufferLength: isOptimized ? 15 : (isAndroidTV ? 45 : 90),
-            maxBufferLength: isOptimized ? 30 : (isAndroidTV ? 60 : 90),
-            maxMaxBufferLength: isOptimized ? 60 : (isAndroidTV ? 120 : 180),
-            // OPTIMIZATION 3: Longer timeouts prevent premature failures
-            manifestLoadingTimeOut: 20000,
-            manifestLoadingMaxRetry: 4,
-            levelLoadingTimeOut: 15000,
-            levelLoadingMaxRetry: 4,
-            fragLoadingTimeOut: 25000,
-            fragLoadingMaxRetry: 6,
-            // OPTIMIZATION 4: Start at auto level, let ABR decide
-            startLevel: isOptimized ? 0 : -1,
+            backBufferLength: 15,
+            maxBufferLength: 20,
+            maxMaxBufferLength: 40,
+            manifestLoadingTimeOut: 15000,
+            manifestLoadingMaxRetry: 3,
+            levelLoadingTimeOut: 12000,
+            levelLoadingMaxRetry: 3,
+            fragLoadingTimeOut: 20000,
+            fragLoadingMaxRetry: 4,
+            // START AT LOWEST QUALITY for SD mode
+            startLevel: 0,
             autoStartLoad: true,
-            // OPTIMIZATION 5: More tolerance for buffer holes
-            maxLoadingDelay: isOptimized ? 10 : 6,
-            maxBufferHole: 1.5,
-            // OPTIMIZATION 6: Smoother ABR switching to avoid quality ping-pong
-            abrEwmaFastLive: 3,
-            abrEwmaSlowLive: 9,
-            abrEwmaDefaultEstimate: 500000, // 500kbps default estimate
-            abrBandWidthFactor: isOptimized ? 0.6 : 0.85,
-            abrBandWidthUpFactor: isOptimized ? 0.4 : 0.6,
-            // OPTIMIZATION 7: Faster recovery from stalls
-            nudgeMaxRetry: 5,
-            nudgeOffset: 0.2,
-            // OPTIMIZATION 8: Progressive loading for smoother playback
+            maxLoadingDelay: 8,
+            maxBufferHole: 2,
+            // STRICT BANDWIDTH LIMITS - cap quality aggressively
+            abrEwmaFastLive: 2,
+            abrEwmaSlowLive: 6,
+            abrEwmaDefaultEstimate: 300000, // 300kbps default for SD
+            abrBandWidthFactor: 0.5, // Very conservative
+            abrBandWidthUpFactor: 0.3, // Slow to upgrade quality
+            // CAP BITRATE for budget internet (1.5 Mbps max)
+            abrMaxWithRealBitrate: true,
+            maxStarvationDelay: 6,
+            // Limit to lower quality levels
+            capLevelToPlayerSize: true,
+            nudgeMaxRetry: 3,
+            nudgeOffset: 0.3,
             progressive: true,
             testBandwidth: true,
-          })
+          } : {
+            // HD/HIGH-BITRATE MODE - Maximum quality, no limits
+            enableWorker: true,
+            lowLatencyMode: false,
+            // MASSIVE BUFFERS for uninterrupted HD playback
+            backBufferLength: 120,
+            maxBufferLength: 120,
+            maxMaxBufferLength: 240,
+            manifestLoadingTimeOut: 30000,
+            manifestLoadingMaxRetry: 6,
+            levelLoadingTimeOut: 25000,
+            levelLoadingMaxRetry: 6,
+            fragLoadingTimeOut: 40000,
+            fragLoadingMaxRetry: 8,
+            // START AT HIGHEST QUALITY immediately
+            startLevel: -1, // Auto but will force highest after manifest
+            autoStartLoad: true,
+            maxLoadingDelay: 4,
+            maxBufferHole: 0.8,
+            // AGGRESSIVE QUALITY - always push for highest
+            abrEwmaFastLive: 4,
+            abrEwmaSlowLive: 12,
+            abrEwmaDefaultEstimate: 5000000, // 5Mbps default for HD
+            abrBandWidthFactor: 0.95, // Use almost full bandwidth
+            abrBandWidthUpFactor: 0.85, // Quick to upgrade quality
+            // NO CAPS - let it use maximum available
+            capLevelToPlayerSize: false,
+            nudgeMaxRetry: 8,
+            nudgeOffset: 0.1,
+            progressive: true,
+            testBandwidth: true,
+          }
+          
+          hlsRef.current = new window.Hls(hlsConfig)
+          console.log("[v0] HLS initialized with", isOptimized ? "SD/OPTIMIZED" : "HD/MAX QUALITY", "config")
 
           hlsRef.current.loadSource(channel.url)
           hlsRef.current.attachMedia(video)
@@ -1919,11 +1990,30 @@ export function VideoPlayer({
             
             {/* Refresh */}
             <button
-              onClick={() => { setShowSettings(false); initializePlayer() }}
+              onClick={() => { 
+                setShowSettings(false)
+                // Properly destroy and reinitialize
+                if (hlsRef.current) {
+                  hlsRef.current.destroy()
+                  hlsRef.current = null
+                }
+                if (playerRef.current) {
+                  playerRef.current.destroy().catch(() => {})
+                  playerRef.current = null
+                }
+                if (videoRef.current) {
+                  videoRef.current.src = ""
+                  videoRef.current.load()
+                }
+                setIsLoading(true)
+                setError(null)
+                setIsBuffering(false)
+                setTimeout(() => initializePlayer(), 200)
+              }}
               className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
             >
               <RotateCcw className="w-5 h-5 text-white/60" />
-              <span className="text-white/80 text-sm">Refresh Stream</span>
+              <span className="text-white/80 text-sm">Restart Stream</span>
             </button>
           </div>
         </div>
