@@ -212,6 +212,7 @@ export default function Home() {
   const [showChannelGuide, setShowChannelGuide] = useState(false)
   const [pendingBitrateMode, setPendingBitrateMode] = useState<"high-bitrate" | "optimized" | null>(null)
   const pendingChannelRef = useRef<Channel | null>(null)
+  const [restoreUIHidden, setRestoreUIHidden] = useState(false)
   const [channelGuideSearch, setChannelGuideSearch] = useState("")
   const [epgData, setEpgData] = useState<any>({})
   const [currentPrograms, setCurrentPrograms] = useState<any>({})
@@ -615,10 +616,14 @@ export default function Home() {
     }, 100)
   }
 
-  // Handler for bitrate mode change - closes player (shows home UI), then reopens with new mode
+  // Handler for bitrate mode change / auto-reconnect - closes player (shows home UI), then reopens
   const handleBitrateModeChange = (mode: "high-bitrate" | "optimized") => {
     // Save mode to localStorage so video player picks it up on reinit
     localStorage.setItem("orotv-streaming-mode", mode)
+    
+    // Check if UI was hidden (video player sets this in wasUIHiddenRef before calling)
+    const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
+    
     // Store the current channel to reopen
     pendingChannelRef.current = selectedChannel
     setPendingBitrateMode(mode)
@@ -629,8 +634,12 @@ export default function Home() {
     // Reopen the same channel after brief delay (home briefly visible)
     setTimeout(() => {
       if (pendingChannelRef.current) {
+        // Set restore flag if UI was hidden before
+        setRestoreUIHidden(wasHidden)
         setSelectedChannel(pendingChannelRef.current)
         pendingChannelRef.current = null
+        // Clear the restore flag after a short delay
+        setTimeout(() => setRestoreUIHidden(false), 1500)
       }
       setPendingBitrateMode(null)
     }, 500)
@@ -981,12 +990,13 @@ export default function Home() {
   if (selectedChannel && viewMode === 'grid') {
     return (
       <div className="relative">
-        <VideoPlayer
-          channel={selectedChannel}
-          user={null}
-          onClose={handleClosePlayer}
-          onChannelChange={() => {}}
-          onBitrateModeChange={handleBitrateModeChange}
+            <VideoPlayer
+              channel={selectedChannel}
+              user={null}
+              onClose={handleClosePlayer}
+              onChannelChange={() => {}}
+              onBitrateModeChange={handleBitrateModeChange}
+              restoreUIHidden={restoreUIHidden}
           availableChannels={allChannels}
           videoRef={videoRef}
           isMuted={isMuted}
@@ -1160,6 +1170,7 @@ export default function Home() {
                     }}
                     onChannelChange={() => {}}
                     onBitrateModeChange={handleBitrateModeChange}
+                    restoreUIHidden={restoreUIHidden}
                     availableChannels={allChannels}
                     videoRef={videoRef}
                     isMuted={isMuted}
@@ -1429,6 +1440,7 @@ export default function Home() {
                     }}
                     onChannelChange={() => {}}
                     onBitrateModeChange={handleBitrateModeChange}
+                    restoreUIHidden={restoreUIHidden}
                     availableChannels={allChannels}
                     videoRef={videoRef}
                     isMuted={isMuted}

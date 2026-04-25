@@ -285,7 +285,7 @@ export const allChannels: Channel[] = [
     category: "Entertainment",
     group: "Mediaquest",
     region: "PH",
-    drm: { clearkey: { "c9d4b7a18e2f4d6c9a103f5b7e1c2d88": "7f3139092bf87d8aa51ee40e6294d376" } },
+    drm: { clearkey: { "a8d5712967cd495ca80fdc425bc61d6b": "f248c29525ed4c40cc39baeee9634735" } },
   },
   {
     id: "lifetime",
