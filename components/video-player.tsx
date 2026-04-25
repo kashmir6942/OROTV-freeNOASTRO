@@ -138,7 +138,10 @@ export function VideoPlayer({
   const [selectedQuality, setSelectedQuality] = useState<number>(-1) // -1 = auto
   const [availableQualities, setAvailableQualities] = useState<Array<{ index: number; height: number; label: string }>>([])
   const [isUIHidden, setIsUIHidden] = useState(false)
+  const [showUIButtonVisible, setShowUIButtonVisible] = useState(true)
+  const showUIButtonTimeoutRef = useRef<NodeJS.Timeout>()
   const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">("high-bitrate")
+  const streamingModeRef = useRef<"high-bitrate" | "optimized">("high-bitrate")
   const [archiveMode, setArchiveMode] = useState(false)
   const bufferingSinceRef = useRef<number | null>(null)
   const bufferingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -639,6 +642,15 @@ export function VideoPlayer({
     return `${hours}h ${minutes}m remaining`
   }
 
+  // Flash the "Show UI" button for 3 seconds on any activity while UI is hidden
+  const flashShowUIButton = useCallback(() => {
+    setShowUIButtonVisible(true)
+    if (showUIButtonTimeoutRef.current) clearTimeout(showUIButtonTimeoutRef.current)
+    showUIButtonTimeoutRef.current = setTimeout(() => {
+      setShowUIButtonVisible(false)
+    }, 3000)
+  }, [])
+
   const showControlsTemporarily = useCallback(() => {
     if (isTraditionalMode) return
     setShowControls(true)
@@ -755,8 +767,9 @@ export function VideoPlayer({
         }
 
         if (window.Hls.isSupported()) {
-          console.log("[v0] HLS.js is supported, creating player, mode:", streamingMode)
-          const isOptimized = streamingMode === "optimized"
+          const currentMode = streamingModeRef.current
+          console.log("[v0] HLS.js is supported, creating player, mode:", currentMode)
+          const isOptimized = currentMode === "optimized"
           
           // OPTIMIZATION 1: Tuned HLS.js config to prevent constant rebuffering
           hlsRef.current = new window.Hls({
@@ -937,7 +950,7 @@ export function VideoPlayer({
         console.log("[v0] Creating Shaka Player instance")
         playerRef.current = new window.shaka.Player(video)
 
-        const isOptimized = streamingMode === "optimized"
+        const isOptimized = streamingModeRef.current === "optimized"
         
         // OPTIMIZATION: Tuned Shaka Player config for both modes
         playerRef.current.configure({
@@ -1653,9 +1666,10 @@ export function VideoPlayer({
     <div
       ref={containerRef}
       className={`${embedded ? 'absolute inset-0' : 'fixed inset-0 z-50'} bg-black flex flex-col`}
-      onMouseMove={isTraditionalMode ? undefined : showControlsTemporarily}
-      onTouchStart={handleTouchStart}
+      onMouseMove={isTraditionalMode ? undefined : () => { showControlsTemporarily(); if (isUIHidden) flashShowUIButton() }}
+      onTouchStart={(e) => { handleTouchStart(e); if (isUIHidden) flashShowUIButton() }}
       onTouchMove={handleTouchMove}
+      onClick={() => { if (isUIHidden) flashShowUIButton() }}
       tabIndex={0}
       onFocus={showControlsTemporarily}
       style={{
@@ -1736,11 +1750,11 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Show UI button - only visible when UI is hidden */}
-      {isUIHidden && (
+      {/* Show UI button - visible on activity when UI is hidden, auto-hides after 3s */}
+      {isUIHidden && showUIButtonVisible && (
         <button
-          onClick={() => setIsUIHidden(false)}
-          className="absolute top-4 right-4 z-50 flex items-center gap-1.5 bg-black/80 hover:bg-black text-white text-sm font-medium px-3 py-2 rounded-full border border-white/20"
+          onClick={() => { setIsUIHidden(false); setShowUIButtonVisible(false) }}
+          className="absolute top-4 right-4 z-50 flex items-center gap-1.5 bg-black/80 hover:bg-black text-white text-sm font-medium px-3 py-2 rounded-full border border-white/20 transition-opacity duration-300"
           style={{ pointerEvents: "auto", touchAction: "manipulation" }}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -1808,6 +1822,18 @@ export function VideoPlayer({
               >
                 {currentChannelIndex + 1} / {availableChannels.length}
               </Badge>
+
+              {/* Hide UI button - in top bar, not inside Settings */}
+              <button
+                onClick={() => { setIsUIHidden(true); setShowSettings(false); setTimeout(() => setShowUIButtonVisible(false), 100) }}
+                className="text-white/70 hover:text-white hover:bg-white/10 active:bg-white/10 rounded-full p-2 transition-all touch-manipulation"
+                style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                title="Hide UI"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              </button>
 
               <Button
                 onClick={() => setShowSettings(!showSettings)}
@@ -1890,21 +1916,16 @@ export function VideoPlayer({
                 <button
                   onClick={() => {
                     if (streamingMode !== "high-bitrate") {
+                      streamingModeRef.current = "high-bitrate"
+                      setStreamingMode("high-bitrate")
                       setShowSettings(false)
-                      // Close player and reopen with new mode through parent
-                      if (onBitrateModeChange) {
-                        onBitrateModeChange("high-bitrate")
-                      } else {
-                        // Fallback: just change mode and reinitialize
-                        setStreamingMode("high-bitrate")
-                        setTimeout(() => smartReopenChannel(), 100)
-                      }
+                      setTimeout(() => smartReopenChannel(), 50)
                     }
                   }}
-                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
+                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
                     streamingMode === "high-bitrate"
                       ? "border-white text-white bg-white/10"
-                      : "border-white/30 text-white/50 hover:border-white/60"
+                      : "border-white/30 text-white/50 hover:border-white/60 hover:text-white/80"
                   }`}
                   style={{ pointerEvents: "auto" }}
                 >
@@ -1913,21 +1934,16 @@ export function VideoPlayer({
                 <button
                   onClick={() => {
                     if (streamingMode !== "optimized") {
+                      streamingModeRef.current = "optimized"
+                      setStreamingMode("optimized")
                       setShowSettings(false)
-                      // Close player and reopen with new mode through parent
-                      if (onBitrateModeChange) {
-                        onBitrateModeChange("optimized")
-                      } else {
-                        // Fallback: just change mode and reinitialize
-                        setStreamingMode("optimized")
-                        setTimeout(() => smartReopenChannel(), 100)
-                      }
+                      setTimeout(() => smartReopenChannel(), 50)
                     }
                   }}
-                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 ${
+                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
                     streamingMode === "optimized"
                       ? "border-white text-white bg-white/10"
-                      : "border-white/30 text-white/50 hover:border-white/60"
+                      : "border-white/30 text-white/50 hover:border-white/60 hover:text-white/80"
                   }`}
                   style={{ pointerEvents: "auto" }}
                 >
@@ -1959,20 +1975,6 @@ export function VideoPlayer({
             </div>
           </div>
 
-          {/* Hide UI Button */}
-          <button
-            onClick={() => {
-              setIsUIHidden(true)
-              setShowSettings(false)
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-700/60 hover:bg-gray-600/60 border border-white/20 rounded-lg text-white text-sm font-medium transition-all"
-            style={{ pointerEvents: "auto" }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-            </svg>
-            Hide UI
-          </button>
         </div>
       )}
 
@@ -2247,51 +2249,56 @@ export function VideoPlayer({
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >
-          <div className={`${isMobile ? "px-3 py-3" : "px-6 py-4"} bg-black/20`}>
-            <div className={`flex items-center justify-between ${isMobile ? "mb-3" : "mb-4"}`}>
+          <div className={`${isMobile ? "px-3 py-2" : "px-6 py-4"} bg-black/20`}>
+            {/* Mobile: ultra-minimal single row */}
+            {isMobile ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-white text-xs font-medium truncate max-w-[120px]">{channel.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleMute}
+                    className="text-white p-2 rounded-full hover:bg-white/10 active:bg-white/10 touch-manipulation"
+                    style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                  >
+                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={toggleFullscreen}
+                    className="text-white p-2 rounded-full hover:bg-white/10 active:bg-white/10 touch-manipulation"
+                    style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                  >
+                    {document.fullscreenElement ? <Minimize className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <img
                   src={channel.logo || "/placeholder.svg?height=40&width=40&text=TV"}
                   alt={channel.name}
-                  className={`${isMobile ? "h-6 w-6" : "h-8 w-8"} rounded object-cover`}
+                  className="h-8 w-8 rounded object-cover"
                 />
                 <div className="text-white">
-                  <h3 className={`font-medium ${isMobile ? "text-sm" : "text-base"}`}>{channel.name}</h3>
-                  <div
-                    className={`flex items-center space-x-2 ${isMobile ? "text-xs" : "text-xs"} text-white/50`}
-                  >
+                  <h3 className="font-medium text-base">{channel.name}</h3>
+                  <div className="flex items-center space-x-2 text-xs text-white/50">
                     <span>{channel.category}</span>
                     {channel.isHD && <span>• HD</span>}
                   </div>
                 </div>
               </div>
-              <div className={`flex items-center space-x-2 ${isMobile ? "text-xs" : "text-xs"} text-green-400`}>
+              <div className="flex items-center space-x-2 text-xs text-green-400">
                 <div className="w-1.5 h-1.5 bg-current rounded-full animate-pulse"></div>
                 <span>LIVE</span>
               </div>
             </div>
 
-            <div className={`flex items-center justify-center ${isMobile ? "space-x-2" : "space-x-4"}`}>
-              {isMobile ? (
-                // Mobile: Only fullscreen toggle
-                <Button
-                  onClick={toggleFullscreen}
-                  variant="ghost"
-                  size="sm"
-                  className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-9 w-9 p-0"
-                  style={{
-                    pointerEvents: "auto",
-                    touchAction: "manipulation",
-                    WebkitTapHighlightColor: "transparent",
-                  }}
-                >
-                  {document.fullscreenElement ? (
-                    <Minimize className="h-4 w-4" />
-                  ) : (
-                    <Expand className="h-4 w-4" />
-                  )}
-                </Button>
-              ) : (
+            <div className="flex items-center justify-center space-x-4">
+              {(
                 <>
                   {/* Desktop: All controls */}
                   <Button
@@ -2474,6 +2481,8 @@ export function VideoPlayer({
                 </>
               )}
             </div>
+            </>
+            )}
 
             {showChannelList && (
               <div className="border-t border-white/20 bg-black/40 max-h-80 overflow-y-auto">
