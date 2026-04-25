@@ -884,7 +884,7 @@ export function VideoPlayer({
             // HD/HIGH-BITRATE MODE - FORCE ABSOLUTE MAXIMUM QUALITY
             enableWorker: true,
             lowLatencyMode: false,
-            // MASSIVE BUFFERS for uninterrupted HD playback
+            // MASSIVE BUFFERS
             backBufferLength: 180,
             maxBufferLength: 180,
             maxMaxBufferLength: 600,
@@ -894,27 +894,29 @@ export function VideoPlayer({
             levelLoadingMaxRetry: 10,
             fragLoadingTimeOut: 60000,
             fragLoadingMaxRetry: 15,
-            // FORCE HIGHEST QUALITY FROM START - no auto, no ABR
-            startLevel: 999999, // Will clamp to highest available
+            // CRITICAL: Disable ABR entirely - set to -1 means manual level only
+            startLevel: -1,
             autoStartLoad: true,
+            autoLevelCapping: -1, // Unlimited
             maxLoadingDelay: 2,
             maxBufferHole: 0.5,
-            // DISABLE ABR COMPLETELY - no quality switching
-            abrEwmaFastLive: 1,
-            abrEwmaSlowLive: 1,
-            abrEwmaDefaultEstimate: 100000000, // 100Mbps - assume infinite bandwidth
-            abrBandWidthFactor: 1.0, // Use 100% bandwidth
-            abrBandWidthUpFactor: 1.0, // Instant upgrade
-            // NO CAPS EVER
+            // Zero out ABR parameters so they can't affect quality
+            abrEwmaFastLive: 0.5,
+            abrEwmaSlowLive: 0.5,
+            abrEwmaDefaultEstimate: Infinity, // Infinite bandwidth
+            abrBandWidthFactor: 1.0,
+            abrBandWidthUpFactor: 1.0,
+            // NO LIMITS WHATSOEVER
             capLevelToPlayerSize: false,
             capLevelOnFPSDrop: false,
-            // Never drop quality
             abrMaxWithRealBitrate: false,
             maxStarvationDelay: 0,
             nudgeMaxRetry: 20,
             nudgeOffset: 0.05,
             progressive: true,
-            testBandwidth: false, // Don't test, just use max
+            testBandwidth: false,
+            // Force live edge tracking
+            liveBackBufferLength: 30,
           }
           
           hlsRef.current = new window.Hls(hlsConfig)
@@ -924,39 +926,60 @@ export function VideoPlayer({
           hlsRef.current.attachMedia(video)
 
           hlsRef.current.on(window.Hls.Events.MANIFEST_PARSED, () => {
-            console.log("[v0] HLS manifest parsed successfully")
+            console.log("[v0] HLS manifest parsed - forcing MAX quality for HD mode")
             if (initTimeout) clearTimeout(initTimeout)
             setConnectionStatus("connected")
             setIsLoading(false)
-            setRetryCount(0) // Reset retry count on success
+            setRetryCount(0)
 
-            // IMMEDIATELY force highest quality for HD mode
-            setHighestQuality()
-            loadAudioAndSubtitleTracks()
-            
-            // Keep forcing max quality every 2 seconds for HD mode
             if (streamingModeRef.current === "high-bitrate" && hlsRef.current) {
-              const qualityLockInterval = setInterval(() => {
-                if (hlsRef.current && hlsRef.current.levels && streamingModeRef.current === "high-bitrate") {
-                  const levels = hlsRef.current.levels
-                  let highestLevel = 0
-                  let highestBitrate = 0
-                  levels.forEach((level: any, index: number) => {
-                    if ((level.bitrate || 0) > highestBitrate) {
-                      highestBitrate = level.bitrate || 0
-                      highestLevel = index
-                    }
-                  })
-                  // Keep forcing max
-                  hlsRef.current.currentLevel = highestLevel
-                  hlsRef.current.loadLevel = highestLevel
-                  hlsRef.current.nextLevel = highestLevel
+              const levels = hlsRef.current.levels
+              if (levels && levels.length > 0) {
+                // Find absolute highest level
+                let maxLevel = 0
+                let maxBitrate = 0
+                let maxHeight = 0
+                levels.forEach((level: any, idx: number) => {
+                  const bitrate = level.bitrate || 0
+                  const height = level.height || 0
+                  if (bitrate > maxBitrate || (bitrate === maxBitrate && height > maxHeight)) {
+                    maxBitrate = bitrate
+                    maxHeight = height
+                    maxLevel = idx
+                  }
+                })
+                
+                console.log("[v0] HD: Forcing to level", maxLevel, 'bitrate:', maxBitrate, 'height:', maxHeight)
+                
+                // FORCE to max level
+                hlsRef.current.currentLevel = maxLevel
+                hlsRef.current.loadLevel = maxLevel
+                hlsRef.current.nextLevel = maxLevel
+                hlsRef.current.autoLevelCapping = maxLevel
+                
+                // Prevent ABR from changing the level
+                hlsRef.current.autoLevelEnabled = false
+                
+                // Continuous enforcement - every 500ms
+                if ((hlsRef.current as any)._hdQualityLock) {
+                  clearInterval((hlsRef.current as any)._hdQualityLock)
                 }
-              }, 2000)
-              // Store interval for cleanup
-              ;(hlsRef.current as any)._qualityLockInterval = qualityLockInterval
+                
+                ;(hlsRef.current as any)._hdQualityLock = setInterval(() => {
+                  if (hlsRef.current && streamingModeRef.current === "high-bitrate") {
+                    // If level changed, force it back to max
+                    if (hlsRef.current.currentLevel !== maxLevel) {
+                      console.log("[v0] HD: ABR tried to lower quality, forcing back to', maxLevel)
+                      hlsRef.current.currentLevel = maxLevel
+                      hlsRef.current.loadLevel = maxLevel
+                    }
+                    hlsRef.current.nextLevel = maxLevel
+                  }
+                }, 500)
+              }
             }
 
+            loadAudioAndSubtitleTracks()
             const playPromise = video.play()
             if (playPromise !== undefined) {
               playPromise.catch((err) => {
@@ -966,9 +989,45 @@ export function VideoPlayer({
             }
           })
 
+          // CRITICAL: Prevent level switches in HD mode
+          hlsRef.current.on(window.Hls.Events.LEVEL_SWITCHING, (event: any) => {
+            if (streamingModeRef.current === "high-bitrate") {
+              const levels = hlsRef.current?.levels || []
+              if (levels.length > 0) {
+                let maxLevel = 0
+                let maxBitrate = 0
+                levels.forEach((level: any, idx: number) => {
+                  if ((level.bitrate || 0) > maxBitrate) {
+                    maxBitrate = level.bitrate || 0
+                    maxLevel = idx
+                  }
+                })
+                // Block the switch if not to max level
+                if (event.level !== maxLevel) {
+                  console.log("[v0] HD: Blocking level switch to', event.level, 'forcing to max', maxLevel)
+                  hlsRef.current!.currentLevel = maxLevel
+                }
+              }
+            }
+          })
+
           hlsRef.current.on(window.Hls.Events.LEVEL_LOADED, () => {
-            // Force quality on every level load
-            setHighestQuality()
+            if (streamingModeRef.current === "high-bitrate" && hlsRef.current) {
+              const levels = hlsRef.current.levels
+              if (levels && levels.length > 0) {
+                let maxLevel = 0
+                let maxBitrate = 0
+                levels.forEach((level: any, idx: number) => {
+                  if ((level.bitrate || 0) > maxBitrate) {
+                    maxBitrate = level.bitrate || 0
+                    maxLevel = idx
+                  }
+                })
+                // Immediately force max on every level load
+                hlsRef.current.currentLevel = maxLevel
+                hlsRef.current.nextLevel = maxLevel
+              }
+            }
           })
 
           hlsRef.current.on(window.Hls.Events.ERROR, (event: any, data: any) => {
@@ -1147,10 +1206,7 @@ export function VideoPlayer({
           setIsLoading(false)
           setRetryCount(0)
 
-          setTimeout(() => {
-            setHighestQuality()
-            loadAudioAndSubtitleTracks()
-          }, 1000)
+          loadAudioAndSubtitleTracks()
 
           video.play().catch((err) => {
             console.error("[v0] Failed to autoplay:", err)
@@ -1177,10 +1233,6 @@ export function VideoPlayer({
         setConnectionStatus("connected")
         setIsLoading(false)
         setRetryCount(0)
-
-        setTimeout(() => {
-          setHighestQuality()
-        }, 1000)
       })
 
       video.addEventListener("waiting", () => {
