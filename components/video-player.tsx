@@ -133,8 +133,20 @@ export function VideoPlayer({
   const [isUIHidden, setIsUIHidden] = useState(false)
   const [showUIButtonVisible, setShowUIButtonVisible] = useState(true)
   const showUIButtonTimeoutRef = useRef<NodeJS.Timeout>()
-  const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">("high-bitrate")
-  const streamingModeRef = useRef<"high-bitrate" | "optimized">("high-bitrate")
+  // Load streaming mode from localStorage
+  const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("orotv-streaming-mode")
+      if (saved === "optimized" || saved === "high-bitrate") return saved
+    }
+    return "high-bitrate"
+  })
+  const streamingModeRef = useRef<"high-bitrate" | "optimized">(
+    typeof window !== "undefined" 
+      ? (localStorage.getItem("orotv-streaming-mode") as "high-bitrate" | "optimized") || "high-bitrate"
+      : "high-bitrate"
+  )
+  const wasUIHiddenRef = useRef(false)
   const [archiveMode, setArchiveMode] = useState(false)
   const bufferingSinceRef = useRef<number | null>(null)
   const bufferingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -1103,10 +1115,12 @@ export function VideoPlayer({
     initializePlayer()
   }
 
-  // Smart reopen: close player, go home briefly, then reopen the same channel
-  // This is cleaner than a hard reload and prevents constant buffering
+  // Smart reopen: fully destroy player and reinitialize with new settings
   const smartReopenChannel = useCallback(() => {
-    console.log("[v0] Smart reopen: closing player and reopening channel")
+    console.log("[v0] Smart reopen: destroying and reinitializing player, mode:", streamingModeRef.current)
+    
+    // Remember if UI was hidden to restore it after reopen
+    wasUIHiddenRef.current = isUIHidden
     
     // Clean up current player completely
     if (playerRef.current) {
@@ -1129,11 +1143,18 @@ export function VideoPlayer({
     setConnectionStatus("reconnecting")
     bufferingSinceRef.current = null
     
-    // Brief delay then reinitialize (simulates close->reopen without full page reload)
+    // Reinitialize after brief delay
     setTimeout(() => {
       initializePlayer()
-    }, 500)
-  }, [channel.id])
+      // Restore UI hidden state after player is ready
+      setTimeout(() => {
+        if (wasUIHiddenRef.current) {
+          setIsUIHidden(true)
+          setShowUIButtonVisible(false)
+        }
+      }, 1000)
+    }, 300)
+  }, [channel.id, isUIHidden])
 
   // Buffering watchdog: if buffering exceeds 10 seconds, smart reopen
   useEffect(() => {
@@ -1684,29 +1705,15 @@ export function VideoPlayer({
       }}
     >
       {showPortraitWarning && isMobile && isPortrait && !embedded && (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-6">
-          <div className="bg-gray-900 border border-red-500/50 rounded-xl p-8 max-w-sm text-center">
-            <div className="mb-6">
-              <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-white font-bold text-xl mb-3">Better Experience Available</h3>
-              <p className="text-gray-400 text-sm mb-6">
-                I Recommend Playing <span className="text-red-400 font-semibold">"{channel.name}"</span> on landscape
-                mode, thank you!
-              </p>
+        <div className="fixed inset-0 bg-black z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="text-center max-w-xs">
+            <div className="w-12 h-12 mx-auto mb-4 border border-white/20 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </div>
-            <div className="flex items-center justify-center space-x-2 text-xs text-gray-400">
-              <div className="w-2 h-2 bg-red-500/20 rounded-full animate-pulse"></div>
-              <span>Rotate your device for the best viewing experience</span>
-            </div>
+            <h3 className="text-white font-medium text-base mb-2">Rotate for Best View</h3>
+            <p className="text-white/50 text-sm">Turn your device to landscape mode</p>
           </div>
         </div>
       )}
@@ -1790,8 +1797,8 @@ export function VideoPlayer({
               <div className="flex flex-col">
                 <span className="text-white font-semibold text-sm truncate max-w-[180px]">{channel.name}</span>
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-green-400" : connectionStatus === "reconnecting" ? "bg-yellow-400 animate-pulse" : "bg-red-400"}`}></div>
-                  <span className="text-white/60 text-xs">{streamingMode === "optimized" ? "Optimized" : "HD"}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-white" : connectionStatus === "reconnecting" ? "bg-white/50 animate-pulse" : "bg-white/30"}`}></div>
+                  <span className="text-white/50 text-xs">{streamingMode === "optimized" ? "SD" : "HD"}</span>
                 </div>
               </div>
             </div>
@@ -1821,10 +1828,11 @@ export function VideoPlayer({
               <button
                 onClick={() => {
                   if (streamingMode !== "high-bitrate") {
+                    localStorage.setItem("orotv-streaming-mode", "high-bitrate")
                     streamingModeRef.current = "high-bitrate"
                     setStreamingMode("high-bitrate")
                     setShowSettings(false)
-                    setTimeout(() => smartReopenChannel(), 50)
+                    smartReopenChannel()
                   }
                 }}
                 className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
@@ -1835,16 +1843,17 @@ export function VideoPlayer({
               >
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-lg">HD</span>
-                  <span className="text-[10px] opacity-60">Best Quality</span>
+                  <span className="text-[10px] opacity-50">Best Quality</span>
                 </div>
               </button>
               <button
                 onClick={() => {
                   if (streamingMode !== "optimized") {
+                    localStorage.setItem("orotv-streaming-mode", "optimized")
                     streamingModeRef.current = "optimized"
                     setStreamingMode("optimized")
                     setShowSettings(false)
-                    setTimeout(() => smartReopenChannel(), 50)
+                    smartReopenChannel()
                   }
                 }}
                 className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
@@ -1855,7 +1864,7 @@ export function VideoPlayer({
               >
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-lg">SD</span>
-                  <span className="text-[10px] opacity-60">Save Data</span>
+                  <span className="text-[10px] opacity-50">Save Data</span>
                 </div>
               </button>
             </div>
@@ -1975,7 +1984,7 @@ export function VideoPlayer({
                 {isMobile && (
                   <button
                     onClick={() => setShowEPGOverlay(!showEPGOverlay)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium touch-manipulation min-h-[48px] min-w-[48px] flex items-center justify-center"
+                    className="bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium touch-manipulation min-h-[48px] min-w-[48px] flex items-center justify-center"
                     style={{ pointerEvents: "auto", touchAction: "manipulation" }}
                   >
                     Info
@@ -1994,66 +2003,61 @@ export function VideoPlayer({
 
               {/* Channel Info Header */}
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-red-600 text-white px-3 py-1 rounded text-sm font-bold">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white text-black px-2.5 py-1 rounded text-sm font-bold">
                     {String(currentChannelIndex + 1).padStart(3, "0")}
                   </div>
                   <div className="text-white">
-                    <h2 className="text-xl font-bold">{channel.name}</h2>
-                    <div className="flex items-center space-x-2 text-sm text-gray-300">
+                    <h2 className="text-lg font-semibold">{channel.name}</h2>
+                    <div className="flex items-center gap-2 text-sm text-white/60">
                       <span>{channel.category}</span>
                       {channel.isHD && <span>• HD</span>}
-                      <div className="flex items-center space-x-1">
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                         <span>LIVE</span>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="bg-red-600 text-white px-4 py-2 rounded-lg">
-                  <div className="text-xs">CHANNEL GUIDE</div>
-                  <div className="text-sm font-bold">Channel Guide For: {channel.name} </div>
                 </div>
               </div>
 
               {/* Program Schedule */}
               <div className="space-y-2">
                 {getCurrentProgram() ? (
-                  <div className="bg-blue-600/80 text-white p-3 rounded-lg">
+                  <div className="bg-white/10 text-white p-3 rounded-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="text-sm opacity-90">NOW PLAYING</div>
-                        <div className="font-bold text-lg">{getCurrentProgram().title}</div>
+                        <div className="text-xs text-white/50 mb-1">NOW</div>
+                        <div className="font-medium">{getCurrentProgram().title}</div>
                         {getCurrentProgram().desc && (
-                          <div className="text-sm opacity-75 mt-1">{getCurrentProgram().desc}</div>
+                          <div className="text-sm text-white/60 mt-1">{getCurrentProgram().desc}</div>
                         )}
-                        <div className="text-sm opacity-90 mt-1">
+                        <div className="text-xs text-white/50 mt-1">
                           {getCurrentProgram().start && getCurrentProgram().stop ? (
                             <>
                               {formatTime(getCurrentProgram().start)} - {formatTime(getCurrentProgram().stop)}
                             </>
                           ) : (
-                            "Live Programming"
+                            "Live"
                           )}
                         </div>
                       </div>
                       {getCurrentProgram().rating && (
-                        <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">
+                        <div className="bg-white/10 px-2 py-1 rounded text-xs">
                           {getCurrentProgram().rating}
                         </div>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-blue-600/80 text-white p-3 rounded-lg">
+                  <div className="bg-white/10 text-white p-3 rounded-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="text-sm opacity-90">NOW PLAYING</div>
-                        <div className="font-bold text-lg">{channel.name} Live</div>
-                        <div className="text-sm opacity-75 mt-1">No Information Available.</div>
-                        <div className="text-sm opacity-90 mt-1">No Program information available. </div>
+                        <div className="text-xs text-white/50 mb-1">NOW</div>
+                        <div className="font-medium">{channel.name}</div>
+                        <div className="text-sm text-white/60 mt-1">Live broadcast</div>
                       </div>
-                      <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">LIVE</div>
+                      <div className="bg-white/10 px-2 py-1 rounded text-xs">LIVE</div>
                     </div>
                   </div>
                 )}
@@ -2111,42 +2115,37 @@ export function VideoPlayer({
         )}
 
         {isLoading && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <div className="absolute inset-0 flex items-center justify-center bg-black animate-in fade-in duration-300">
             <div className="text-center">
-              <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading stream...</p>
-          <p className="text-white/50 text-sm mt-2">{channel.name}</p>
+              <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-white/80 text-sm">{channel.name}</p>
             </div>
           </div>
         )}
 
         {!isTraditionalMode && error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <Card className="max-w-md bg-gray-900 border-red-500/30">
-              <CardContent className="p-8 text-center">
-                <AlertTriangle className="h-20 w-20 text-red-400 mx-auto mb-6" />
-                <h3 className="text-white font-bold text-2xl mb-4">Stream Unavailable</h3>
-                <p className="text-red-200 text-sm mb-6 leading-relaxed">{error}</p>
-                <div className="space-y-3">
-                  <Button
-                    onClick={retryStream}
-                    className="w-full bg-white text-black hover:bg-white/90 active:bg-white/80 focus:bg-white/90 transition-all duration-200 touch-manipulation"
-                    style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Retry Connection ({retryCount})
-                  </Button>
-                  <Button
-                    onClick={onClose}
-                    variant="outline"
-                    className="w-full bg-transparent border-white/30 text-white hover:bg-white/10 active:bg-white/5 focus:bg-white/5 touch-manipulation"
-                    style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                  >
-                    Back to Channels
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="absolute inset-0 flex items-center justify-center bg-black animate-in fade-in duration-300">
+            <div className="max-w-sm mx-4 text-center">
+              <AlertTriangle className="h-12 w-12 text-white/60 mx-auto mb-4" />
+              <h3 className="text-white font-medium text-lg mb-2">Stream Unavailable</h3>
+              <p className="text-white/50 text-sm mb-6">{error}</p>
+              <div className="space-y-2">
+                <button
+                  onClick={retryStream}
+                  className="w-full py-3 px-4 bg-white text-black rounded-xl font-medium transition-colors hover:bg-white/90 active:bg-white/80 touch-manipulation"
+                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-full py-3 px-4 bg-white/10 text-white rounded-xl font-medium transition-colors hover:bg-white/20 active:bg-white/10 touch-manipulation"
+                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                >
+                  Back
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
