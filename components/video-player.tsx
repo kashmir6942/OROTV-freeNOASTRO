@@ -1832,7 +1832,12 @@ export function VideoPlayer({
                     streamingModeRef.current = "high-bitrate"
                     setStreamingMode("high-bitrate")
                     setShowSettings(false)
-                    smartReopenChannel()
+                    // Trigger parent close → reopen cycle (goes back to home then reopens)
+                    if (onBitrateModeChange) {
+                      onBitrateModeChange("high-bitrate")
+                    } else {
+                      smartReopenChannel()
+                    }
                   }
                 }}
                 className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
@@ -1853,7 +1858,12 @@ export function VideoPlayer({
                     streamingModeRef.current = "optimized"
                     setStreamingMode("optimized")
                     setShowSettings(false)
-                    smartReopenChannel()
+                    // Trigger parent close → reopen cycle (goes back to home then reopens)
+                    if (onBitrateModeChange) {
+                      onBitrateModeChange("optimized")
+                    } else {
+                      smartReopenChannel()
+                    }
                   }
                 }}
                 className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
