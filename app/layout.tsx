@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/images/cignal-station-icon.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.json",
-  themeColor: "#3898EC",
+  themeColor: "#000000",
   viewport: "width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes",
 }
 
