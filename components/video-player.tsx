@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   X,
@@ -15,16 +14,10 @@ import {
   Minimize,
   SkipBack,
   SkipForward,
-  Signal,
-  List,
   AlertTriangle,
   RotateCcw,
-  LogOut,
   Expand,
   Settings,
-  Info,
-  Languages,
-  Subtitles,
   PictureInPicture,
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
@@ -283,52 +276,63 @@ export function VideoPlayer({
 
   const setHighestQuality = useCallback(() => {
     try {
+      const isHighBitrate = streamingModeRef.current === "high-bitrate"
+      
       if (playerType === "hls" && hlsRef.current) {
-        // For HLS streams, set to highest quality level
         const levels = hlsRef.current.levels
         if (levels && levels.length > 0) {
-          // Find the highest quality level (highest bitrate)
-          let highestLevel = 0
-          let highestBitrate = 0
-
-          levels.forEach((level: any, index: number) => {
-            if (level.bitrate > highestBitrate) {
-              highestBitrate = level.bitrate
-              highestLevel = index
-            }
-          })
-
-          hlsRef.current.currentLevel = highestLevel
-
           // Extract available quality levels
           const qualities = levels.map((level: any, index: number) => ({
             index,
             height: level.height || 0,
             label: level.height ? `${level.height}p` : `Level ${index + 1}`,
           })).sort((a: any, b: any) => b.height - a.height)
-          
           setAvailableQualities(qualities)
-          console.log("[v0] Available qualities detected:", qualities)
+
+          if (isHighBitrate) {
+            // HD Mode: Force highest quality
+            let highestLevel = 0
+            let highestBitrate = 0
+            levels.forEach((level: any, index: number) => {
+              if (level.bitrate > highestBitrate) {
+                highestBitrate = level.bitrate
+                highestLevel = index
+              }
+            })
+            hlsRef.current.currentLevel = highestLevel
+            console.log("[v0] HD Mode: Forced to highest quality level", highestLevel)
+          } else {
+            // Optimized Mode: Let ABR auto-select (set to -1 for auto)
+            hlsRef.current.currentLevel = -1
+            console.log("[v0] Optimized Mode: ABR auto-selection enabled")
+          }
         }
       } else if (playerType === "shaka" && playerRef.current) {
-        // For DASH streams, set to highest quality
         const tracks = playerRef.current.getVariantTracks()
         if (tracks && tracks.length > 0) {
-          // Find the highest quality track (highest bandwidth)
-          let highestTrack = tracks[0]
-          let highestBandwidth = 0
-
-          tracks.forEach((track: any) => {
-            if (track.bandwidth > highestBandwidth) {
-              highestBandwidth = track.bandwidth
-              highestTrack = track
-            }
-          })
-
-          playerRef.current.selectVariantTrack(highestTrack, true)
+          if (isHighBitrate) {
+            // HD Mode: Force highest quality track
+            let highestTrack = tracks[0]
+            let highestBandwidth = 0
+            tracks.forEach((track: any) => {
+              if (track.bandwidth > highestBandwidth) {
+                highestBandwidth = track.bandwidth
+                highestTrack = track
+              }
+            })
+            playerRef.current.configure({ abr: { enabled: false } })
+            playerRef.current.selectVariantTrack(highestTrack, true)
+            console.log("[v0] HD Mode: Forced to highest quality track")
+          } else {
+            // Optimized Mode: Enable ABR
+            playerRef.current.configure({ abr: { enabled: true } })
+            console.log("[v0] Optimized Mode: ABR enabled")
+          }
         }
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("[v0] setHighestQuality error:", error)
+    }
   }, [playerType])
 
   const handleQualityChange = useCallback((qualityIndex: number) => {
@@ -1765,216 +1769,120 @@ export function VideoPlayer({
         </button>
       )}
 
+      {/* NEW MINIMAL TOP BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute top-0 left-0 right-0 z-20 hotel-video-controls ${
+          className={`absolute top-0 left-0 right-0 z-20 transition-opacity duration-300 ${
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
         >
-          <div className={`flex items-center justify-between ${isMobile ? "p-3" : "p-6"}`}>
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={onClose}
-                variant="ghost"
-                size={isMobile ? "sm" : "sm"}
-                className={`text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full transition-all duration-200 touch-manipulation ${
-                  isMobile ? "h-12 w-12 min-h-[48px] min-w-[48px]" : "h-8 w-8"
-                }`}
-                style={{
-                  pointerEvents: "auto",
-                  touchAction: "manipulation",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-              >
-                <X className={`${isMobile ? "h-6 w-6" : "h-5 w-5"}`} />
-              </Button>
-              <div className="text-white">
-                <div
-                  className={`${isMobile ? "text-base" : "text-lg"} font-bold text-white`}
-                >
-                  Now Playing {channel.name}
-                </div>
-                <div className={`${isMobile ? "text-xs" : "text-sm"} text-white/50`}>welcome.</div>
-              </div>
-            </div>
-
-            <div className={`flex items-center space-x-2 ${isMobile ? "space-x-3" : "space-x-6"}`}>
-              <div
-                className={`flex items-center space-x-2 ${isMobile ? "text-xs" : "text-sm"} ${getConnectionColor()}`}
-              >
-                {getConnectionIcon()}
-                <span className="capitalize font-medium">{connectionStatus}</span>
-                {playerType && (
-                  <Badge
-                    variant="outline"
-                    className={`${isMobile ? "text-xs px-1 py-0" : "text-xs px-2 py-0.5"} border-white/30 text-white`}
-                  >
-                    {playerType === "hls" ? "HLS" : "DASH"}
-                  </Badge>
-                )}
-              </div>
-
-              {!isMobile && <div className="text-white text-sm font-medium">{currentTime}</div>}
-
-              <Badge
-                variant="secondary"
-                className={`bg-white/20 text-white border-white/30 ${isMobile ? "text-xs px-2 py-1" : ""}`}
-              >
-                {currentChannelIndex + 1} / {availableChannels.length}
-              </Badge>
-
-              {/* Hide UI button - in top bar, not inside Settings */}
+          <div className="flex items-center justify-between p-3">
+            {/* Left: Close + Channel Name */}
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => { setIsUIHidden(true); setShowSettings(false); setTimeout(() => setShowUIButtonVisible(false), 100) }}
-                className="text-white/70 hover:text-white hover:bg-white/10 active:bg-white/10 rounded-full p-2 transition-all touch-manipulation"
-                style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                title="Hide UI"
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
+                <X className="w-5 h-5 text-white" />
               </button>
-
-              <Button
-                onClick={() => setShowSettings(!showSettings)}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-gray-400/20 active:bg-gray-400/10 focus:bg-gray-400/10 rounded-full transition-all duration-200 touch-manipulation"
-                style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-
-              {user && !isMobile && (
-                <Button
-                  onClick={onLogout}
-                  variant="ghost"
-                  size="sm"
-                  className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full transition-all duration-200 touch-manipulation"
-                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              )}
+              <div className="flex flex-col">
+                <span className="text-white font-semibold text-sm truncate max-w-[180px]">{channel.name}</span>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-green-400" : connectionStatus === "reconnecting" ? "bg-yellow-400 animate-pulse" : "bg-red-400"}`}></div>
+                  <span className="text-white/60 text-xs">{streamingMode === "optimized" ? "Optimized" : "HD"}</span>
+                </div>
+              </div>
             </div>
+
+            {/* Right: Settings */}
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+              style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+            >
+              <Settings className="w-5 h-5 text-white" />
+            </button>
           </div>
         </div>
       )}
 
+      {/* NEW MINIMAL SETTINGS PANEL */}
       {showSettings && (
-        <div className="absolute top-20 right-6 z-30 bg-black/90 border border-white/20 rounded-xl p-4 min-w-[280px]">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-bold text-base tracking-wide uppercase">Settings</h3>
+        <div 
+          className="absolute top-16 right-3 z-30 bg-black/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 w-72"
+          style={{ pointerEvents: "auto" }}
+        >
+          {/* Quality Mode - Main Focus */}
+          <div className="mb-4">
+            <p className="text-white/40 text-[10px] uppercase tracking-wider mb-3 font-medium">Quality</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  if (streamingMode !== "high-bitrate") {
+                    streamingModeRef.current = "high-bitrate"
+                    setStreamingMode("high-bitrate")
+                    setShowSettings(false)
+                    setTimeout(() => smartReopenChannel(), 50)
+                  }
+                }}
+                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                  streamingMode === "high-bitrate"
+                    ? "bg-white text-black"
+                    : "bg-white/10 text-white/70 hover:bg-white/20"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-lg">HD</span>
+                  <span className="text-[10px] opacity-60">Best Quality</span>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  if (streamingMode !== "optimized") {
+                    streamingModeRef.current = "optimized"
+                    setStreamingMode("optimized")
+                    setShowSettings(false)
+                    setTimeout(() => smartReopenChannel(), 50)
+                  }
+                }}
+                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                  streamingMode === "optimized"
+                    ? "bg-white text-black"
+                    : "bg-white/10 text-white/70 hover:bg-white/20"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-lg">SD</span>
+                  <span className="text-[10px] opacity-60">Save Data</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="space-y-2">
+            {/* Hide UI */}
             <button
-              onClick={() => setShowSettings(false)}
-              className="text-white/60 hover:text-white transition-colors"
-              style={{ pointerEvents: "auto" }}
+              onClick={() => { setIsUIHidden(true); setShowSettings(false); setTimeout(() => setShowUIButtonVisible(false), 100) }}
+              className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
             >
-              <X className="h-4 w-4" />
+              <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+              <span className="text-white/80 text-sm">Hide Controls</span>
+            </button>
+            
+            {/* Refresh */}
+            <button
+              onClick={() => { setShowSettings(false); initializePlayer() }}
+              className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              <RotateCcw className="w-5 h-5 text-white/60" />
+              <span className="text-white/80 text-sm">Refresh Stream</span>
             </button>
           </div>
-
-          {/* Force Aspect Ratio */}
-          <div className="mb-4">
-            <p className="text-white/50 text-[10px] uppercase tracking-widest mb-2 font-medium">Force Aspect Ratio</p>
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => updateAspectRatioSettings(!forceAspectRatio, aspectRatioMode)}
-                className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${forceAspectRatio ? "bg-orange-500" : "bg-gray-700"}`}
-                style={{ pointerEvents: "auto" }}
-              >
-                {forceAspectRatio && (
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-              <div className="flex gap-2 ml-3">
-                {(["16:9", "4:3", "original"] as const).map((ratio) => (
-                  <button
-                    key={ratio}
-                    onClick={() => updateAspectRatioSettings(true, ratio)}
-                    className={`px-3 py-1.5 rounded text-xs font-medium border transition-all ${
-                      aspectRatioMode === ratio && forceAspectRatio
-                        ? "bg-orange-500 border-orange-500 text-white"
-                        : "bg-transparent border-white/30 text-white/70 hover:border-white/60"
-                    }`}
-                    style={{ pointerEvents: "auto" }}
-                  >
-                    {ratio === "original" ? "Original" : ratio}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Streaming Mode */}
-          <div className="mb-4">
-            <p className="text-white/50 text-[10px] uppercase tracking-widest mb-2 font-medium">Streaming Mode</p>
-            <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    if (streamingMode !== "high-bitrate") {
-                      streamingModeRef.current = "high-bitrate"
-                      setStreamingMode("high-bitrate")
-                      setShowSettings(false)
-                      setTimeout(() => smartReopenChannel(), 50)
-                    }
-                  }}
-                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
-                    streamingMode === "high-bitrate"
-                      ? "border-white text-white bg-white/10"
-                      : "border-white/30 text-white/50 hover:border-white/60 hover:text-white/80"
-                  }`}
-                  style={{ pointerEvents: "auto" }}
-                >
-                  High Bitrate
-                </button>
-                <button
-                  onClick={() => {
-                    if (streamingMode !== "optimized") {
-                      streamingModeRef.current = "optimized"
-                      setStreamingMode("optimized")
-                      setShowSettings(false)
-                      setTimeout(() => smartReopenChannel(), 50)
-                    }
-                  }}
-                  className={`py-2.5 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
-                    streamingMode === "optimized"
-                      ? "border-white text-white bg-white/10"
-                      : "border-white/30 text-white/50 hover:border-white/60 hover:text-white/80"
-                  }`}
-                  style={{ pointerEvents: "auto" }}
-                >
-                  Optimized
-                </button>
-            </div>
-            <p className="text-white/40 text-[10px] mt-1.5">
-              {streamingMode === "high-bitrate"
-                ? "Forces highest quality for HD playback"
-                : "Reduces buffering on slower connections"}
-            </p>
-          </div>
-
-          {/* Archive Mode */}
-          <div className="mb-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setArchiveMode(!archiveMode)}
-                className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${archiveMode ? "bg-green-500" : "bg-gray-700"}`}
-                style={{ pointerEvents: "auto" }}
-              >
-                {archiveMode && (
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-              <span className="text-white text-sm font-semibold tracking-wide uppercase">Archive Mode</span>
-            </div>
-          </div>
-
         </div>
       )}
 
@@ -2243,412 +2151,116 @@ export function VideoPlayer({
         )}
       </div>
 
+      {/* NEW MINIMAL BOTTOM BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-20 hotel-video-controls ${
+          className={`absolute bottom-0 left-0 right-0 z-20 transition-opacity duration-300 ${
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
         >
-          <div className={`${isMobile ? "px-3 py-2" : "px-6 py-4"} bg-black/20`}>
-            {/* Mobile: ultra-minimal single row */}
-            {isMobile ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-white text-xs font-medium truncate max-w-[120px]">{channel.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={toggleMute}
-                    className="text-white p-2 rounded-full hover:bg-white/10 active:bg-white/10 touch-manipulation"
-                    style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                  >
-                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  </button>
-                  <button
-                    onClick={toggleFullscreen}
-                    className="text-white p-2 rounded-full hover:bg-white/10 active:bg-white/10 touch-manipulation"
-                    style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                  >
-                    {document.fullscreenElement ? <Minimize className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={channel.logo || "/placeholder.svg?height=40&width=40&text=TV"}
-                  alt={channel.name}
-                  className="h-8 w-8 rounded object-cover"
-                />
-                <div className="text-white">
-                  <h3 className="font-medium text-base">{channel.name}</h3>
-                  <div className="flex items-center space-x-2 text-xs text-white/50">
-                    <span>{channel.category}</span>
-                    {channel.isHD && <span>• HD</span>}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-green-400">
-                <div className="w-1.5 h-1.5 bg-current rounded-full animate-pulse"></div>
-                <span>LIVE</span>
-              </div>
+          <div className="p-3 flex items-center justify-between">
+            {/* Left: Play/Pause + Volume */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={togglePlayPause}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white ml-0.5" />}
+              </button>
+              <button
+                onClick={toggleMute}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                {isMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
+              </button>
             </div>
 
-            <div className="flex items-center justify-center space-x-4">
-              {(
-                <>
-                  {/* Desktop: All controls */}
-                  <Button
-                    onClick={() => switchChannel("prev")}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <SkipBack className="h-3 w-3" />
-                  </Button>
+            {/* Center: Channel Navigation (desktop only) */}
+            {!isMobile && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => switchChannel("prev")}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors touch-manipulation"
+                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                >
+                  <SkipBack className="w-4 h-4 text-white/70" />
+                </button>
+                <span className="text-white/60 text-xs px-2">{currentChannelIndex + 1}/{availableChannels.length}</span>
+                <button
+                  onClick={() => switchChannel("next")}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors touch-manipulation"
+                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                >
+                  <SkipForward className="w-4 h-4 text-white/70" />
+                </button>
+              </div>
+            )}
 
-                  <Button
-                    onClick={togglePlayPause}
-                    variant="ghost"
-                    size="sm"
-                    className="text-foreground hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full border border-white/30 touch-manipulation h-10 w-10"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-4 w-4" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={() => switchChannel("next")}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <SkipForward className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={toggleMute}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    {isMuted ? (
-                      <VolumeX className="h-3 w-3" />
-                    ) : (
-                      <Volume2 className="h-3 w-3" />
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={togglePictureInPicture}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                    title="Picture-in-Picture (P)"
-                  >
-                    <PictureInPicture className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      setShowAudioMenu(!showAudioMenu)
-                      setShowSubtitleMenu(false)
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    disabled={audioTracks.length <= 1}
-                    className={`text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8 ${showAudioMenu ? "bg-white/20" : ""} ${audioTracks.length <= 1 ? "opacity-30 cursor-not-allowed" : ""}`}
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <Languages className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      setShowSubtitleMenu(!showSubtitleMenu)
-                      setShowAudioMenu(false)
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    disabled={subtitleTracks.length === 0}
-                    className={`text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8 ${showSubtitleMenu ? "bg-white/20" : ""} ${subtitleTracks.length === 0 ? "opacity-30 cursor-not-allowed" : ""}`}
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <Subtitles className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={() => setShowEPGOverlay(!showEPGOverlay)}
-                    variant="ghost"
-                    size="sm"
-                    className={`text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8 ${showEPGOverlay ? "bg-white/20" : ""}`}
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <Info className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      console.log("[v0] Manual refresh triggered via bottom bar")
-                      initializePlayer()
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-orange-600/20 active:bg-orange-600/10 focus:bg-orange-600/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={() => setShowChannelList(!showChannelList)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    <List className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    onClick={toggleFullscreen}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 rounded-full touch-manipulation h-8 w-8"
-                    style={{
-                      pointerEvents: "auto",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    {document.fullscreenElement ? (
-                      <Minimize className="h-3 w-3" />
-                    ) : (
-                      <Expand className="h-3 w-3" />
-                    )}
-                  </Button>
-                </>
+            {/* Right: Fullscreen + PiP */}
+            <div className="flex items-center gap-2">
+              {!isMobile && (
+                <button
+                  onClick={togglePictureInPicture}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+                  style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                  title="Picture-in-Picture"
+                >
+                  <PictureInPicture className="w-5 h-5 text-white" />
+                </button>
               )}
+              <button
+                onClick={toggleFullscreen}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
+                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                {document.fullscreenElement ? <Minimize className="w-5 h-5 text-white" /> : <Expand className="w-5 h-5 text-white" />}
+              </button>
             </div>
-            </>
-            )}
-
-            {showChannelList && (
-              <div className="border-t border-white/20 bg-black/40 max-h-80 overflow-y-auto">
-                <div className={`${isMobile ? "p-4" : "p-6"}`}>
-                  <h4 className={`text-white font-bold ${isMobile ? "mb-4 text-lg" : "mb-6 text-xl"}`}>
-                    Available Channels ({availableChannels.length})
-                  </h4>
-                  <div
-                    className={`grid gap-4 ${
-                      isMobile
-                        ? "grid-cols-2 sm:grid-cols-3"
-                        : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8"
-                    }`}
-                  >
-                    {availableChannels.map((ch) => {
-                      const isCurrentChannel = ch.id === channel.id
-                      return (
-                        <Button
-                          key={ch.id}
-                          onClick={() => selectChannel(ch.id)}
-                          variant="ghost"
-                          className={`h-auto touch-manipulation ${isMobile ? "p-2" : "p-3"} flex flex-col items-center space-y-2 rounded-lg transition-all duration-200 aspect-square ${
-                            isCurrentChannel
-                  ? "bg-white/20 border-2 border-white/40 text-white"
-                  : "text-white hover:bg-white/20 active:bg-white/10 focus:bg-white/10 border border-white/20 hover:border-white/40"
-                          }`}
-                          style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                        >
-                          <div className="flex-1 flex items-center justify-center w-full">
-                            <img
-                              src={ch.logo || "/placeholder.svg?height=40&width=40&text=TV"}
-                              alt={ch.name}
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          </div>
-                          <div className="text-center w-full">
-                            <div className={`${isMobile ? "text-xs" : "text-xs"} font-medium truncate w-full mb-1`}>
-                              {ch.name}
-                            </div>
-                            <div className="flex justify-center space-x-1">
-                              {ch.isHD && <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>}
-                              {ch.drm && <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></div>}
-                              {isM3u8Stream(ch.url) && (
-                                <div className="w-1.5 h-1.5 bg-white/50 rounded-full"></div>
-                              )}
-                            </div>
-                          </div>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modern Windows 11-style Audio Track Menu */}
-            {showAudioMenu && audioTracks.length > 1 && (
-              <div className="absolute bottom-full mb-2 right-0 z-40">
-                <div className="bg-black border border-white/15 rounded-lg overflow-hidden min-w-[200px]">
-                  <div className="px-3 py-2 border-b border-white/10">
-                    <div className="flex items-center space-x-2 text-white text-sm font-medium">
-                      <Languages className="h-4 w-4" />
-                      <span>Audio Track</span>
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {audioTracks.map((track) => (
-                      <button
-                        key={track.id}
-                        onClick={() => {
-                          switchAudioTrack(track.id)
-                          setShowAudioMenu(false)
-                        }}
-                        className={`w-full px-4 py-2.5 text-left text-sm transition-all flex items-center justify-between touch-manipulation ${
-                          currentAudioTrack === track.id
-                            ? "bg-white/20 text-white font-medium"
-                            : "text-gray-300 hover:bg-white/10"
-                        }`}
-                        style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                      >
-                        <span>{track.label}</span>
-                        {currentAudioTrack === track.id && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modern Windows 11-style Subtitle Menu */}
-            {showSubtitleMenu && subtitleTracks.length > 0 && (
-              <div className="absolute bottom-full mb-2 right-0 z-40">
-                <div className="bg-black border border-white/15 rounded-lg overflow-hidden min-w-[200px]">
-                  <div className="px-3 py-2 border-b border-white/10">
-                    <div className="flex items-center space-x-2 text-white text-sm font-medium">
-                      <Subtitles className="h-4 w-4" />
-                      <span>Subtitles</span>
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    <button
-                      onClick={() => {
-                        switchSubtitleTrack(-1)
-                        setShowSubtitleMenu(false)
-                      }}
-                      className={`w-full px-4 py-2.5 text-left text-sm transition-all flex items-center justify-between touch-manipulation ${
-                        currentSubtitleTrack === -1
-                          ? "bg-white/20 text-white font-medium"
-                          : "text-gray-300 hover:bg-white/10"
-                      }`}
-                      style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                    >
-                      <span>Off</span>
-                      {currentSubtitleTrack === -1 && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
-                    </button>
-                    {subtitleTracks.map((track) => (
-                      <button
-                        key={track.id}
-                        onClick={() => {
-                          switchSubtitleTrack(track.id, track)
-                          setShowSubtitleMenu(false)
-                        }}
-                        className={`w-full px-4 py-2.5 text-left text-sm transition-all flex items-center justify-between touch-manipulation ${
-                          currentSubtitleTrack === track.id
-                            ? "bg-white/20 text-white font-medium"
-                            : "text-gray-300 hover:bg-white/10"
-                        }`}
-                        style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                      >
-                        <span>{track.label}</span>
-                        {currentSubtitleTrack === track.id && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
-      {!isTraditionalMode && isMobile && (
-        <div className="absolute bottom-20 right-4 z-20">
+
+      {/* Audio Track Menu - simplified */}
+      {showAudioMenu && audioTracks.length > 1 && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 bg-black/95 backdrop-blur border border-white/10 rounded-xl p-3 min-w-[200px]">
+          <p className="text-white/50 text-xs mb-2">Audio Track</p>
+          {audioTracks.map((track) => (
+            <button
+              key={track.id}
+              onClick={() => { switchAudioTrack(track.id); setShowAudioMenu(false) }}
+              className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors ${currentAudioTrack === track.id ? "bg-white text-black" : "text-white/80 hover:bg-white/10"}`}
+              style={{ pointerEvents: "auto" }}
+            >
+              {track.language || track.label || `Track ${track.id}`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Subtitle Menu - simplified */}
+      {showSubtitleMenu && subtitleTracks.length > 0 && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 bg-black/95 backdrop-blur border border-white/10 rounded-xl p-3 min-w-[200px]">
+          <p className="text-white/50 text-xs mb-2">Subtitles</p>
           <button
-            onClick={() => setShowEPGOverlay(!showEPGOverlay)}
-            className={`bg-blue-600 text-white px-4 py-3 rounded-full touch-manipulation min-h-[48px] min-w-[48px] flex items-center justify-center ${
-              showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-            }`}
-            style={{
-              pointerEvents: "auto",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            }}
+            onClick={() => { switchSubtitleTrack(-1); setShowSubtitleMenu(false) }}
+            className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors ${currentSubtitleTrack === -1 ? "bg-white text-black" : "text-white/80 hover:bg-white/10"}`}
+            style={{ pointerEvents: "auto" }}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            Off
           </button>
+          {subtitleTracks.map((track) => (
+            <button
+              key={track.id}
+              onClick={() => { switchSubtitleTrack(track.id); setShowSubtitleMenu(false) }}
+              className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors ${currentSubtitleTrack === track.id ? "bg-white text-black" : "text-white/80 hover:bg-white/10"}`}
+              style={{ pointerEvents: "auto" }}
+            >
+              {track.language || track.label || `Subtitle ${track.id}`}
+            </button>
+          ))}
         </div>
       )}
     </div>
