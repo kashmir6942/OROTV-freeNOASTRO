@@ -133,8 +133,19 @@ export function VideoPlayer({
   const [isUIHidden, setIsUIHidden] = useState(false)
   const [showUIButtonVisible, setShowUIButtonVisible] = useState(true)
   const showUIButtonTimeoutRef = useRef<NodeJS.Timeout>()
-  const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">("high-bitrate")
-  const streamingModeRef = useRef<"high-bitrate" | "optimized">("high-bitrate")
+  // Load saved streaming mode from localStorage
+  const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("orotv-streaming-mode")
+      if (saved === "optimized" || saved === "high-bitrate") return saved
+    }
+    return "high-bitrate"
+  })
+  const streamingModeRef = useRef<"high-bitrate" | "optimized">(
+    typeof window !== "undefined" 
+      ? (localStorage.getItem("orotv-streaming-mode") as "high-bitrate" | "optimized") || "high-bitrate"
+      : "high-bitrate"
+  )
   const [archiveMode, setArchiveMode] = useState(false)
   const bufferingSinceRef = useRef<number | null>(null)
   const bufferingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
