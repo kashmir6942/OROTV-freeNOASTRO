@@ -615,23 +615,25 @@ export default function Home() {
     }, 100)
   }
 
-  // Handler for bitrate mode change - closes player, goes to home UI, then reopens
+  // Handler for bitrate mode change - closes player (shows home UI), then reopens with new mode
   const handleBitrateModeChange = (mode: "high-bitrate" | "optimized") => {
+    // Save mode to localStorage so video player picks it up on reinit
+    localStorage.setItem("orotv-streaming-mode", mode)
     // Store the current channel to reopen
     pendingChannelRef.current = selectedChannel
     setPendingBitrateMode(mode)
     
-    // Close the player first (go to home UI)
+    // Close player → home screen is shown
     setSelectedChannel(null)
     
-    // After a brief delay, reopen the same channel
+    // Reopen the same channel after brief delay (home briefly visible)
     setTimeout(() => {
       if (pendingChannelRef.current) {
         setSelectedChannel(pendingChannelRef.current)
         pendingChannelRef.current = null
       }
       setPendingBitrateMode(null)
-    }, 300)
+    }, 500)
   }
 
   const handleVideoPositionUpdate = async (channelId: string, position: number) => {
@@ -694,34 +696,33 @@ export default function Home() {
 
   const createChannelTile = (channel: Channel, showFavorite = true) => {
     const isChannelFavorite = isFavorite(channel.id)
-    
+    const tileSize = "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28"
+
     return (
     <div
       key={channel.id}
       className="group cursor-pointer shrink-0 animate-slide-up relative"
     >
       <div 
-        className="w-32 h-20 sm:w-40 sm:h-24 md:w-48 md:h-28 rounded-xl border border-border/50 bg-card overflow-hidden relative flex items-center justify-center channel-card-smooth shadow-sm hover:border-border"
+        className={`${tileSize} rounded-xl border border-border/50 bg-card overflow-hidden relative flex items-center justify-center channel-card-smooth hover:border-border`}
         onClick={() => handleChannelSelect(channel)}
       >
         {channel.logo ? (
           <img
             src={channel.logo || "/placeholder.svg"}
             alt={channel.name}
-            className="w-full h-full object-contain px-3 py-2 image-zoom-smooth"
+            className="w-full h-full object-contain p-2 image-zoom-smooth"
             onError={(e) => {
               ;(e.target as HTMLImageElement).src =
-                `/placeholder.svg?height=80&width=140&text=${encodeURIComponent(channel.name.charAt(0))}`
+                `/placeholder.svg?height=80&width=80&text=${encodeURIComponent(channel.name.charAt(0))}`
             }}
           />
         ) : (
-          <span className="font-semibold text-xs text-foreground">{channel.name}</span>
+          <span className="font-semibold text-xs text-foreground text-center px-1">{channel.name}</span>
         )}
         {channel.isHD && (
-          <span className="absolute top-1 right-1 text-[9px] px-1.5 py-0.5 bg-foreground/90 text-background rounded-md font-bold shadow-md backdrop-blur-sm">HD</span>
+          <span className="absolute top-1 right-1 text-[8px] px-1 py-0.5 bg-foreground/90 text-background rounded font-bold">HD</span>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-        
         {/* Favorite star button */}
         {showFavorite && (
           <button
@@ -729,13 +730,13 @@ export default function Home() {
               e.stopPropagation()
               toggleFavorite(channel.id)
             }}
-            className="absolute top-1 left-1 z-10 p-1 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-sm transition-all duration-300 opacity-0 group-hover:opacity-100"
+            className="absolute top-1 left-1 z-10 p-1 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100"
           >
-            <Star className={`w-3 h-3 ${isChannelFavorite ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
+            <Star className={`w-2.5 h-2.5 ${isChannelFavorite ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
           </button>
         )}
       </div>
-      <p className="text-[11px] font-semibold truncate mt-2 text-foreground w-32 sm:w-40 md:w-48 group-hover:text-foreground/70 transition-colors duration-300">{channel.name}</p>
+      <p className="text-[10px] font-medium truncate mt-1.5 text-foreground/80 w-20 sm:w-24 md:w-28">{channel.name}</p>
     </div>
   )
   }
@@ -839,7 +840,7 @@ export default function Home() {
           <span className="text-xs text-muted-foreground">{channels.length}</span>
         </div>
         <div className="relative">
-          <div id={rowId} className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide scroll-smooth">
+          <div id={rowId} className="flex gap-2 md:gap-2.5 overflow-x-auto pb-2 scrollbar-hide scroll-smooth">
             {channels.map((channel) => createChannelTile(channel, showFavorite))}
           </div>
           <button
@@ -1195,7 +1196,7 @@ export default function Home() {
             {/* Now playing bar (mobile) */}
             {selectedChannel && (
               <div className="shrink-0 bg-[#060608] border-b border-white/5 px-3 py-2 flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
                 <img
                   src={selectedChannel.logo || "/placeholder.svg"}
                   alt=""
@@ -1264,7 +1265,7 @@ export default function Home() {
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${
                         isActive
-                          ? "bg-foreground/[0.06] border-l-2 border-l-red-500/80"
+                          ? "bg-foreground/[0.06] border-l-2 border-l-foreground/40"
                           : "hover:bg-foreground/[0.03] border-l-2 border-l-transparent"
                       }`}
                     >
@@ -1296,8 +1297,8 @@ export default function Home() {
                       </div>
                       {isActive && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="w-1 h-1 bg-red-500 rounded-full animate-pulse" />
-                          <span className="text-[9px] font-medium text-red-500/80 uppercase tracking-[0.15em]">Live</span>
+                          <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
+                          <span className="text-[9px] font-medium text-foreground/50 uppercase tracking-[0.15em]">Live</span>
                         </div>
                       )}
                     </button>
@@ -1370,7 +1371,7 @@ export default function Home() {
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${
                         isActive
-                          ? "bg-foreground/[0.06] border-l-2 border-l-red-500/80"
+                          ? "bg-foreground/[0.06] border-l-2 border-l-foreground/40"
                           : "hover:bg-foreground/[0.03] border-l-2 border-l-transparent"
                       }`}
                     >
@@ -1402,8 +1403,8 @@ export default function Home() {
                       </div>
                       {isActive && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="w-1 h-1 bg-red-500 rounded-full animate-pulse" />
-                          <span className="text-[9px] font-medium text-red-500/80 uppercase tracking-[0.15em]">Live</span>
+                          <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
+                          <span className="text-[9px] font-medium text-foreground/50 uppercase tracking-[0.15em]">Live</span>
                         </div>
                       )}
                     </button>
@@ -1450,7 +1451,7 @@ export default function Home() {
                 </div>
                 {/* Now Playing bar */}
                 <div className="shrink-0 bg-[#060608] border-t border-white/5 px-4 py-2.5 flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                  <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
                   <img
                     src={selectedChannel.logo || "/placeholder.svg"}
                     alt=""
@@ -1736,23 +1737,23 @@ export default function Home() {
         {!isLiveTVView ? (
           <div className="w-full">
             {/* Quick actions - animated buttons */}
-            <div className="px-3 md:px-5 py-3 flex gap-2">
+            <div className="px-3 md:px-5 py-2 md:py-3 flex gap-2">
               <button
                 onClick={handleLiveTVNavigation}
-                className="premium-button px-5 py-2.5 rounded-xl text-xs"
+                className="premium-button px-4 py-2 rounded-xl text-xs"
               >
                 Explore Live TV
               </button>
               <button
                 onClick={() => setShowChannelRequestModal(true)}
-                className="px-5 py-2.5 rounded-xl text-xs font-semibold border-2 border-border text-foreground hover:bg-secondary hover:border-foreground/30 transition-all duration-300 hover:shadow-md active:scale-95"
+                className="px-4 py-2 rounded-xl text-xs font-semibold border-2 border-border text-foreground hover:bg-secondary hover:border-foreground/30 transition-all duration-300 hover:shadow-md active:scale-95"
               >
                 Request Channel
               </button>
             </div>
 
             {/* Category sections */}
-            <div className="space-y-6 px-3 md:px-5">
+            <div className="space-y-4 md:space-y-6 px-3 md:px-5">
               {/* Favorites Row */}
               {favorites.length > 0 && createRow(
                 "My Favorites",
@@ -1826,9 +1827,9 @@ export default function Home() {
               )}
             </div>
 
-            {/* Channel grid - ultra-smooth rectangular cards */}
+            {/* Channel grid - square cards */}
             {filteredChannels.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 md:gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-2.5">
                 {filteredChannels.map((channel, index) => (
                   <div
                     key={channel.id}
@@ -1836,25 +1837,24 @@ export default function Home() {
                     className="cursor-pointer group animate-scale-in"
                     style={{ animationDelay: `${(index % 18) * 0.025}s` }}
                   >
-                    <div className="bg-card rounded-xl overflow-hidden border border-border/50 shadow-sm channel-card-smooth hover:border-border relative">
-                      <div className="aspect-[3/2] bg-secondary/20 flex items-center justify-center relative overflow-hidden">
+                    <div className="bg-card rounded-xl overflow-hidden border border-border/50 channel-card-smooth hover:border-border relative">
+                      <div className="aspect-square bg-secondary/20 flex items-center justify-center relative overflow-hidden">
                         <img
                           src={channel.logo || "/placeholder.svg"}
                           alt={channel.name}
-                          className="w-full h-full object-contain p-3 md:p-4 image-zoom-smooth"
+                          className="w-full h-full object-contain p-2.5 md:p-3 image-zoom-smooth"
                           onError={(e) => {
                             e.currentTarget.style.display = "none"
                           }}
                         />
                         {channel.isHD && (
-                          <span className="absolute top-1.5 right-1.5 text-[9px] px-2 py-0.5 bg-foreground/90 text-background rounded-md font-bold shadow-md backdrop-blur-sm">
+                          <span className="absolute top-1 right-1 text-[8px] px-1.5 py-0.5 bg-foreground/90 text-background rounded font-bold">
                             HD
                           </span>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                       </div>
-                      <div className="px-2 py-2">
-                        <h3 className="font-semibold text-foreground text-center text-[11px] md:text-xs truncate group-hover:text-foreground/70 transition-colors duration-300">
+                      <div className="px-1.5 py-1.5">
+                        <h3 className="font-medium text-foreground text-center text-[10px] truncate group-hover:text-foreground/70 transition-colors duration-300">
                           {channel.name}
                         </h3>
                       </div>
