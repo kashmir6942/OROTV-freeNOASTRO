@@ -112,7 +112,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="bos-theme">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange storageKey="orotv-theme">
           <PHCornerUsernameProvider>{children}</PHCornerUsernameProvider>
           <SupportPopup />
           <DevToolsProtection />
