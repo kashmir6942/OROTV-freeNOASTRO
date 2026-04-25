@@ -65,6 +65,7 @@ interface ExtendedVideoPlayerProps extends VideoPlayerProps {
   getSavedPosition?: (channelId: string) => Promise<number>
   embedded?: boolean
   onBitrateModeChange?: (mode: "high-bitrate" | "optimized") => void
+  restoreUIHidden?: boolean
 }
 
 export function VideoPlayer({
@@ -93,6 +94,7 @@ export function VideoPlayer({
   getSavedPosition,
   embedded = false,
   onBitrateModeChange,
+  restoreUIHidden = false,
 }: ExtendedVideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -147,6 +149,20 @@ export function VideoPlayer({
       : "high-bitrate"
   )
   const wasUIHiddenRef = useRef(false)
+  
+  // Restore UI hidden state if prop is set (after auto-reconnect)
+  useEffect(() => {
+    if (restoreUIHidden) {
+      setIsUIHidden(true)
+      setShowUIButtonVisible(false)
+    }
+  }, [restoreUIHidden])
+  
+  // Save UI hidden state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("orotv-ui-hidden", isUIHidden ? "true" : "false")
+  }, [isUIHidden])
+  
   const [archiveMode, setArchiveMode] = useState(false)
   const bufferingSinceRef = useRef<number | null>(null)
   const bufferingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -1156,7 +1172,7 @@ export function VideoPlayer({
     }, 300)
   }, [channel.id, isUIHidden])
 
-  // Buffering watchdog: if buffering exceeds 10 seconds, smart reopen
+  // Buffering watchdog: if buffering exceeds 10 seconds, close player → go home → reopen
   useEffect(() => {
     if (isBuffering) {
       if (!bufferingSinceRef.current) {
@@ -1172,12 +1188,20 @@ export function VideoPlayer({
             console.log("[v0] Buffering duration:", bufferingDuration, "ms")
             
             if (bufferingDuration >= 10000) { // 10 seconds
-              console.log("[v0] Buffering exceeded 10s, triggering smart reopen")
+              console.log("[v0] Buffering exceeded 10s, closing player and reopening via home")
               if (bufferingCheckIntervalRef.current) {
                 clearInterval(bufferingCheckIntervalRef.current)
                 bufferingCheckIntervalRef.current = null
               }
-              smartReopenChannel()
+              bufferingSinceRef.current = null
+              // Save UI hidden state to restore after reopen
+              wasUIHiddenRef.current = isUIHidden
+              // Use parent's close → reopen cycle (goes back to home UI first)
+              if (onBitrateModeChange) {
+                onBitrateModeChange(streamingModeRef.current)
+              } else {
+                smartReopenChannel()
+              }
             }
           }
         }, 2000)
@@ -1197,7 +1221,7 @@ export function VideoPlayer({
         bufferingCheckIntervalRef.current = null
       }
     }
-  }, [isBuffering, smartReopenChannel])
+  }, [isBuffering, smartReopenChannel, isUIHidden, onBitrateModeChange])
 
   const togglePlayPause = () => {
     if (videoRef.current) {
