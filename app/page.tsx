@@ -767,11 +767,23 @@ export default function Home() {
         className="group cursor-pointer shrink-0 animate-slide-up relative"
         onClick={() => handleChannelSelect(channel)}
       >
-        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-[#919191] flex flex-col items-center justify-between py-2 px-1 relative channel-card-smooth hover:bg-[#7a7a7a] transition-colors">
-          <span className="text-white font-bold text-lg sm:text-xl md:text-2xl leading-none mt-1 font-sans" style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}>
+        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-[#919191] flex flex-col items-center justify-between py-2 px-1 relative channel-card-smooth hover:bg-[#7a7a7a] transition-colors overflow-hidden">
+          <span className="text-white font-bold text-sm sm:text-base leading-none mt-0.5 self-start pl-1.5 z-10" style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}>
             {channelNum}
           </span>
-          <span className="text-white text-[9px] sm:text-[10px] font-semibold text-center leading-tight px-1 truncate w-full text-center" style={{ fontFamily: 'Roboto, sans-serif' }}>
+          {channel.logo ? (
+            <img
+              src={channel.logo}
+              alt={channel.name}
+              className="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-md"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
+          ) : (
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-white font-bold text-lg">{channel.name.charAt(0)}</span>
+            </div>
+          )}
+          <span className="text-white text-[8px] sm:text-[9px] font-semibold text-center leading-tight px-1 truncate w-full" style={{ fontFamily: 'Roboto, sans-serif' }}>
             {channel.name}
           </span>
           {showFavorite && (
@@ -1914,15 +1926,27 @@ export default function Home() {
                     className="cursor-pointer group animate-scale-in"
                     style={{ animationDelay: `${(index % 18) * 0.025}s` }}
                   >
-                    <div className="rounded-2xl bg-[#919191] hover:bg-[#7a7a7a] transition-colors channel-card-smooth aspect-square flex flex-col items-center justify-between py-3 px-2 relative">
+                    <div className="rounded-2xl bg-[#919191] hover:bg-[#7a7a7a] transition-colors channel-card-smooth aspect-square flex flex-col items-center justify-between py-2 px-2 relative overflow-hidden">
                       <span
-                        className="text-white font-bold text-xl md:text-2xl leading-none mt-1"
+                        className="text-white font-bold text-sm leading-none self-start z-10"
                         style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}
                       >
                         {String(index + 1).padStart(3, '0')}
                       </span>
+                      {channel.logo ? (
+                        <img
+                          src={channel.logo}
+                          alt={channel.name}
+                          className="w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-md"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                          <span className="text-white font-bold text-xl">{channel.name.charAt(0)}</span>
+                        </div>
+                      )}
                       <span
-                        className="text-white text-[10px] md:text-xs font-semibold text-center leading-tight w-full truncate"
+                        className="text-white text-[9px] md:text-[10px] font-semibold text-center leading-tight w-full truncate"
                         style={{ fontFamily: 'Roboto, sans-serif' }}
                       >
                         {channel.name}
