@@ -758,49 +758,33 @@ export default function Home() {
 
   const createChannelTile = (channel: Channel, showFavorite = true) => {
     const isChannelFavorite = isFavorite(channel.id)
-    const tileSize = "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28"
+    const channelIndex = allChannels.findIndex(c => c.id === channel.id)
+    const channelNum = String(channelIndex + 1).padStart(3, '0')
 
     return (
-    <div
-      key={channel.id}
-      className="group cursor-pointer shrink-0 animate-slide-up relative"
-    >
-      <div 
-        className={`${tileSize} rounded-xl border border-border/50 bg-card overflow-hidden relative flex items-center justify-center channel-card-smooth hover:border-border`}
+      <div
+        key={channel.id}
+        className="group cursor-pointer shrink-0 animate-slide-up relative"
         onClick={() => handleChannelSelect(channel)}
       >
-        {channel.logo ? (
-          <img
-            src={channel.logo || "/placeholder.svg"}
-            alt={channel.name}
-            className="w-full h-full object-contain p-2 image-zoom-smooth"
-            onError={(e) => {
-              ;(e.target as HTMLImageElement).src =
-                `/placeholder.svg?height=80&width=80&text=${encodeURIComponent(channel.name.charAt(0))}`
-            }}
-          />
-        ) : (
-          <span className="font-semibold text-xs text-foreground text-center px-1">{channel.name}</span>
-        )}
-        {channel.isHD && (
-          <span className="absolute top-1 right-1 text-[8px] px-1 py-0.5 bg-foreground/90 text-background rounded font-bold">HD</span>
-        )}
-        {/* Favorite star button */}
-        {showFavorite && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleFavorite(channel.id)
-            }}
-            className="absolute top-1 left-1 z-10 p-1 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100"
-          >
-            <Star className={`w-2.5 h-2.5 ${isChannelFavorite ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
-          </button>
-        )}
+        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-[#919191] flex flex-col items-center justify-between py-2 px-1 relative channel-card-smooth hover:bg-[#7a7a7a] transition-colors">
+          <span className="text-white font-bold text-lg sm:text-xl md:text-2xl leading-none mt-1 font-sans" style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}>
+            {channelNum}
+          </span>
+          <span className="text-white text-[9px] sm:text-[10px] font-semibold text-center leading-tight px-1 truncate w-full text-center" style={{ fontFamily: 'Roboto, sans-serif' }}>
+            {channel.name}
+          </span>
+          {showFavorite && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(channel.id) }}
+              className="absolute top-1 right-1 z-10 p-0.5 bg-black/30 hover:bg-black/50 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+            >
+              <Star className={`w-2.5 h-2.5 ${isChannelFavorite ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
+            </button>
+          )}
+        </div>
       </div>
-      <p className="text-[10px] font-medium truncate mt-1.5 text-foreground/80 w-20 sm:w-24 md:w-28">{channel.name}</p>
-    </div>
-  )
+    )
   }
 
   const scrollChannelRow = (direction: "left" | "right", containerId: string) => {
@@ -1017,7 +1001,7 @@ export default function Home() {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-6">
-              <img src="/images/cignal-station-logo.png" alt="Cignal Station" className="h-16 w-auto" />
+              <img src="/images/light-logo.png" alt="Light TV" className="h-10 w-auto" />
           <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
         </div>
       </div>
@@ -1128,7 +1112,7 @@ export default function Home() {
           <div className="px-2 md:px-5">
             <div className="flex items-center justify-between h-14 md:h-14">
               <div className="flex items-center gap-4">
-              <img src="/images/cignal-station-logo.png" alt="Cignal Station" className="h-6 md:h-7 w-auto" />
+              <img src="/images/light-logo.png" alt="Light TV" className="h-6 md:h-7 w-auto" />
                 <nav className="hidden md:flex items-center gap-0.5">
                   <button
                     onClick={() => { handleHomeNavigation(); setViewMode('grid'); }}
@@ -1629,9 +1613,9 @@ export default function Home() {
     return (
       <div className="mt-8 pt-6 border-t border-border/20">
         <div className="space-y-4 py-4 px-3 md:px-5">
-          <img src="/images/cignal-station-logo.png" alt="Cignal Station" className="h-8 w-auto" />
+          <img src="/images/light-logo.png" alt="Light TV" className="h-8 w-auto" />
           <div className="space-y-1.5">
-            <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">Welcome to Cignal Station</h2>
+            <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">Welcome to Light TV</h2>
             <p className="text-xs text-muted-foreground/60 leading-relaxed max-w-sm">
               Your streaming destination for live TV, movies, entertainment, and more.
             </p>
@@ -1716,7 +1700,7 @@ export default function Home() {
           <div className="flex items-center justify-between h-12 md:h-14">
             {/* Logo + Nav together on left */}
             <div className="flex items-center gap-4">
-              <img src="/images/cignal-station-logo.png" alt="Cignal Station" className="h-6 md:h-7 w-auto" />
+              <img src="/images/light-logo.png" alt="Light TV" className="h-6 md:h-7 w-auto" />
               <nav className="hidden md:flex items-center gap-0.5">
                 <button
                   onClick={handleHomeNavigation}
@@ -1930,27 +1914,19 @@ export default function Home() {
                     className="cursor-pointer group animate-scale-in"
                     style={{ animationDelay: `${(index % 18) * 0.025}s` }}
                   >
-                    <div className="bg-card rounded-xl overflow-hidden border border-border/50 channel-card-smooth hover:border-border relative">
-                      <div className="aspect-square bg-secondary/20 flex items-center justify-center relative overflow-hidden">
-                        <img
-                          src={channel.logo || "/placeholder.svg"}
-                          alt={channel.name}
-                          className="w-full h-full object-contain p-2.5 md:p-3 image-zoom-smooth"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none"
-                          }}
-                        />
-                        {channel.isHD && (
-                          <span className="absolute top-1 right-1 text-[8px] px-1.5 py-0.5 bg-foreground/90 text-background rounded font-bold">
-                            HD
-                          </span>
-                        )}
-                      </div>
-                      <div className="px-1.5 py-1.5">
-                        <h3 className="font-medium text-foreground text-center text-[10px] truncate group-hover:text-foreground/70 transition-colors duration-300">
-                          {channel.name}
-                        </h3>
-                      </div>
+                    <div className="rounded-2xl bg-[#919191] hover:bg-[#7a7a7a] transition-colors channel-card-smooth aspect-square flex flex-col items-center justify-between py-3 px-2 relative">
+                      <span
+                        className="text-white font-bold text-xl md:text-2xl leading-none mt-1"
+                        style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}
+                      >
+                        {String(index + 1).padStart(3, '0')}
+                      </span>
+                      <span
+                        className="text-white text-[10px] md:text-xs font-semibold text-center leading-tight w-full truncate"
+                        style={{ fontFamily: 'Roboto, sans-serif' }}
+                      >
+                        {channel.name}
+                      </span>
                     </div>
                   </div>
                 ))}

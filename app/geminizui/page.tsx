@@ -89,9 +89,9 @@ export default function GeminizUIPage() {
         <div className="flex items-center justify-between px-4 h-[54px]">
           <div className="h-8 relative flex items-center gap-2">
              <img 
-               src="/images/cignal-station-logo.png" 
-               alt="Cignal Station" 
-               className="h-full object-contain drop-shadow-[0_0_10px_rgba(106,170,221,0.3)]"
+               src="/images/light-logo.png" 
+               alt="Light TV" 
+               className="h-full object-contain"
              />
           </div>
           <div className="flex items-center gap-3">

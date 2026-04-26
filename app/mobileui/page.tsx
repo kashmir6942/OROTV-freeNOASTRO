@@ -58,7 +58,7 @@ function MobileUILoading() {
     <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-foreground text-xl font-semibold">Loading Cignal Station...</div>
+          <div className="text-foreground text-xl font-semibold">Loading Light TV...</div>
         </div>
     </div>
   )
@@ -134,7 +134,7 @@ const MobileUI = () => {
                style={{ boxShadow: '0 8px 32px rgba(0, 180, 216, 0.35)' }}>
             <span className="text-white font-bold text-lg">CS</span>
           </div>
-          <h1 className="text-foreground text-xl font-bold mb-2">Cignal Station</h1>
+          <h1 className="text-foreground text-xl font-bold mb-2">Light TV</h1>
           {isScanning ? (
             <>
               <p className="text-muted-foreground text-sm mb-4">Scanning channels...</p>
@@ -204,7 +204,7 @@ const MobileUI = () => {
             <span className="text-white font-bold text-xs tracking-tight">CS</span>
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-foreground text-sm tracking-tight">Cignal Station</span>
+                    <span className="font-bold text-foreground text-sm tracking-tight">Light TV</span>
             <span className="text-[10px] text-muted-foreground font-medium">Stream Anywhere</span>
           </div>
         </div>
@@ -272,7 +272,7 @@ const MobileUI = () => {
                      style={{ boxShadow: '0 8px 32px rgba(0, 180, 216, 0.25)' }}>
                   <div className="relative z-10">
                     <p className="text-white/80 text-xs font-medium mb-1">Welcome to</p>
-                    <h1 className="text-white text-xl font-bold tracking-tight">Cignal Station</h1>
+                    <h1 className="text-white text-xl font-bold tracking-tight">Light TV</h1>
                     <p className="text-white/70 text-xs mt-1">Free streaming, everywhere</p>
                   </div>
                   <div className="absolute -right-4 -bottom-4 w-24 h-24 rounded-full bg-white/10 blur-xl"></div>

@@ -46,7 +46,7 @@ export function SupportPopup({ isOpen, onClose, isFirstTime = false }: SupportPo
           {/* Message */}
           <div className="space-y-3 mb-5">
             <p className="text-sm text-foreground leading-relaxed">
-              Help us keep Cignal Station running and improving! By using our v0 referral link, you support the development 
+              Help us keep Light TV running and improving! By using our v0 referral link, you support the development 
               of new features, server costs, and continuous updates. This referral is only applied to new users from v0.app only.
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
