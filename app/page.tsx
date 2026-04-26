@@ -227,16 +227,7 @@ export default function Home() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const [showQuickSwitch, setShowQuickSwitch] = useState(false)
   const [showChannelStats, setShowChannelStats] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('light-view-mode')
-      return (saved === 'grid' || saved === 'list') ? saved : 'grid'
-    }
-    return 'grid'
-  })
   const { isPipActive, pipChannel, activatePip, deactivatePip } = usePipMode()
-  const [listSearchQuery, setListSearchQuery] = useState("")
-  const [listSelectedCategory, setListSelectedCategory] = useState("All")
   const [channelNumberInput, setChannelNumberInput] = useState("")
   const channelNumberTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -261,10 +252,7 @@ export default function Home() {
     setRecentlyWatched(getRecentlyWatched())
   }, [])
 
-  // Save viewMode to localStorage
-  useEffect(() => {
-    localStorage.setItem('light-view-mode', viewMode)
-  }, [viewMode])
+
   
   // Load channels from database and merge with static channels
   useEffect(() => {
@@ -1116,10 +1104,7 @@ export default function Home() {
     return channels
   })()
 
-  const listCategories = ["All", ...Array.from(new Set(allChannels.map(ch => ch.category))).sort()]
-
-  // LIST MODE LAYOUT
-  if (viewMode === 'list') {
+  // GRID MODE LAYOUT (default and only view)
     return (
       <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden selection:bg-foreground/10">
         <SupportPopup isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} isFirstTime={isFirstTimeUser} />

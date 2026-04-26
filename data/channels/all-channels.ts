@@ -881,17 +881,7 @@ export const allChannels: Channel[] = [
     region: "PH",
     drm: { clearkey: { "07aa813bf2c147748046edd930f7736e": "3bd6688b8b44e96201e753224adfc8fb" } },
   },
-  {
-    id: "warnertv-hd-cignal",
-    name: "Warner TV HD",
-    url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_warnerhd/default/index.mpd",
-    logo: "https://i.imgur.com/NHYowK5.png",
-    isHD: true,
-    category: "Entertainment",
-    group: "Cignal",
-    region: "PH",
-    drm: { clearkey: { "7f2a9c6d1e5b4c8a8d10a2b7e1c9f344": "ae3d135d5ddd9e8f3a7bbfbfae0e40d1" } },
-  },
+
   // ANIME CHANNELS
   {
     id: "aniplus-sea",
