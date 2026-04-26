@@ -574,30 +574,43 @@ export default function Home() {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  // Handle number input for channel switching (list view + video player)
+  // Handle number input for channel switching (list view + grid video player)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only work when not typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      
+
       // Check if it's a number key (0-9)
       if (/^[0-9]$/.test(e.key)) {
         setChannelNumberInput(prev => {
           const newInput = prev + e.key
-          // Clear any existing timeout
           if (channelNumberTimeoutRef.current) {
             clearTimeout(channelNumberTimeoutRef.current)
           }
-          // Set timeout to process the number after 1.5 seconds
+          // After 1.5s of no input, switch channel
           channelNumberTimeoutRef.current = setTimeout(() => {
             const channelNum = parseInt(newInput, 10)
             if (channelNum > 0 && channelNum <= allChannels.length) {
               const targetChannel = allChannels[channelNum - 1]
               if (targetChannel) {
-                setSelectedChannel(targetChannel)
-                setHeaderTitle(targetChannel.name)
-                addToRecentlyWatched(targetChannel.id)
-                setRecentlyWatched(getRecentlyWatched())
+                // Check if UI was hidden before switching
+                const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
+
+                // Destroy current player → go to home → reopen with new channel
+                pendingChannelRef.current = targetChannel
+                setSelectedChannel(null)
+
+                setTimeout(() => {
+                  if (pendingChannelRef.current) {
+                    setRestoreUIHidden(wasHidden)
+                    setSelectedChannel(pendingChannelRef.current)
+                    setHeaderTitle(pendingChannelRef.current.name)
+                    addToRecentlyWatched(pendingChannelRef.current.id)
+                    setRecentlyWatched(getRecentlyWatched())
+                    pendingChannelRef.current = null
+                    setTimeout(() => setRestoreUIHidden(false), 1500)
+                  }
+                }, 300)
               }
             }
             setChannelNumberInput("")
@@ -607,8 +620,8 @@ export default function Home() {
       }
     }
 
-    // Only add listener if in list view or video player is active
-    if (viewMode === 'list' || selectedChannel) {
+    // Active in list view OR when grid video player is open
+    if (viewMode === 'list' || (viewMode === 'grid' && selectedChannel)) {
       window.addEventListener("keydown", handleKeyDown)
       return () => window.removeEventListener("keydown", handleKeyDown)
     }
