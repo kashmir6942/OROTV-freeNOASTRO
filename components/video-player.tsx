@@ -1024,7 +1024,7 @@ export function VideoPlayer({
                   if (hlsRef.current && streamingModeRef.current === "high-bitrate") {
                     // If level changed, force it back to max
                     if (hlsRef.current.currentLevel !== maxLevel) {
-                      console.log("[v0] HD: ABR tried to lower quality, forcing back to', maxLevel)
+                      console.log("[v0] HD: ABR tried to lower quality, forcing back to", maxLevel)
                       hlsRef.current.currentLevel = maxLevel
                       hlsRef.current.loadLevel = maxLevel
                     }
