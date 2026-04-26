@@ -362,73 +362,28 @@ export function VideoPlayer({
         const tracks = playerRef.current.getVariantTracks()
         if (tracks && tracks.length > 0) {
           if (isHighBitrate) {
-            // HD Mode: AGGRESSIVELY Force highest quality track, disable ABR completely
+            // HD Mode: Force highest quality track, disable ABR
             let highestTrack = tracks[0]
             let highestBandwidth = 0
-            let highestHeight = 0
             tracks.forEach((track: any) => {
-              const bw = track.bandwidth || 0
-              const h = track.height || 0
-              if (bw > highestBandwidth || (bw === highestBandwidth && h > highestHeight)) {
-                highestBandwidth = bw
-                highestHeight = h
+              if (track.bandwidth > highestBandwidth) {
+                highestBandwidth = track.bandwidth
                 highestTrack = track
               }
             })
-            
-            // COMPLETELY disable ABR
             playerRef.current.configure({ 
-              abr: { 
-                enabled: false,
-                defaultBandwidthEstimate: 100000000, // 100 Mbps
-                switchInterval: 999999,
-              },
-              streaming: { 
-                bufferingGoal: 180, 
-                rebufferingGoal: 3,
-                bufferBehind: 120,
-                bufferAhead: 120,
-              }
+              abr: { enabled: false },
+              streaming: { bufferingGoal: 120, rebufferingGoal: 5 }
             })
-            
-            // Force select highest track with buffer clear
-            playerRef.current.selectVariantTrack(highestTrack, true, 0)
-            
-            console.log("[v0] HD DASH Mode: FORCED to MAX track - bandwidth:", highestBandwidth, "height:", highestHeight)
-            
-            // Set up continuous enforcement if not already active
-            if (!(playerRef.current as any)._hdQualityLock) {
-              ;(playerRef.current as any)._hdQualityLock = setInterval(() => {
-                if (playerRef.current && streamingModeRef.current === "high-bitrate") {
-                  try {
-                    const currentTracks = playerRef.current.getVariantTracks()
-                    const activeTracks = currentTracks.filter((t: any) => t.active)
-                    
-                    let maxTrack = currentTracks[0]
-                    let maxBw = 0
-                    currentTracks.forEach((t: any) => {
-                      if ((t.bandwidth || 0) > maxBw) {
-                        maxBw = t.bandwidth || 0
-                        maxTrack = t
-                      }
-                    })
-                    
-                    if (activeTracks.length > 0 && activeTracks[0].id !== maxTrack.id) {
-                      console.log("[v0] HD DASH: Quality drifted, re-forcing MAX")
-                      playerRef.current.configure({ abr: { enabled: false } })
-                      playerRef.current.selectVariantTrack(maxTrack, true, 0)
-                    }
-                  } catch (e) {}
-                }
-              }, 500)
-            }
+            playerRef.current.selectVariantTrack(highestTrack, true)
+            console.log("[v0] HD Mode: LOCKED to highest track, bandwidth:", highestBandwidth)
           } else {
             // SD Mode: Enable ABR with strict bandwidth limits
             let lowestTrack = tracks[0]
             let lowestBandwidth = Infinity
             tracks.forEach((track: any) => {
-              if ((track.bandwidth || 0) < lowestBandwidth) {
-                lowestBandwidth = track.bandwidth || 0
+              if (track.bandwidth < lowestBandwidth) {
+                lowestBandwidth = track.bandwidth
                 lowestTrack = track
               }
             })
@@ -438,10 +393,10 @@ export function VideoPlayer({
                 defaultBandwidthEstimate: 500000, // 500kbps
                 restrictions: { maxBandwidth: 1500000 } // Cap at 1.5Mbps
               },
-              streaming: { bufferingGoal: 30, rebufferingGoal: 8 }
+              streaming: { bufferingGoal: 30, rebufferingGoal: 2 }
             })
             playerRef.current.selectVariantTrack(lowestTrack, false) // Start low
-            console.log("[v0] SD DASH Mode: ABR with 1.5Mbps cap, starting at lowest")
+            console.log("[v0] SD Mode: ABR with 1.5Mbps cap, starting at lowest")
           }
         }
       }
@@ -834,21 +789,11 @@ export function VideoPlayer({
       // Clean up existing players
       if (playerRef.current) {
         console.log("[v0] player destroy shaka")
-        // Clear quality lock interval before destroying
-        if ((playerRef.current as any)._hdQualityLock) {
-          clearInterval((playerRef.current as any)._hdQualityLock)
-          ;(playerRef.current as any)._hdQualityLock = null
-        }
         await playerRef.current.destroy()
         playerRef.current = null
       }
       if (hlsRef.current) {
         console.log("[v0] Player destroy hls js")
-        // Clear quality lock interval before destroying
-        if ((hlsRef.current as any)._hdQualityLock) {
-          clearInterval((hlsRef.current as any)._hdQualityLock)
-          ;(hlsRef.current as any)._hdQualityLock = null
-        }
         hlsRef.current.destroy()
         hlsRef.current = null
       }
@@ -1200,19 +1145,16 @@ export function VideoPlayer({
         playerRef.current = new window.shaka.Player(video)
 
         const isOptimized = streamingModeRef.current === "optimized"
-        const isHighBitrate = streamingModeRef.current === "high-bitrate"
+        const isHD = streamingModeRef.current === "high-bitrate"
         
-        // HD MODE: Disable ABR completely, force max quality
-        // SD MODE: Conservative ABR with bandwidth limits
-        const shakaConfig = isHighBitrate ? {
-          // HD/HIGH-BITRATE MODE - FORCE ABSOLUTE MAXIMUM QUALITY
+        // HD MODE: Force MAX quality, disable ABR entirely
+        // SD MODE: Conservative bandwidth, let ABR manage
+        playerRef.current.configure({
           streaming: {
-            // MASSIVE BUFFERS for HD
-            bufferBehind: isAndroidTV ? 60 : 120,
-            bufferingGoal: isAndroidTV ? 90 : 180,
-            rebufferingGoal: 3,
-            bufferAhead: isAndroidTV ? 60 : 120,
-            // Recovery
+            bufferBehind: isHD ? 180 : (isOptimized ? 20 : 60),
+            bufferingGoal: isHD ? 180 : (isOptimized ? 30 : 90),
+            rebufferingGoal: isHD ? 0.5 : (isOptimized ? 8 : 5),
+            bufferAhead: isHD ? 180 : (isOptimized ? 20 : 60),
             stallEnabled: true,
             stallThreshold: 1,
             stallSkip: 0.1,
@@ -1220,59 +1162,25 @@ export function VideoPlayer({
             smallGapLimit: 1.5,
           },
           abr: {
-            // CRITICAL: Disable ABR completely for HD mode
-            enabled: false,
-            // Set insane defaults in case ABR re-enables somehow
-            defaultBandwidthEstimate: 100000000, // 100 Mbps
-            switchInterval: 999999,
-            bandwidthUpgradeTarget: 1.0,
-            bandwidthDowngradeTarget: 1.0,
+            // HD: DISABLE ABR completely - manual track selection only
+            // SD: Enable conservative ABR
+            enabled: isHD ? false : true,
+            switchInterval: isOptimized ? 8 : 4,
+            bandwidthUpgradeTarget: isHD ? 1.0 : (isOptimized ? 0.6 : 0.85),
+            bandwidthDowngradeTarget: isHD ? 1.0 : 0.95,
+            defaultBandwidthEstimate: isHD ? 100000000 : (isOptimized ? 500000 : 5000000), // HD: 100Mbps assumed
+            restrictions: isOptimized ? { maxBandwidth: 1500000 } : {}, // SD: 1.5Mbps cap
           },
           manifest: {
             retryParameters: {
-              timeout: 60000,
-              maxAttempts: 10,
-              baseDelay: 1000,
-              backoffFactor: 2,
-              fuzzFactor: 0.5,
-            },
-          },
-        } : {
-          // SD/OPTIMIZED MODE - Conservative bandwidth limits
-          streaming: {
-            bufferBehind: 20,
-            bufferingGoal: 30,
-            rebufferingGoal: 8,
-            bufferAhead: 20,
-            stallEnabled: true,
-            stallThreshold: 1,
-            stallSkip: 0.1,
-            jumpLargeGaps: true,
-            smallGapLimit: 1.5,
-          },
-          abr: {
-            enabled: true,
-            switchInterval: 8,
-            bandwidthUpgradeTarget: 0.6,
-            bandwidthDowngradeTarget: 0.95,
-            defaultBandwidthEstimate: 500000, // 500kbps for SD
-            restrictions: {
-              maxBandwidth: 1500000, // Cap at 1.5 Mbps
-            },
-          },
-          manifest: {
-            retryParameters: {
-              timeout: 25000,
-              maxAttempts: 6,
+              timeout: isHD ? 60000 : 25000,
+              maxAttempts: isHD ? 10 : 6,
               baseDelay: 1500,
               backoffFactor: 2,
               fuzzFactor: 0.5,
             },
           },
-        }
-        
-        playerRef.current.configure(shakaConfig)
-        console.log("[v0] Shaka configured with", isHighBitrate ? "HD/MAX QUALITY" : "SD/OPTIMIZED", "config")
+        })
 
         if (channel.drm?.clearkey) {
           console.log("[v0] Configuring DRM clearkeys")
@@ -1300,15 +1208,14 @@ export function VideoPlayer({
           setIsLoading(false)
           setRetryCount(0)
 
-          // HD MODE: Force to highest quality track immediately after load
-          if (isHighBitrate && playerRef.current) {
+          // HD MODE: Force absolute max quality for MPD/DRM streams
+          if (streamingModeRef.current === "high-bitrate" && playerRef.current) {
             const tracks = playerRef.current.getVariantTracks()
             if (tracks && tracks.length > 0) {
-              // Find the absolute highest quality track
+              // Find highest bandwidth track
               let maxTrack = tracks[0]
               let maxBandwidth = 0
               let maxHeight = 0
-              
               tracks.forEach((track: any) => {
                 const bw = track.bandwidth || 0
                 const h = track.height || 0
@@ -1319,67 +1226,31 @@ export function VideoPlayer({
                 }
               })
               
-              console.log("[v0] HD DASH: Forcing to MAX track - bandwidth:", maxBandwidth, "height:", maxHeight)
+              console.log("[v0] HD/DRM: Forcing MAX quality track - bandwidth:", maxBandwidth, "height:", maxHeight)
               
-              // Disable ABR and lock to highest track
+              // Disable ABR and force max track
               playerRef.current.configure({ abr: { enabled: false } })
-              playerRef.current.selectVariantTrack(maxTrack, true, 0) // clearBuffer=true, safeMargin=0
+              playerRef.current.selectVariantTrack(maxTrack, true) // true = clear buffer
               
-              // Store max track info for continuous enforcement
-              const maxTrackId = maxTrack.id
-              
-              // Continuous enforcement - every 500ms check and force back to max
+              // Continuous quality lock every 500ms
               if ((playerRef.current as any)._hdQualityLock) {
                 clearInterval((playerRef.current as any)._hdQualityLock)
               }
               
               ;(playerRef.current as any)._hdQualityLock = setInterval(() => {
                 if (playerRef.current && streamingModeRef.current === "high-bitrate") {
-                  try {
-                    const currentTracks = playerRef.current.getVariantTracks()
-                    const activeTracks = currentTracks.filter((t: any) => t.active)
-                    
-                    // Find max again in case tracks changed
-                    let currentMaxTrack = currentTracks[0]
-                    let currentMaxBw = 0
-                    currentTracks.forEach((t: any) => {
-                      if ((t.bandwidth || 0) > currentMaxBw) {
-                        currentMaxBw = t.bandwidth || 0
-                        currentMaxTrack = t
-                      }
-                    })
-                    
-                    // Check if active track is NOT the max
-                    if (activeTracks.length > 0 && activeTracks[0].id !== currentMaxTrack.id) {
-                      console.log("[v0] HD DASH: Track drifted, forcing back to MAX - from", activeTracks[0].bandwidth, "to", currentMaxBw)
-                      playerRef.current.configure({ abr: { enabled: false } })
-                      playerRef.current.selectVariantTrack(currentMaxTrack, true, 0)
-                    }
-                  } catch (e) {
-                    // Player might be destroyed, ignore
+                  const currentTracks = playerRef.current.getVariantTracks()
+                  const activeTrack = currentTracks.find((t: any) => t.active)
+                  
+                  // If not on max track, force it back
+                  if (activeTrack && activeTrack.bandwidth < maxBandwidth) {
+                    console.log("[v0] HD/DRM: Quality dropped, forcing back to max")
+                    const newMaxTrack = currentTracks.reduce((max: any, t: any) => 
+                      (t.bandwidth || 0) > (max.bandwidth || 0) ? t : max, currentTracks[0])
+                    playerRef.current.selectVariantTrack(newMaxTrack, false)
                   }
                 }
               }, 500)
-              
-              // Also listen for adaptation events and block them
-              playerRef.current.addEventListener("adaptation", () => {
-                if (streamingModeRef.current === "high-bitrate" && playerRef.current) {
-                  console.log("[v0] HD DASH: Adaptation event detected, re-forcing max quality")
-                  try {
-                    const tracks = playerRef.current.getVariantTracks()
-                    let maxTrack = tracks[0]
-                    let maxBw = 0
-                    tracks.forEach((t: any) => {
-                      if ((t.bandwidth || 0) > maxBw) {
-                        maxBw = t.bandwidth || 0
-                        maxTrack = t
-                      }
-                    })
-                    playerRef.current.configure({ abr: { enabled: false } })
-                    playerRef.current.selectVariantTrack(maxTrack, false, 0) // Don't clear buffer on adaptation
-                  } catch (e) {}
-                }
-              })
             }
           }
 
@@ -1472,20 +1343,10 @@ export function VideoPlayer({
     
     // Clean up current player completely
     if (playerRef.current) {
-      // Clear quality lock interval before destroying
-      if ((playerRef.current as any)._hdQualityLock) {
-        clearInterval((playerRef.current as any)._hdQualityLock)
-        ;(playerRef.current as any)._hdQualityLock = null
-      }
       playerRef.current.destroy().catch(() => {})
       playerRef.current = null
     }
     if (hlsRef.current) {
-      // Clear quality lock interval before destroying
-      if ((hlsRef.current as any)._hdQualityLock) {
-        clearInterval((hlsRef.current as any)._hdQualityLock)
-        ;(hlsRef.current as any)._hdQualityLock = null
-      }
       hlsRef.current.destroy()
       hlsRef.current = null
     }
@@ -1799,21 +1660,11 @@ export function VideoPlayer({
       // Clean up players immediately on channel change
       if (playerRef.current) {
         console.log("[v0] Cleaning up Shaka player on channel change")
-        // Clear quality lock interval before destroying
-        if ((playerRef.current as any)._hdQualityLock) {
-          clearInterval((playerRef.current as any)._hdQualityLock)
-          ;(playerRef.current as any)._hdQualityLock = null
-        }
         playerRef.current.destroy().catch(console.error)
         playerRef.current = null
       }
       if (hlsRef.current) {
         console.log("[v0] Cleaning up HLS player on channel change")
-        // Clear quality lock interval before destroying
-        if ((hlsRef.current as any)._hdQualityLock) {
-          clearInterval((hlsRef.current as any)._hdQualityLock)
-          ;(hlsRef.current as any)._hdQualityLock = null
-        }
         hlsRef.current.destroy()
         hlsRef.current = null
       }
@@ -1893,22 +1744,12 @@ export function VideoPlayer({
       // Clean up players
       if (playerRef.current) {
         console.log("[v0] Destroying Shaka player on unmount")
-        // Clear quality lock interval before destroying
-        if ((playerRef.current as any)._hdQualityLock) {
-          clearInterval((playerRef.current as any)._hdQualityLock)
-          ;(playerRef.current as any)._hdQualityLock = null
-        }
         playerRef.current.destroy().catch(console.error)
         playerRef.current = null
       }
 
       if (hlsRef.current) {
         console.log("[v0] Destroying HLS player on unmount")
-        // Clear quality lock interval before destroying
-        if ((hlsRef.current as any)._hdQualityLock) {
-          clearInterval((hlsRef.current as any)._hdQualityLock)
-          ;(hlsRef.current as any)._hdQualityLock = null
-        }
         hlsRef.current.destroy()
         hlsRef.current = null
       }
@@ -2285,20 +2126,10 @@ export function VideoPlayer({
                 setShowSettings(false)
                 // Properly destroy and reinitialize
                 if (hlsRef.current) {
-                  // Clear quality lock interval before destroying
-                  if ((hlsRef.current as any)._hdQualityLock) {
-                    clearInterval((hlsRef.current as any)._hdQualityLock)
-                    ;(hlsRef.current as any)._hdQualityLock = null
-                  }
                   hlsRef.current.destroy()
                   hlsRef.current = null
                 }
                 if (playerRef.current) {
-                  // Clear quality lock interval before destroying
-                  if ((playerRef.current as any)._hdQualityLock) {
-                    clearInterval((playerRef.current as any)._hdQualityLock)
-                    ;(playerRef.current as any)._hdQualityLock = null
-                  }
                   playerRef.current.destroy().catch(() => {})
                   playerRef.current = null
                 }
