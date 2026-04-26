@@ -21,18 +21,18 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Cignal Station - Free Live TV Streaming",
+  title: "Light - Owned By PHC-SVWG",
   description:
-    "Cignal Station: Your free gateway to live TV channels and entertainment. Stream your favorite content with a fresh, modern interface designed for everyone.",
-  generator: "Cignal Station",
-  keywords: ["streaming", "live tv", "channels", "free", "entertainment", "cignal", "cignal station"],
+    "Light: Your free gateway to live TV channels and entertainment. Stream your favorite content with a fresh, modern interface designed for everyone.",
+  generator: "Light",
+  keywords: ["streaming", "live tv", "channels", "free", "entertainment", "light", "phc-svwg"],
   icons: {
     icon: [
-      { url: "/images/cignal-station-icon.png", sizes: "any" },
-      { url: "/images/cignal-station-icon.png", sizes: "192x192", type: "image/png" },
-      { url: "/images/cignal-station-icon.png", sizes: "512x512", type: "image/png" },
+      { url: "/images/light-icon.png", sizes: "any" },
+      { url: "/images/light-icon.png", sizes: "192x192", type: "image/png" },
+      { url: "/images/light-icon.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/images/cignal-station-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/images/light-icon.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.json",
   themeColor: "#000000",

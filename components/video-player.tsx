@@ -804,12 +804,19 @@ export function VideoPlayer({
       
       // Set a timeout to detect hanging initialization
       initTimeout = setTimeout(() => {
-        console.log("[v0] Player initialization timeout, retrying...")
-        setError("Loading timeout")
+        console.log("[v0] Player initialization timeout, retry attempt:", retryCount + 1)
         setIsLoading(false)
-        // Auto-retry once on timeout
-        if (retryCount < 2) {
-          setTimeout(() => retryStream(), 1000)
+        // Auto-retry up to 5 times with random 5-15 second intervals
+        if (retryCount < 5) {
+          const retryDelay = Math.floor(Math.random() * 10000) + 5000 // 5-15 seconds
+          console.log("[v0] Retrying in", retryDelay, "ms...")
+          setError(`Loading timeout - Retrying (${retryCount + 1}/5)...`)
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1)
+            retryStream()
+          }, retryDelay)
+        } else {
+          setError("Failed to load channel after 5 attempts. Please try another channel or check your connection.")
         }
       }, 15000) // 15 second timeout
 
@@ -1042,34 +1049,50 @@ export function VideoPlayer({
 
             switch (data.type) {
               case window.Hls.ErrorTypes.NETWORK_ERROR:
-                console.log("[v0] Network error, attempting recovery")
+                console.log("[v0] Network error, attempting recovery, retry:", retryCount)
                 hlsRef.current?.startLoad()
-                // If recovery doesn't work, retry after 2 seconds
+                // If recovery doesn't work, retry with random 5-15s delay
                 setTimeout(() => {
-                  if (connectionStatus !== "connected" && retryCount < 2) {
-                    console.log("[v0] Network recovery failed, full retry...")
-                    retryStream()
+                  if (connectionStatus !== "connected" && retryCount < 5) {
+                    const retryDelay = Math.floor(Math.random() * 10000) + 5000
+                    console.log("[v0] Network recovery failed, retrying in", retryDelay, "ms...")
+                    setError(`Network error - Retrying (${retryCount + 1}/5)...`)
+                    setTimeout(() => {
+                      setRetryCount(prev => prev + 1)
+                      retryStream()
+                    }, retryDelay)
                   }
                 }, 3000)
                 break
               case window.Hls.ErrorTypes.MEDIA_ERROR:
-                console.log("[v0] Media error, attempting recovery")
+                console.log("[v0] Media error, attempting recovery, retry:", retryCount)
                 hlsRef.current?.recoverMediaError()
                 setTimeout(() => {
-                  if (connectionStatus !== "connected" && retryCount < 2) {
-                    console.log("[v0] Media recovery failed, full retry...")
-                    retryStream()
+                  if (connectionStatus !== "connected" && retryCount < 5) {
+                    const retryDelay = Math.floor(Math.random() * 10000) + 5000
+                    console.log("[v0] Media recovery failed, retrying in", retryDelay, "ms...")
+                    setError(`Media error - Retrying (${retryCount + 1}/5)...`)
+                    setTimeout(() => {
+                      setRetryCount(prev => prev + 1)
+                      retryStream()
+                    }, retryDelay)
                   }
                 }, 3000)
                 break
               default:
                 if (initTimeout) clearTimeout(initTimeout)
-                setError(`Stream Error: ${data.details || "Failed to load stream"}`)
                 setConnectionStatus("disconnected")
                 setIsLoading(false)
-                // Auto-retry once
-                if (retryCount < 1) {
-                  setTimeout(() => retryStream(), 2000)
+                // Auto-retry up to 5 times
+                if (retryCount < 5) {
+                  const retryDelay = Math.floor(Math.random() * 10000) + 5000
+                  setError(`Stream error - Retrying (${retryCount + 1}/5)...`)
+                  setTimeout(() => {
+                    setRetryCount(prev => prev + 1)
+                    retryStream()
+                  }, retryDelay)
+                } else {
+                  setError(`Stream Error: ${data.details || "Failed to load stream after 5 attempts"}`)
                 }
                 break
             }
@@ -1093,13 +1116,19 @@ export function VideoPlayer({
           video.addEventListener("error", (e) => {
             console.error("[v0] Native HLS error:", e)
             if (initTimeout) clearTimeout(initTimeout)
-            setError("Failed to load HLS stream")
             setConnectionStatus("disconnected")
             setIsLoading(false)
             reportError("fatal", "Native HLS playback error")
-            // Auto-retry once
-            if (retryCount < 1) {
-              setTimeout(() => retryStream(), 2000)
+            // Auto-retry up to 5 times with 5-15s delay
+            if (retryCount < 5) {
+              const retryDelay = Math.floor(Math.random() * 10000) + 5000
+              setError(`HLS error - Retrying (${retryCount + 1}/5)...`)
+              setTimeout(() => {
+                setRetryCount(prev => prev + 1)
+                retryStream()
+              }, retryDelay)
+            } else {
+              setError("Failed to load HLS stream after 5 attempts")
             }
           })
         } else {
@@ -1316,21 +1345,26 @@ export function VideoPlayer({
     } catch (err: any) {
       console.error("[v0] Failed to initialize player:", err)
       if (initTimeout) clearTimeout(initTimeout)
-      setError(err.message || "Failed to connect to stream")
       setConnectionStatus("disconnected")
       setIsLoading(false)
       reportError("fatal", `Player initialization failed: ${err.message}`)
       
-      // Auto-retry on error once
-      if (retryCount < 2) {
-        console.log("[v0] Auto-retrying after error...")
-        setTimeout(() => retryStream(), 2000)
+      // Auto-retry up to 5 times with 5-15s delay
+      if (retryCount < 5) {
+        const retryDelay = Math.floor(Math.random() * 10000) + 5000
+        setError(`Failed to connect - Retrying (${retryCount + 1}/5)...`)
+        console.log("[v0] Auto-retrying after error in", retryDelay, "ms...")
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1)
+          retryStream()
+        }, retryDelay)
+      } else {
+        setError(err.message || "Failed to connect to stream after 5 attempts")
       }
     }
   }
 
   const retryStream = () => {
-    setRetryCount((prev) => prev + 1)
     initializePlayer()
   }
 

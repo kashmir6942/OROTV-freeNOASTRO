@@ -227,10 +227,18 @@ export default function Home() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const [showQuickSwitch, setShowQuickSwitch] = useState(false)
   const [showChannelStats, setShowChannelStats] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('light-view-mode')
+      return (saved === 'grid' || saved === 'list') ? saved : 'list'
+    }
+    return 'list'
+  })
   const { isPipActive, pipChannel, activatePip, deactivatePip } = usePipMode()
   const [listSearchQuery, setListSearchQuery] = useState("")
   const [listSelectedCategory, setListSelectedCategory] = useState("All")
+  const [channelNumberInput, setChannelNumberInput] = useState("")
+  const channelNumberTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const EPG_URLS = [
     "https://epgshare01.online/epgshare01/epg_ripper_PH1.xml.gz",
@@ -249,9 +257,14 @@ export default function Home() {
 
   // Initialize favorites and recently watched
   useEffect(() => {
-  setFavorites(getFavorites())
-  setRecentlyWatched(getRecentlyWatched())
+    setFavorites(getFavorites())
+    setRecentlyWatched(getRecentlyWatched())
   }, [])
+
+  // Save viewMode to localStorage
+  useEffect(() => {
+    localStorage.setItem('light-view-mode', viewMode)
+  }, [viewMode])
   
   // Load channels from database and merge with static channels
   useEffect(() => {
@@ -560,6 +573,46 @@ export default function Home() {
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
+
+  // Handle number input for channel switching (list view + video player)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only work when not typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      
+      // Check if it's a number key (0-9)
+      if (/^[0-9]$/.test(e.key)) {
+        setChannelNumberInput(prev => {
+          const newInput = prev + e.key
+          // Clear any existing timeout
+          if (channelNumberTimeoutRef.current) {
+            clearTimeout(channelNumberTimeoutRef.current)
+          }
+          // Set timeout to process the number after 1.5 seconds
+          channelNumberTimeoutRef.current = setTimeout(() => {
+            const channelNum = parseInt(newInput, 10)
+            if (channelNum > 0 && channelNum <= allChannels.length) {
+              const targetChannel = allChannels[channelNum - 1]
+              if (targetChannel) {
+                setSelectedChannel(targetChannel)
+                setHeaderTitle(targetChannel.name)
+                addToRecentlyWatched(targetChannel.id)
+                setRecentlyWatched(getRecentlyWatched())
+              }
+            }
+            setChannelNumberInput("")
+          }, 1500)
+          return newInput
+        })
+      }
+    }
+
+    // Only add listener if in list view or video player is active
+    if (viewMode === 'list' || selectedChannel) {
+      window.addEventListener("keydown", handleKeyDown)
+      return () => window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [viewMode, selectedChannel])
 
   useEffect(() => {
     const initializeUserData = async () => {
@@ -1192,14 +1245,16 @@ export default function Home() {
                   />
                 </>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#060608]">
-                  <div className="relative mb-4">
-                    <div className="absolute -inset-3 rounded-full bg-white/[0.02] blur-lg animate-pulse" style={{ animationDuration: '4s' }} />
-                    <div className="relative w-16 h-16 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                      <Tv className="w-7 h-7 text-white/20" />
-                    </div>
+                <div className="absolute inset-0 flex flex-col items-start justify-start bg-black p-6 md:p-8">
+                  <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">Thank you for using Light TV.</h1>
+                  <p className="text-sm md:text-base text-white/80 mb-6">Get started by clicking these channels on the left</p>
+                  <svg className="w-24 h-12 md:w-32 md:h-16 text-white mb-8" viewBox="0 0 120 40" fill="none">
+                    <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <div className="mt-auto">
+                    <p className="text-xs font-medium text-white/80 mb-2">Notice</p>
+                    <p className="text-xs text-white/60 max-w-sm">Wait 5-20 seconds for the channel to load, if it still does nothing, you can have a complaint by using the rate function</p>
                   </div>
-                  <p className="text-sm font-extralight text-white/60 tracking-wide">Select a channel to watch</p>
                 </div>
               )}
             </div>
@@ -1233,11 +1288,16 @@ export default function Home() {
                   />
                 </div>
               </div>
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-2.5 pb-2 shrink-0">
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-2.5 pb-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {listCategories.map((cat) => (
                   <button
                     key={cat}
-                    onClick={() => setListSelectedCategory(cat)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setListSelectedCategory(cat)
+                    }}
                     className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${
                       listSelectedCategory === cat
                         ? "bg-foreground text-background"
@@ -1269,6 +1329,8 @@ export default function Home() {
                     <button
                       key={channel.id}
                       onClick={() => {
+                        // Prevent re-selecting same channel (fixes double play)
+                        if (selectedChannel?.id === channel.id) return
                         setSelectedChannel(channel)
                         setHeaderTitle(channel.name)
                         addToRecentlyWatched(channel.id)
@@ -1337,11 +1399,16 @@ export default function Home() {
             </div>
 
             {/* Category pills */}
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-3 py-2 border-b border-border/20 shrink-0">
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-3 py-2 border-b border-border/20 shrink-0" onClick={(e) => e.stopPropagation()}>
               {listCategories.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setListSelectedCategory(cat)}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setListSelectedCategory(cat)
+                  }}
                   className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${
                     listSelectedCategory === cat
                       ? "bg-foreground text-background"
@@ -1375,6 +1442,8 @@ export default function Home() {
                     <button
                       key={channel.id}
                       onClick={() => {
+                        // Prevent re-selecting same channel (fixes double play)
+                        if (selectedChannel?.id === channel.id) return
                         setSelectedChannel(channel)
                         setHeaderTitle(channel.name)
                         addToRecentlyWatched(channel.id)
@@ -1477,19 +1546,15 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center bg-[#060608]">
-                <div className="relative flex flex-col items-center gap-8 text-center px-6">
-                  <div className="relative">
-                    <div className="absolute -inset-4 rounded-full bg-white/[0.02] blur-xl animate-pulse" style={{ animationDuration: '4s' }} />
-                    <div className="relative w-24 h-24 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                      <Tv className="w-10 h-10 text-white/20" />
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <h2 className="text-2xl font-extralight text-white/80 tracking-[0.15em] uppercase">Select a channel</h2>
-                    <p className="text-sm text-white/20 max-w-xs leading-relaxed font-light">Choose from the sidebar to start watching</p>
-                  </div>
-                  <div className="w-12 h-px bg-white/10" />
+              <div className="flex-1 flex flex-col items-start justify-start bg-black p-8 lg:p-12">
+                <h1 className="text-3xl lg:text-5xl font-bold text-white mb-3">Thank you for using Light TV.</h1>
+                <p className="text-base lg:text-lg text-white/80 mb-8">Get started by clicking these channels on the left</p>
+                <svg className="w-40 h-20 text-white mb-12" viewBox="0 0 120 40" fill="none">
+                  <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <div className="mt-auto">
+                  <p className="text-sm font-medium text-white/80 mb-2">Notice</p>
+                  <p className="text-sm text-white/60 max-w-md">Wait 5-20 seconds for the channel to load, if it still does nothing, you can have a complaint by using the rate function</p>
                 </div>
               </div>
             )}
@@ -1505,6 +1570,22 @@ export default function Home() {
           currentPrograms={currentPrograms}
         />
         <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
+        
+        {/* Channel Number Input Overlay */}
+        {channelNumberInput && (viewMode === 'list' || selectedChannel) && (
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none">
+            <div className="bg-[#919191] rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center min-w-[200px] min-h-[200px] shadow-2xl">
+              <span className="text-4xl md:text-6xl font-bold text-white font-mono tracking-wider" style={{ WebkitTextStroke: '1px black', textShadow: '2px 2px 0 black' }}>
+                {channelNumberInput.padStart(3, '0')}
+              </span>
+              {parseInt(channelNumberInput, 10) > 0 && parseInt(channelNumberInput, 10) <= allChannels.length && (
+                <span className="text-lg md:text-xl font-medium text-white mt-4 text-center" style={{ WebkitTextStroke: '0.5px black' }}>
+                  {allChannels[parseInt(channelNumberInput, 10) - 1]?.name}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
         <QuickChannelSwitch
           isOpen={showQuickSwitch}
           onClose={() => setShowQuickSwitch(false)}
