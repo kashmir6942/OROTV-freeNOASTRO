@@ -230,9 +230,9 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('light-view-mode')
-      return (saved === 'grid' || saved === 'list') ? saved : 'list'
+      return (saved === 'grid' || saved === 'list') ? saved : 'grid'
     }
-    return 'list'
+    return 'grid'
   })
   const { isPipActive, pipChannel, activatePip, deactivatePip } = usePipMode()
   const [listSearchQuery, setListSearchQuery] = useState("")
@@ -459,6 +459,8 @@ export default function Home() {
   }, [])
 
   const handleChannelSelectForLiveTV = (channel: Channel) => {
+    // Prevent double play - don't re-select same channel
+    if (selectedChannel?.id === channel.id) return
     setWasInLiveTVBeforePlayer(true)
     setSelectedChannel(channel)
     setHeaderTitle(channel.name)
@@ -466,14 +468,16 @@ export default function Home() {
   }
 
   const handleChannelSelect = (channel: Channel) => {
-  setSavedScrollPosition(window.scrollY)
-  if (channel.url) {
-  setWasInLiveTVBeforePlayer(false)
-  setSelectedChannel(channel)
-  setHeaderTitle(channel.name)
-  addToRecentlyWatched(channel.id)
-  setRecentlyWatched(getRecentlyWatched())
-  }
+    // Prevent double play - don't re-select same channel
+    if (selectedChannel?.id === channel.id) return
+    setSavedScrollPosition(window.scrollY)
+    if (channel.url) {
+      setWasInLiveTVBeforePlayer(false)
+      setSelectedChannel(channel)
+      setHeaderTitle(channel.name)
+      addToRecentlyWatched(channel.id)
+      setRecentlyWatched(getRecentlyWatched())
+    }
   }
 
   const toggleFavorite = (channelId: string) => {
@@ -574,30 +578,50 @@ export default function Home() {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  // Handle number input for channel switching (list view + video player)
+  // Handle number input for channel switching (home, list, grid, video player)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only work when not typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      
+
       // Check if it's a number key (0-9)
       if (/^[0-9]$/.test(e.key)) {
         setChannelNumberInput(prev => {
           const newInput = prev + e.key
-          // Clear any existing timeout
           if (channelNumberTimeoutRef.current) {
             clearTimeout(channelNumberTimeoutRef.current)
           }
-          // Set timeout to process the number after 1.5 seconds
+          // After 1.5s of no input, switch channel
           channelNumberTimeoutRef.current = setTimeout(() => {
             const channelNum = parseInt(newInput, 10)
             if (channelNum > 0 && channelNum <= allChannels.length) {
               const targetChannel = allChannels[channelNum - 1]
-              if (targetChannel) {
-                setSelectedChannel(targetChannel)
-                setHeaderTitle(targetChannel.name)
-                addToRecentlyWatched(targetChannel.id)
-                setRecentlyWatched(getRecentlyWatched())
+              // Prevent double play - skip if same channel
+              if (targetChannel && targetChannel.id !== selectedChannel?.id) {
+                // If player is already open, destroy first then reopen
+                if (selectedChannel) {
+                  const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
+                  pendingChannelRef.current = targetChannel
+                  setSelectedChannel(null) // Destroy player
+
+                  setTimeout(() => {
+                    if (pendingChannelRef.current) {
+                      setRestoreUIHidden(wasHidden)
+                      setSelectedChannel(pendingChannelRef.current)
+                      setHeaderTitle(pendingChannelRef.current.name)
+                      addToRecentlyWatched(pendingChannelRef.current.id)
+                      setRecentlyWatched(getRecentlyWatched())
+                      pendingChannelRef.current = null
+                      setTimeout(() => setRestoreUIHidden(false), 1500)
+                    }
+                  }, 300)
+                } else {
+                  // No player open - just open the channel directly
+                  setSelectedChannel(targetChannel)
+                  setHeaderTitle(targetChannel.name)
+                  addToRecentlyWatched(targetChannel.id)
+                  setRecentlyWatched(getRecentlyWatched())
+                }
               }
             }
             setChannelNumberInput("")
@@ -607,12 +631,10 @@ export default function Home() {
       }
     }
 
-    // Only add listener if in list view or video player is active
-    if (viewMode === 'list' || selectedChannel) {
-      window.addEventListener("keydown", handleKeyDown)
-      return () => window.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [viewMode, selectedChannel])
+    // Always active - works on home, list, grid, and video player
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedChannel])
 
   useEffect(() => {
     const initializeUserData = async () => {
@@ -1013,7 +1035,7 @@ export default function Home() {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-6">
-              <img src="/images/light-logo.png" alt="Light TV" className="h-10 w-auto" />
+              <img src="/images/light-logo.png" alt="Light TV" className="h-14 w-auto" />
           <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
         </div>
       </div>
@@ -1068,7 +1090,7 @@ export default function Home() {
     )
   }
 
-  // List mode filtered channels
+  // List mode filtered channels (supports number search)
   const listFilteredChannels = (() => {
     const term = listSearchQuery.toLowerCase().trim()
     let channels = allChannels
@@ -1076,10 +1098,20 @@ export default function Home() {
       channels = channels.filter(ch => ch.category === listSelectedCategory)
     }
     if (term) {
-      channels = channels.filter(ch =>
-        ch.name.toLowerCase().includes(term) ||
-        ch.category.toLowerCase().includes(term)
-      )
+      // Check if search is a number - match channel position
+      const numericSearch = parseInt(term, 10)
+      if (!isNaN(numericSearch) && numericSearch > 0) {
+        channels = channels.filter((ch, idx) => {
+          const channelNum = idx + 1
+          return channelNum.toString().includes(term) || 
+                 channelNum.toString().padStart(3, '0').includes(term)
+        })
+      } else {
+        channels = channels.filter(ch =>
+          ch.name.toLowerCase().includes(term) ||
+          ch.category.toLowerCase().includes(term)
+        )
+      }
     }
     return channels
   })()
@@ -1124,7 +1156,7 @@ export default function Home() {
           <div className="px-2 md:px-5">
             <div className="flex items-center justify-between h-14 md:h-14">
               <div className="flex items-center gap-4">
-              <img src="/images/light-logo.png" alt="Light TV" className="h-6 md:h-7 w-auto" />
+              <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto" />
                 <nav className="hidden md:flex items-center gap-0.5">
                   <button
                     onClick={() => { handleHomeNavigation(); setViewMode('grid'); }}
@@ -1567,8 +1599,8 @@ export default function Home() {
         />
         <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
         
-        {/* Channel Number Input Overlay */}
-        {channelNumberInput && (viewMode === 'list' || selectedChannel) && (
+        {/* Channel Number Input Overlay - shows in all views */}
+        {channelNumberInput && (
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none">
             <div className="bg-[#919191] rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center min-w-[200px] min-h-[200px] shadow-2xl">
               <span className="text-4xl md:text-6xl font-bold text-white font-mono tracking-wider" style={{ WebkitTextStroke: '1px black', textShadow: '2px 2px 0 black' }}>
@@ -1625,7 +1657,7 @@ export default function Home() {
     return (
       <div className="mt-8 pt-6 border-t border-border/20">
         <div className="space-y-4 py-4 px-3 md:px-5">
-          <img src="/images/light-logo.png" alt="Light TV" className="h-8 w-auto" />
+          <img src="/images/light-logo.png" alt="Light TV" className="h-12 w-auto" />
           <div className="space-y-1.5">
             <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">Welcome to Light TV</h2>
             <p className="text-xs text-muted-foreground/60 leading-relaxed max-w-sm">
@@ -1712,7 +1744,7 @@ export default function Home() {
           <div className="flex items-center justify-between h-12 md:h-14">
             {/* Logo + Nav together on left */}
             <div className="flex items-center gap-4">
-              <img src="/images/light-logo.png" alt="Light TV" className="h-6 md:h-7 w-auto" />
+              <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto" />
               <nav className="hidden md:flex items-center gap-0.5">
                 <button
                   onClick={handleHomeNavigation}
