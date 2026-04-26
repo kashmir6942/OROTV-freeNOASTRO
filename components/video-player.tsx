@@ -1059,7 +1059,7 @@ export function VideoPlayer({
                 })
                 // Block the switch if not to max level
                 if (event.level !== maxLevel) {
-                  console.log("[v0] HD: Blocking level switch to', event.level, 'forcing to max', maxLevel)
+                  console.log("[v0] HD: Blocking level switch to", event.level, "forcing to max", maxLevel)
                   hlsRef.current!.currentLevel = maxLevel
                 }
               }
