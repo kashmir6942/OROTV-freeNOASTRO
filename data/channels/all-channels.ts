@@ -15,7 +15,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "jimjam",
-    name: "JimJam Lithuania (jj-lt)",
+    name: "JimJam CEE",
     url: "https://tvcdn.tv.telia.lt/live/eds/JimJam/DASH_5_CPIX_NPVR/JimJam.mpd",
     logo: "https://static.wikia.nocookie.net/iepfanon/images/c/c4/JimJam_logo.png",
     isHD: false,
