@@ -17,7 +17,7 @@ export default function Loading() {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-5">
-          <img src="/images/cignal-station-logo.png" alt="Cignal Station" className="h-12 w-auto" />
+          <img src="/images/light-logo.png" alt="Light TV" className="h-12 w-auto" />
           <div className="w-6 h-6 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
         </div>
       </div>
