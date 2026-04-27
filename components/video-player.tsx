@@ -1915,10 +1915,10 @@ export function VideoPlayer({
           break
         default:
           // Number keys 0-9: satellite TV style OSD channel switching
-          if (/^[0-9]$/.test(e.key)) {
-            console.log("[v0] OSD number key pressed:", e.key)
+          if (/^[0-9]$/.test(event.key)) {
+            console.log("[v0] OSD number key pressed:", event.key)
             setOsdInput(prev => {
-              const next = prev + e.key
+              const next = prev + event.key
               console.log("[v0] OSD input now:", next)
               if (osdTimeoutRef.current) clearTimeout(osdTimeoutRef.current)
               osdTimeoutRef.current = setTimeout(() => {
