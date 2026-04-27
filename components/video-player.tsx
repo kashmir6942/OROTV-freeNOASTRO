@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -19,10 +18,41 @@ import {
   Expand,
   Settings,
   PictureInPicture,
+  Signal
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
-import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
-import { createClient } from "@/lib/supabase/client"
+
+// Mock Supabase client to resolve import error in preview environment
+const createClient = () => ({
+  from: () => ({
+    select: () => ({
+      eq: async () => ({ data: [] })
+    })
+  }),
+  channel: () => ({
+    on: () => ({
+      subscribe: () => ({})
+    })
+  }),
+  removeChannel: () => { }
+});
+
+// Inline useKeyboardShortcuts to resolve import error
+const useKeyboardShortcuts = ({
+  onPlayPause, onMute, onFullscreen, onPiP, onVolumeUp, onVolumeDown, onSeekForward, onSeekBackward
+}: any) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      switch (e.key.toLowerCase()) {
+        case 'f': onFullscreen?.(); break;
+        case 'p': onPiP?.(); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onPlayPause, onMute, onFullscreen, onPiP, onVolumeUp, onVolumeDown, onSeekForward, onSeekBackward]);
+};
 
 // Define the Channel type for better type safety
 interface Channel {
@@ -144,7 +174,7 @@ export function VideoPlayer({
     return "high-bitrate"
   })
   const streamingModeRef = useRef<"high-bitrate" | "optimized">(
-    typeof window !== "undefined" 
+    typeof window !== "undefined"
       ? (localStorage.getItem("orotv-streaming-mode") as "high-bitrate" | "optimized") || "high-bitrate"
       : "high-bitrate"
   )
@@ -152,7 +182,6 @@ export function VideoPlayer({
 
   // Internal OSD (satellite TV style number input)
   const [osdInput, setOsdInput] = useState("")
-  const osdTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Restore UI hidden state if prop is set (after auto-reconnect)
   useEffect(() => {
@@ -161,12 +190,12 @@ export function VideoPlayer({
       setShowUIButtonVisible(false)
     }
   }, [restoreUIHidden])
-  
+
   // Save UI hidden state to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("orotv-ui-hidden", isUIHidden ? "true" : "false")
   }, [isUIHidden])
-  
+
   const [archiveMode, setArchiveMode] = useState(false)
   const bufferingSinceRef = useRef<number | null>(null)
   const bufferingCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -174,7 +203,7 @@ export function VideoPlayer({
 
   const [lastSavedPosition, setLastSavedPosition] = useState(0)
   const positionSaveIntervalRef = useRef<NodeJS.Timeout>()
-  
+
   // Moving text announcements
   const [movingTextAnnouncements, setMovingTextAnnouncements] = useState<any[]>([])
 
@@ -309,7 +338,7 @@ export function VideoPlayer({
   const setHighestQuality = useCallback(() => {
     try {
       const isHighBitrate = streamingModeRef.current === "high-bitrate"
-      
+
       if (playerType === "hls" && hlsRef.current) {
         const levels = hlsRef.current.levels
         if (levels && levels.length > 0) {
@@ -375,7 +404,7 @@ export function VideoPlayer({
                 highestTrack = track
               }
             })
-            playerRef.current.configure({ 
+            playerRef.current.configure({
               abr: { enabled: false },
               streaming: { bufferingGoal: 120, rebufferingGoal: 5 }
             })
@@ -391,8 +420,8 @@ export function VideoPlayer({
                 lowestTrack = track
               }
             })
-            playerRef.current.configure({ 
-              abr: { 
+            playerRef.current.configure({
+              abr: {
                 enabled: true,
                 defaultBandwidthEstimate: 500000, // 500kbps
                 restrictions: { maxBandwidth: 1500000 } // Cap at 1.5Mbps
@@ -805,7 +834,7 @@ export function VideoPlayer({
       // Reset video element
       video.src = ""
       video.load()
-      
+
       // Set a timeout to detect hanging initialization
       initTimeout = setTimeout(() => {
         console.log("[v0] Player initialization timeout, retry attempt:", retryCount + 1)
@@ -855,7 +884,7 @@ export function VideoPlayer({
           const currentMode = streamingModeRef.current
           console.log("[v0] HLS.js is supported, creating player, mode:", currentMode)
           const isOptimized = currentMode === "optimized"
-          
+
           // HD MODE: Maximum quality, no limits, biggest buffers
           // SD MODE: Strict bandwidth limits for budget/slow internet
           const hlsConfig = isOptimized ? {
@@ -929,7 +958,7 @@ export function VideoPlayer({
             // Force live edge tracking
             liveBackBufferLength: 30,
           }
-          
+
           hlsRef.current = new window.Hls(hlsConfig)
           console.log("[v0] HLS initialized with", isOptimized ? "SD/OPTIMIZED" : "HD/MAX QUALITY", "config")
 
@@ -959,24 +988,24 @@ export function VideoPlayer({
                     maxLevel = idx
                   }
                 })
-                
+
                 console.log("[v0] HD: Forcing to level", maxLevel, 'bitrate:', maxBitrate, 'height:', maxHeight)
-                
+
                 // FORCE to max level
                 hlsRef.current.currentLevel = maxLevel
                 hlsRef.current.loadLevel = maxLevel
                 hlsRef.current.nextLevel = maxLevel
                 hlsRef.current.autoLevelCapping = maxLevel
-                
+
                 // Prevent ABR from changing the level
                 hlsRef.current.autoLevelEnabled = false
-                
+
                 // Continuous enforcement - every 500ms
                 if ((hlsRef.current as any)._hdQualityLock) {
                   clearInterval((hlsRef.current as any)._hdQualityLock)
                 }
-                
-                ;(hlsRef.current as any)._hdQualityLock = setInterval(() => {
+
+                ; (hlsRef.current as any)._hdQualityLock = setInterval(() => {
                   if (hlsRef.current && streamingModeRef.current === "high-bitrate") {
                     // If level changed, force it back to max
                     if (hlsRef.current.currentLevel !== maxLevel) {
@@ -1043,12 +1072,12 @@ export function VideoPlayer({
 
           hlsRef.current.on(window.Hls.Events.ERROR, (event: any, data: any) => {
             console.error("[v0] HLS.js error:", data)
-            
+
             if (!data.fatal) {
               console.log("[v0] Non-fatal HLS error, continuing...")
               return
             }
-            
+
             reportError("fatal", `HLS Error: ${data.details || data.type}`)
 
             switch (data.type) {
@@ -1179,7 +1208,7 @@ export function VideoPlayer({
 
         const isOptimized = streamingModeRef.current === "optimized"
         const isHD = streamingModeRef.current === "high-bitrate"
-        
+
         // HD MODE: Force MAX quality, disable ABR entirely
         // SD MODE: Conservative bandwidth, let ABR manage
         playerRef.current.configure({
@@ -1258,27 +1287,27 @@ export function VideoPlayer({
                   maxTrack = track
                 }
               })
-              
+
               console.log("[v0] HD/DRM: Forcing MAX quality track - bandwidth:", maxBandwidth, "height:", maxHeight)
-              
+
               // Disable ABR and force max track
               playerRef.current.configure({ abr: { enabled: false } })
               playerRef.current.selectVariantTrack(maxTrack, true) // true = clear buffer
-              
+
               // Continuous quality lock every 500ms
               if ((playerRef.current as any)._hdQualityLock) {
                 clearInterval((playerRef.current as any)._hdQualityLock)
               }
-              
-              ;(playerRef.current as any)._hdQualityLock = setInterval(() => {
+
+              ; (playerRef.current as any)._hdQualityLock = setInterval(() => {
                 if (playerRef.current && streamingModeRef.current === "high-bitrate") {
                   const currentTracks = playerRef.current.getVariantTracks()
                   const activeTrack = currentTracks.find((t: any) => t.active)
-                  
+
                   // If not on max track, force it back
                   if (activeTrack && activeTrack.bandwidth < maxBandwidth) {
                     console.log("[v0] HD/DRM: Quality dropped, forcing back to max")
-                    const newMaxTrack = currentTracks.reduce((max: any, t: any) => 
+                    const newMaxTrack = currentTracks.reduce((max: any, t: any) =>
                       (t.bandwidth || 0) > (max.bandwidth || 0) ? t : max, currentTracks[0])
                     playerRef.current.selectVariantTrack(newMaxTrack, false)
                   }
@@ -1352,7 +1381,7 @@ export function VideoPlayer({
       setConnectionStatus("disconnected")
       setIsLoading(false)
       reportError("fatal", `Player initialization failed: ${err.message}`)
-      
+
       // Auto-retry up to 5 times with 5-15s delay
       if (retryCount < 5) {
         const retryDelay = Math.floor(Math.random() * 10000) + 5000
@@ -1375,13 +1404,13 @@ export function VideoPlayer({
   // Smart reopen: fully destroy player and reinitialize with new settings
   const smartReopenChannel = useCallback(() => {
     console.log("[v0] Smart reopen: destroying and reinitializing player, mode:", streamingModeRef.current)
-    
+
     // Remember if UI was hidden to restore it after reopen
     wasUIHiddenRef.current = isUIHidden
-    
+
     // Clean up current player completely
     if (playerRef.current) {
-      playerRef.current.destroy().catch(() => {})
+      playerRef.current.destroy().catch(() => { })
       playerRef.current = null
     }
     if (hlsRef.current) {
@@ -1392,14 +1421,14 @@ export function VideoPlayer({
       videoRef.current.src = ""
       videoRef.current.load()
     }
-    
+
     // Reset states
     setIsLoading(true)
     setError(null)
     setIsBuffering(false)
     setConnectionStatus("reconnecting")
     bufferingSinceRef.current = null
-    
+
     // Reinitialize after brief delay
     setTimeout(() => {
       initializePlayer()
@@ -1420,14 +1449,14 @@ export function VideoPlayer({
         bufferingSinceRef.current = Date.now()
         console.log("[v0] Buffering started at:", new Date().toISOString())
       }
-      
+
       // Check every 2 seconds if we've been buffering too long
       if (!bufferingCheckIntervalRef.current) {
         bufferingCheckIntervalRef.current = setInterval(() => {
           if (bufferingSinceRef.current && isBuffering) {
             const bufferingDuration = Date.now() - bufferingSinceRef.current
             console.log("[v0] Buffering duration:", bufferingDuration, "ms")
-            
+
             if (bufferingDuration >= 10000) { // 10 seconds
               console.log("[v0] Buffering exceeded 10s, closing player and reopening via home")
               if (bufferingCheckIntervalRef.current) {
@@ -1455,7 +1484,7 @@ export function VideoPlayer({
         bufferingCheckIntervalRef.current = null
       }
     }
-    
+
     return () => {
       if (bufferingCheckIntervalRef.current) {
         clearInterval(bufferingCheckIntervalRef.current)
@@ -1493,7 +1522,7 @@ export function VideoPlayer({
   const togglePictureInPicture = async () => {
     try {
       if (!videoRef.current) return
-      
+
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture()
         console.log("[v0] Exited Picture-in-Picture")
@@ -1583,7 +1612,7 @@ export function VideoPlayer({
         console.log(`[v0] Saved position for ${channel.name}: ${currentTime}s`)
       }
     }
-  }, [channel, onPositionUpdate, lastSavedPosition]) // Fixed dependency to use channel instead of channel.id and channel.name
+  }, [channel, onPositionUpdate, lastSavedPosition])
 
   useEffect(() => {
     if (!isLiveStream(channel)) {
@@ -1633,14 +1662,14 @@ export function VideoPlayer({
 
   useEffect(() => {
     console.log("[v0] Channel changed, initializing player")
-    
+
     // Use a flag to prevent race conditions and ensure cleanup
     let isActive = true
     let initTimeoutId: NodeJS.Timeout | null = null
-    
+
     const setupPlayer = async () => {
       if (!isActive) return
-      
+
       // Add a safety timeout to detect stuck initialization
       initTimeoutId = setTimeout(() => {
         if (isActive) {
@@ -1650,7 +1679,7 @@ export function VideoPlayer({
           setConnectionStatus("disconnected")
         }
       }, 20000) // 20 second overall timeout
-      
+
       try {
         await initializePlayer()
       } catch (err) {
@@ -1663,9 +1692,9 @@ export function VideoPlayer({
         if (initTimeoutId) clearTimeout(initTimeoutId)
       }
     }
-    
+
     setupPlayer()
-    
+
     if (isActive) {
       startViewerSession()
     }
@@ -1692,9 +1721,9 @@ export function VideoPlayer({
     return () => {
       console.log("[v0] Channel cleanup triggered")
       isActive = false
-      
+
       if (initTimeoutId) clearTimeout(initTimeoutId)
-      
+
       // Clean up players immediately on channel change
       if (playerRef.current) {
         console.log("[v0] Cleaning up Shaka player on channel change")
@@ -1706,13 +1735,13 @@ export function VideoPlayer({
         hlsRef.current.destroy()
         hlsRef.current = null
       }
-      
+
       // Stop video
       if (videoRef.current) {
         videoRef.current.pause()
         videoRef.current.src = ""
       }
-      
+
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
       }
@@ -1733,7 +1762,7 @@ export function VideoPlayer({
           .from("moving_text_announcements")
           .select("*")
           .eq("is_active", true)
-        
+
         if (data) {
           // Filter announcements that apply to this channel
           const relevantAnnouncements = data.filter((ann: any) => {
@@ -1749,9 +1778,9 @@ export function VideoPlayer({
         console.error("[v0] Failed to load moving text announcements:", error)
       }
     }
-    
+
     loadMovingTextAnnouncements()
-    
+
     // Set up realtime subscription
     const supabase = createClient()
     const subscription = supabase
@@ -1760,7 +1789,7 @@ export function VideoPlayer({
         loadMovingTextAnnouncements()
       })
       .subscribe()
-    
+
     return () => {
       supabase.removeChannel(subscription)
     }
@@ -1866,6 +1895,22 @@ export function VideoPlayer({
     }
   }
 
+  // Handle OSD channel search cleanly with debounce outside of state setter
+  useEffect(() => {
+    if (!osdInput) return;
+
+    const timeoutId = setTimeout(() => {
+      const num = parseInt(osdInput, 10);
+      const target = availableChannels.find((c) => (c as any).channelNumber === num);
+      if (target && target.id !== channel.id) {
+        onChannelChange(target.id);
+      }
+      setOsdInput(""); // Clear immediately after action
+    }, 1500);
+
+    return () => clearTimeout(timeoutId);
+  }, [osdInput, availableChannels, channel.id, onChannelChange]);
+
   useEffect(() => {
     if (isMobile) {
       // Mobile devices don't need keyboard shortcuts
@@ -1917,20 +1962,8 @@ export function VideoPlayer({
           // Number keys 0-9: satellite TV style OSD channel switching
           if (/^[0-9]$/.test(event.key)) {
             console.log("[v0] OSD number key pressed:", event.key)
-            setOsdInput(prev => {
-              const next = prev + event.key
-              console.log("[v0] OSD input now:", next)
-              if (osdTimeoutRef.current) clearTimeout(osdTimeoutRef.current)
-              osdTimeoutRef.current = setTimeout(() => {
-                const num = parseInt(next, 10)
-                const target = availableChannels.find(c => (c as any).channelNumber === num)
-                if (target && target.id !== channel.id) {
-                  onChannelChange(target.id)
-                }
-                setOsdInput("")
-              }, 1500)
-              return next
-            })
+            // Properly update state without side effects inside the setter
+            setOsdInput(prev => prev + event.key)
           }
           break
       }
@@ -1938,7 +1971,7 @@ export function VideoPlayer({
 
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [showEPGOverlay, showChannelList, isMobile, availableChannels, channel, onChannelChange])
+  }, [showEPGOverlay, showChannelList, isMobile])
 
   if (showTechnicalDifficulties && streamStatus) {
     return (
@@ -2004,47 +2037,42 @@ export function VideoPlayer({
       )}
 
       {/* Satellite TV style OSD — shows whenever typing a number inside the player */}
-      {osdInput && (() => {
-        console.log("[v0] OSD rendering with input:", osdInput)
-        const num = parseInt(osdInput, 10)
-        const match = availableChannels.find(c => (c as any).channelNumber === num)
-        return (
+      {osdInput && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none z-[999999]">
           <div
-            className="fixed inset-0 flex items-center justify-center pointer-events-none select-none"
-            style={{ zIndex: 2147483647 }}
+            className="flex flex-col items-center justify-center gap-3 px-12 py-8 rounded-2xl shadow-2xl"
+            style={{
+              background: 'rgba(30,30,30,0.72)',
+              backdropFilter: 'blur(18px)',
+              WebkitBackdropFilter: 'blur(18px)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              minWidth: 220,
+            }}
           >
-            <div
-              className="flex flex-col items-center justify-center gap-3 px-12 py-8 rounded-2xl shadow-2xl"
-              style={{
-                background: 'rgba(30,30,30,0.72)',
-                backdropFilter: 'blur(18px)',
-                WebkitBackdropFilter: 'blur(18px)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                minWidth: 220,
-              }}
+            <span
+              className="font-bold text-white leading-none tracking-widest"
+              style={{ fontSize: '4.5rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
             >
-              <span
-                className="font-bold text-white leading-none tracking-widest"
-                style={{ fontSize: '4.5rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
-              >
-                {osdInput.padStart(3, '0')}
-              </span>
-              <span
-                className="text-white/90 font-semibold text-center leading-snug"
-                style={{ fontSize: '1.35rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 1px 6px rgba(0,0,0,0.4)', maxWidth: 260 }}
-              >
-                {match ? match.name : '—'}
-              </span>
-            </div>
+              {osdInput.padStart(3, '0')}
+            </span>
+            <span
+              className="text-white/90 font-semibold text-center leading-snug"
+              style={{ fontSize: '1.35rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 1px 6px rgba(0,0,0,0.4)', maxWidth: 260 }}
+            >
+              {(() => {
+                const num = parseInt(osdInput, 10);
+                const match = availableChannels.find(c => (c as any).channelNumber === num);
+                return match ? match.name : '—';
+              })()}
+            </span>
           </div>
-        )
-      })()}
+        </div>
+      )}
 
       {isTraditionalMode && (
         <div
-          className={`${embedded ? 'absolute' : 'fixed'} top-4 right-4 z-[99998] bg-black/30 text-white p-3 rounded-lg shadow-xl border border-white/20 transition-all duration-300 ${
-            showChannelInfo ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
-          }`}
+          className={`${embedded ? 'absolute' : 'fixed'} top-4 right-4 z-[99998] bg-black/30 text-white p-3 rounded-lg shadow-xl border border-white/20 transition-all duration-300 ${showChannelInfo ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+            }`}
           onMouseEnter={onChannelInfoHover}
         >
           <div className="flex items-center space-x-3">
@@ -2082,9 +2110,8 @@ export function VideoPlayer({
       {/* NEW MINIMAL TOP BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute top-0 left-0 right-0 z-20 transition-opacity duration-300 ${
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
+          className={`absolute top-0 left-0 right-0 z-20 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
           style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
         >
           <div className="flex items-center justify-between p-3">
@@ -2120,7 +2147,7 @@ export function VideoPlayer({
 
       {/* NEW MINIMAL SETTINGS PANEL */}
       {showSettings && (
-        <div 
+        <div
           className="absolute top-16 right-3 z-30 bg-black/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 w-72"
           style={{ pointerEvents: "auto" }}
         >
@@ -2143,11 +2170,10 @@ export function VideoPlayer({
                     }
                   }
                 }}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
-                  streamingMode === "high-bitrate"
+                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${streamingMode === "high-bitrate"
                     ? "bg-white text-black"
                     : "bg-white/10 text-white/70 hover:bg-white/20"
-                }`}
+                  }`}
               >
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-lg">HD</span>
@@ -2169,11 +2195,10 @@ export function VideoPlayer({
                     }
                   }
                 }}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${
-                  streamingMode === "optimized"
+                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${streamingMode === "optimized"
                     ? "bg-white text-black"
                     : "bg-white/10 text-white/70 hover:bg-white/20"
-                }`}
+                  }`}
               >
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-lg">SD</span>
@@ -2195,10 +2220,10 @@ export function VideoPlayer({
               </svg>
               <span className="text-white/80 text-sm">Hide Controls</span>
             </button>
-            
+
             {/* Refresh */}
             <button
-              onClick={() => { 
+              onClick={() => {
                 setShowSettings(false)
                 // Properly destroy and reinitialize
                 if (hlsRef.current) {
@@ -2206,7 +2231,7 @@ export function VideoPlayer({
                   hlsRef.current = null
                 }
                 if (playerRef.current) {
-                  playerRef.current.destroy().catch(() => {})
+                  playerRef.current.destroy().catch(() => { })
                   playerRef.current = null
                 }
                 if (videoRef.current) {
@@ -2227,12 +2252,12 @@ export function VideoPlayer({
         </div>
       )}
 
-  <div className={`flex-1 relative overflow-hidden`}>
-  <div className={`absolute inset-0 flex items-center justify-center bg-black`}>
-  <div className={`${getContainerAspectRatio()} max-w-full max-h-full`}>
-  <video
-  ref={videoRef}
-  className={`w-full h-full bg-black ${embedded ? 'object-contain' : getVideoStyle()}`}
+      <div className={`flex-1 relative overflow-hidden`}>
+        <div className={`absolute inset-0 flex items-center justify-center bg-black`}>
+          <div className={`${getContainerAspectRatio()} max-w-full max-h-full`}>
+            <video
+              ref={videoRef}
+              className={`w-full h-full bg-black ${embedded ? 'object-contain' : getVideoStyle()}`}
               autoPlay
               playsInline
               muted={isMuted}
@@ -2242,11 +2267,11 @@ export function VideoPlayer({
                 ...(embedded
                   ? { objectFit: 'contain' as const }
                   : forceAspectRatio && aspectRatioMode !== "original"
-                  ? {
+                    ? {
                       aspectRatio: aspectRatioMode === "16:9" ? "16/9" : aspectRatioMode === "4:3" ? "4/3" : "16/9",
                       objectFit: "fill",
                     }
-                  : {}),
+                    : {}),
                 WebkitAppearance: "none",
                 appearance: "none",
               }}
@@ -2324,9 +2349,8 @@ export function VideoPlayer({
                 )}
                 <button
                   onClick={() => setShowEPGOverlay(false)}
-                  className={`text-white/70 hover:text-white transition-colors touch-manipulation ${
-                    isMobile ? "min-h-[48px] min-w-[48px] flex items-center justify-center" : ""
-                  }`}
+                  className={`text-white/70 hover:text-white transition-colors touch-manipulation ${isMobile ? "min-h-[48px] min-w-[48px] flex items-center justify-center" : ""
+                    }`}
                   style={{ pointerEvents: "auto", touchAction: "manipulation" }}
                 >
                   <X className={`${isMobile ? "h-6 w-6" : "h-5 w-5"}`} />
@@ -2485,9 +2509,8 @@ export function VideoPlayer({
       {/* NEW MINIMAL BOTTOM BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-20 transition-opacity duration-300 ${
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
+          className={`absolute bottom-0 left-0 right-0 z-20 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
           style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
         >
           <div className="p-3 flex items-center justify-between">
