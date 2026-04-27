@@ -46,11 +46,11 @@ export function SupportPopup({ isOpen, onClose, isFirstTime = false }: SupportPo
           {/* Message */}
           <div className="space-y-3 mb-5">
             <p className="text-sm text-foreground leading-relaxed">
-              Help us keep Light TV running and improving! By using our v0 referral link, you support the development 
+              Help us keep Light TV running and improving! By using our v0 referral link, you support the development
               of new features, server costs, and continuous updates. This referral is only applied to new users from v0.app only.
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              plzzz i ran out of credits and out of credits means slow updates :(((
+              DO NOT RESELL. THE ORIGINAL https://phcorner.org/threads/2517309/
             </p>
           </div>
 
@@ -74,15 +74,15 @@ export function SupportPopup({ isOpen, onClose, isFirstTime = false }: SupportPo
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button 
-              onClick={handleLinkClick} 
+            <Button
+              onClick={handleLinkClick}
               className="flex-1 bg-foreground text-background hover:opacity-90 transition-opacity text-sm py-2"
             >
               Visit Referral Link
             </Button>
-            <Button 
-              onClick={handleClose} 
-              variant="outline" 
+            <Button
+              onClick={handleClose}
+              variant="outline"
               className="text-sm py-2 px-4"
             >
               Close
