@@ -1065,27 +1065,44 @@ export default function Home() {
               channel={selectedChannel}
               user={null}
               onClose={handleClosePlayer}
-              onChannelChange={() => {}}
+              onChannelChange={(channelId: string) => {
+                const target = allChannels.find(c => c.id === channelId)
+                if (!target || target.id === selectedChannel.id) return
+                const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
+                pendingChannelRef.current = target
+                setSelectedChannel(null)
+                setTimeout(() => {
+                  if (pendingChannelRef.current) {
+                    setRestoreUIHidden(wasHidden)
+                    setSelectedChannel(pendingChannelRef.current)
+                    setHeaderTitle(pendingChannelRef.current.name)
+                    addToRecentlyWatched(pendingChannelRef.current.id)
+                    setRecentlyWatched(getRecentlyWatched())
+                    pendingChannelRef.current = null
+                    setTimeout(() => setRestoreUIHidden(false), 1500)
+                  }
+                }, 300)
+              }}
               onBitrateModeChange={handleBitrateModeChange}
               restoreUIHidden={restoreUIHidden}
-          availableChannels={allChannels}
-          videoRef={videoRef}
-          isMuted={isMuted}
-          showModernButton={showModernButton}
-          showChannelInfo={showChannelInfo}
-          showChannelList={showChannelList}
-          getCurrentChannelInfo={getCurrentChannelInfo}
-          getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
-          onModernButtonHover={handleModernButtonHover}
-          onChannelInfoHover={handleChannelInfoHover}
-          onChannelListHover={handleChannelListHover}
-          isMobile={isMobile}
-          isPortrait={isPortrait}
-          epgData={epgData}
-          currentPrograms={currentPrograms}
-          onPositionUpdate={handleVideoPositionUpdate}
-          getSavedPosition={getSavedVideoPosition}
-        />
+              availableChannels={allChannels}
+              videoRef={videoRef}
+              isMuted={isMuted}
+              showModernButton={showModernButton}
+              showChannelInfo={showChannelInfo}
+              showChannelList={showChannelList}
+              getCurrentChannelInfo={getCurrentChannelInfo}
+              getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
+              onModernButtonHover={handleModernButtonHover}
+              onChannelInfoHover={handleChannelInfoHover}
+              onChannelListHover={handleChannelListHover}
+              isMobile={isMobile}
+              isPortrait={isPortrait}
+              epgData={epgData}
+              currentPrograms={currentPrograms}
+              onPositionUpdate={handleVideoPositionUpdate}
+              getSavedPosition={getSavedVideoPosition}
+            />
       </div>
     )
   }
