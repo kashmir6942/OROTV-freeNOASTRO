@@ -4,6 +4,7 @@ export const allChannels: Channel[] = [
   // MEDIAQUEST CHANNELS - PH ONLY (GEOBLOCKED)
   {
     id: "tap-sports",
+    channelNumber: 1,
     name: "TAP Sports",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_tapsports/default/index.mpd",
     logo: "https://i.imgur.com/gkyMnni.png",
@@ -15,6 +16,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "jimjam",
+    channelNumber: 2,
     name: "JimJam Lithuania (jj-lt)",
     url: "https://tvcdn.tv.telia.lt/live/eds/JimJam/DASH_5_CPIX_NPVR/JimJam.mpd",
     logo: "https://static.wikia.nocookie.net/iepfanon/images/c/c4/JimJam_logo.png",
@@ -25,6 +27,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "spotv-hd",
+    channelNumber: 3,
     name: "SPOTV HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_spotvhd/default/index.mpd",
     logo: "https://i.imgur.com/FT6yegX.png",
@@ -36,6 +39,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "spotv-hd-2",
+    channelNumber: 4,
     name: "SPOTV HD 2",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_spotv2hd/default/index.mpd",
     logo: "https://i.imgur.com/dH9ixUJ.png",
@@ -47,6 +51,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "premier-sports-hd",
+    channelNumber: 5,
     name: "Premier Sports HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_ps_hd1/default/index.mpd",
     logo: "https://i.imgur.com/HTpo2UH.png",
@@ -58,6 +63,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "premier-sports-2-hd",
+    channelNumber: 6,
     name: "Premier Sports 2 HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/premiersports2hd/default/index.mpd",
     logo: "https://i.imgur.com/7gk9sGK.png",
@@ -69,6 +75,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "onesports-plus-hd",
+    channelNumber: 7,
     name: "One Sports Plus HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_onesportsplus_hd1/default/index.mpd",
     logo: "https://i.imgur.com/dcVxMqL.png",
@@ -80,6 +87,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "onesports",
+    channelNumber: 8,
     name: "One Sports",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_onesports_hd/default/index.mpd",
     logo: "https://i.imgur.com/EztF1lG.png",
@@ -91,6 +99,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "pba-rush",
+    channelNumber: 9,
     name: "PBA Rush",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_pbarush_hd1/default/index.mpd",
     logo: "https://i.imgur.com/BctMZnl.png",
@@ -102,6 +111,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "uaap",
+    channelNumber: 10,
     name: "UAAP",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_uaap_cplay_sd/default/index.mpd",
     logo: "https://i.imgur.com/pt2hGDc.png",
@@ -113,6 +123,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "nba-tv",
+    channelNumber: 11,
     name: "NBA TV Philippines",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cgnl_nba/default/index.mpd",
     logo: "https://i.imgur.com/pdAfjsO.png",
@@ -125,6 +136,7 @@ export const allChannels: Channel[] = [
   // REPLACED: Warner TV HD - Now using Sky Go link
   {
     id: "warner-tv-hd",
+    channelNumber: 12,
     name: "Warner TV HD",
     url: "https://cdn4.skygo.mn/live/disk1/Warner/HLSv3-FTA/Warner.m3u8",
     logo: "https://i.imgur.com/NHYowK5.png",
@@ -135,6 +147,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "global-trekker",
+    channelNumber: 13,
     name: "Global Trekker",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/globaltrekker/default/index.mpd",
     logo: "https://i.imgur.com/NHaUyUK.png",
@@ -146,6 +159,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "rptv",
+    channelNumber: 14,
     name: "RPTV",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cnn_rptv_prod_hd/default/index.mpd",
     logo: "https://i.imgur.com/w9IndU1.png",
@@ -157,6 +171,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "truefm-tv",
+    channelNumber: 15,
     name: "True FM TV",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/truefm_tv/default/index.mpd",
     logo: "https://i.imgur.com/i0xetYa.png",
@@ -168,6 +183,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "wil-tv",
+    channelNumber: 16,
     name: "WIL TV",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/wiltv/default/index.mpd",
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/WILTV_logo.svg/250px-WILTV_logo.svg.png",
@@ -179,6 +195,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "kapatid-channel",
+    channelNumber: 17,
     name: "Kapatid Channel",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/kapatid_hd/default/index.mpd",
     logo: "https://i.imgur.com/i5Fdp2Q.png",
@@ -190,6 +207,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "cartoon-network",
+    channelNumber: 18,
     name: "Cartoon Network",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cartoonnetworkhd/default/index.mpd",
     logo: "https://i.imgur.com/9PLlajp.png",
@@ -201,6 +219,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "tv5",
+    channelNumber: 19,
     name: "TV5",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/tv5_hd/default1/index.mpd",
     logo: "https://i.imgur.com/vAi5bTd.png",
@@ -212,6 +231,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "oneph",
+    channelNumber: 20,
     name: "One PH",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/oneph_sd/default/index.mpd",
     logo: "https://i.imgur.com/NtuCuJR.png",
@@ -223,6 +243,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "a2z",
+    channelNumber: 21,
     name: "A2Z",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_a2z/default/index.mpd",
     logo: "https://i.imgur.com/pRwyOMP.png",
@@ -234,6 +255,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "ibc13",
+    channelNumber: 22,
     name: "IBC 13",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/ibc13_sd_new/default/index.mpd",
     logo: "https://i.imgur.com/2b9aDcz.png",
@@ -245,6 +267,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "ptv4",
+    channelNumber: 23,
     name: "PTV 4",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_ptv4_sd/default/index.mpd",
     logo: "https://i.imgur.com/Y0KIhb1.png",
@@ -256,6 +279,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "rock-entertainment",
+    channelNumber: 24,
     name: "Rock Entertainment",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_rockentertainment/default/index.mpd",
     logo: "https://i.imgur.com/I1I7BJ8.png",
@@ -267,6 +291,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "axn",
+    channelNumber: 25,
     name: "AXN",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_axn_sd/default/index.mpd",
     logo: "https://i.imgur.com/eEBcwEJ.png",
@@ -278,6 +303,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "kix-ph",
+    channelNumber: 26,
     name: "KIX Philippines",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/kix_hd1/default/index.mpd",
     logo: "https://i.imgur.com/WpXtJvF.png",
@@ -289,6 +315,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "lifetime",
+    channelNumber: 27,
     name: "Lifetime",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_lifetime/default/index.mpd",
     logo: "https://i.imgur.com/tPJiAO3.png",
@@ -300,6 +327,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "kbs-world",
+    channelNumber: 28,
     name: "KBS World",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/kbsworld/default/index.mpd",
     logo: "https://i.imgur.com/2tVhQvd.png",
@@ -311,6 +339,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "arirang",
+    channelNumber: 29,
     name: "Arirang",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/arirang_sd/default/index.mpd",
     logo: "https://i.imgur.com/TmoPvTQ.png",
@@ -322,6 +351,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "animax",
+    channelNumber: 30,
     name: "Animax",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_animax_sd_new/default/index.mpd",
     logo: "https://i.imgur.com/VLlyHhT.png",
@@ -333,6 +363,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "buko",
+    channelNumber: 31,
     name: "BuKO",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_buko_sd/default/index.mpd",
     logo: "https://i.imgur.com/bMp6c9c.png",
@@ -344,6 +375,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "sari-sari",
+    channelNumber: 32,
     name: "SARI-SARI",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_sarisari/default/index.mpd",
     logo: "https://i.imgur.com/JT8TXRT.png",
@@ -355,6 +387,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "thrill",
+    channelNumber: 33,
     name: "Thrill",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_thrill_sd/default/index.mpd",
     logo: "https://i.imgur.com/Dg60EAx.png",
@@ -366,6 +399,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "lotus-macau",
+    channelNumber: 34,
     name: "Lotus Macau",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/lotusmacau_prd/default/index.mpd",
     logo: "https://i.imgur.com/vSdYpVz.png",
@@ -377,6 +411,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "cgtn-documentary",
+    channelNumber: 35,
     name: "CGTN Documentary",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cgtn_documentary/default/index.mpd",
     logo: "https://i.imgur.com/4wpsfEf.png",
@@ -388,6 +423,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "knowledge-channel",
+    channelNumber: 36,
     name: "Knowledge Channel",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/knowledge_channel/default/index.mpd",
     logo: "https://i.imgur.com/0ehFDrq.png",
@@ -399,6 +435,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "cna",
+    channelNumber: 37,
     name: "Channel NewsAsia",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/channelnewsasia/default/index.mpd",
     logo: "https://i.imgur.com/l2uvn2Y.png",
@@ -410,6 +447,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hbo-hd",
+    channelNumber: 38,
     name: "HBO HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_hbohd/default/index.mpd",
     logo: "https://i.imgur.com/zCwVSrb.png",
@@ -421,6 +459,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hbo-signature",
+    channelNumber: 39,
     name: "HBO Signature",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_hbosign/default/index.mpd",
     logo: "https://i.imgur.com/WlhwuAG.png",
@@ -432,6 +471,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hbo-family",
+    channelNumber: 40,
     name: "HBO Family",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_hbofam/default/index.mpd",
     logo: "https://i.imgur.com/EpPWCI7.png",
@@ -443,6 +483,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hbo-hits",
+    channelNumber: 41,
     name: "HBO Hits",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_hbohits/default/index.mpd",
     logo: "https://i.imgur.com/0xIFtfG.png",
@@ -454,6 +495,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "cinemax",
+    channelNumber: 42,
     name: "Cinemax",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_cinemax/default/index.mpd",
     logo: "https://i.imgur.com/GnpMlAl.png",
@@ -465,6 +507,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "animal-planet",
+    channelNumber: 43,
     name: "Animal Planet",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_animal_planet_sd/default/index.mpd",
     logo: "https://i.imgur.com/E5JDRHi.png",
@@ -476,6 +519,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "rock-action",
+    channelNumber: 44,
     name: "Rock Action",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_rockextreme/default/index.mpd",
     logo: "https://i.imgur.com/OXKTlJ5.png",
@@ -489,6 +533,7 @@ export const allChannels: Channel[] = [
   // ── CIGNAL PLAY / MEDIAQUEST COMPLETE LIST ──────────────────────────────────
   {
     id: "abcaustralia",
+    channelNumber: 45,
     name: "ABC Australia",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/abc_aus/default/index.mpd",
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/ABC_Australia_logo.svg/1280px-ABC_Australia_logo.svg.png",
@@ -500,6 +545,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "aljazeera",
+    channelNumber: 46,
     name: "Al Jazeera English",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_aljazeera/default/index.mpd",
     logo: "https://i.imgur.com/tZpxQT9.png",
@@ -512,6 +558,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "asianfoodnetwork",
+    channelNumber: 47,
     name: "Asian Food Network",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/asianfoodnetwork_sd/default/index.mpd",
     logo: "https://i.imgur.com/sjPCXrH.png",
@@ -524,6 +571,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "bbcearth-hd",
+    channelNumber: 48,
     name: "BBC Earth HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_bbcearth_hd1/default/index.mpd",
     logo: "https://i.imgur.com/cvYi2Io.png",
@@ -535,6 +583,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "bbcworldnews",
+    channelNumber: 49,
     name: "BBC World News",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/bbcworld_news_sd/default/index.mpd",
     logo: "https://i.imgur.com/jtEtbQo.png",
@@ -546,6 +595,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "bilyonaryo",
+    channelNumber: 50,
     name: "Bilyonaryo Channel",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/bilyonaryoch/default/index.mpd",
     logo: "https://i.imgur.com/8voeo5x.png",
@@ -557,6 +607,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "bloomberg-cignal",
+    channelNumber: 51,
     name: "Bloomberg TV",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/bloomberg_sd/default/index.mpd",
     logo: "https://i.imgur.com/UPcAVky.png",
@@ -569,6 +620,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "celestial-movie-pinoy",
+    channelNumber: 52,
     name: "Celestial Movie Pinoy",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/celmovie_pinoy_sd/default/index.mpd",
     logo: "https://i.imgur.com/rjvO1Gr.png",
@@ -580,6 +632,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "cgtn-english",
+    channelNumber: 53,
     name: "CGTN English",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cgtn/default/index.mpd",
     logo: "https://i.imgur.com/MJNICpO.png",
@@ -592,6 +645,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "cnn-hd",
+    channelNumber: 54,
     name: "CNN HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_cnnhd/default/index.mpd",
     logo: "https://i.imgur.com/VEKlGRo.png",
@@ -603,6 +657,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "crime-investigation",
+    channelNumber: 55,
     name: "Crime + Investigation",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/crime_invest/default/index.mpd",
     logo: "https://i.imgur.com/mCe4kum.png",
@@ -614,6 +669,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "deped-channel",
+    channelNumber: 56,
     name: "DepEd Channel",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/depedch_sd/default/index.mpd",
     logo: "https://i.imgur.com/F4viX8e.png",
@@ -625,6 +681,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "discovery-cignal",
+    channelNumber: 57,
     name: "Discovery Channel",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/discovery/default/index.mpd",
     logo: "https://i.imgur.com/ByfigEh.png",
@@ -636,6 +693,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "dreamworks-hd",
+    channelNumber: 58,
     name: "DreamWorks HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_dreamworks_hd1/default/index.mpd",
     logo: "https://i.imgur.com/bXWyG1d.png",
@@ -647,6 +705,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "dreamworks-tagalized",
+    channelNumber: 59,
     name: "DreamWorks Tagalized",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_dreamworktag/default/index.mpd",
     logo: "https://i.imgur.com/bXWyG1d.png",
@@ -658,6 +717,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "fashiontv-hd",
+    channelNumber: 60,
     name: "FashionTV HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/fashiontvhd/default/index.mpd",
     logo: "https://i.imgur.com/bpj05Tv.png",
@@ -669,6 +729,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "foodnetwork-hd",
+    channelNumber: 61,
     name: "Food Network HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_foodnetwork_hd1/default/index.mpd",
     logo: "https://i.imgur.com/VIZpEg3.png",
@@ -680,6 +741,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "france24",
+    channelNumber: 62,
     name: "France 24",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/france24/default/index.mpd",
     logo: "https://i.imgur.com/UKAFeU0.png",
@@ -692,6 +754,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "hgtv-hd",
+    channelNumber: 63,
     name: "HGTV HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/hgtv_hd1/default/index.mpd",
     logo: "https://i.imgur.com/tUBr9ua.png",
@@ -703,6 +766,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "history-hd",
+    channelNumber: 64,
     name: "History HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_historyhd/default/index.mpd",
     logo: "https://i.imgur.com/7zxqVFY.png",
@@ -714,6 +778,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hits-hd",
+    channelNumber: 65,
     name: "Hits HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/hits_hd1/default/index.mpd",
     logo: "https://i.imgur.com/wiS6xjZ.png",
@@ -725,6 +790,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hits-movies",
+    channelNumber: 66,
     name: "Hits Movies",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_hitsmovies/default/index.mpd",
     logo: "https://i.imgur.com/WjcB5pt.png",
@@ -736,6 +802,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "hitsnow",
+    channelNumber: 67,
     name: "HitsNow",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_hitsnow/default/index.mpd",
     logo: "https://i.imgur.com/v2tkO4v.png",
@@ -748,6 +815,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "moonbug-kids",
+    channelNumber: 68,
     name: "Moonbug Kids",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_moonbug_kids_sd/default/index.mpd",
     logo: "https://i.imgur.com/placeholder.png",
@@ -759,6 +827,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "nhk-japan",
+    channelNumber: 69,
     name: "NHK Japan",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_nhk_japan/default/index.mpd",
     logo: "https://i.imgur.com/tc2O08N.png",
@@ -770,6 +839,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "nickelodeon-cignal",
+    channelNumber: 70,
     name: "Nickelodeon",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_nickelodeon/default/index.mpd",
     logo: "https://i.imgur.com/ZH8JFz4.png",
@@ -781,6 +851,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "nickjr",
+    channelNumber: 71,
     name: "Nick Jr.",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_nickjr/default/index.mpd",
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Nick_Jr._logo_2009.svg/1280px-Nick_Jr._logo_2009.svg.png",
@@ -792,6 +863,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "pbo",
+    channelNumber: 72,
     name: "PBO",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/pbo_sd/default/index.mpd",
     logo: "https://i.imgur.com/ZUZIt9s.png",
@@ -804,6 +876,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "tapmovies-hd",
+    channelNumber: 73,
     name: "TAP Movies HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_tapmovies_hd1/default/index.mpd",
     logo: "https://i.imgur.com/nxGBYJt.png",
@@ -816,6 +889,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "travelchannel",
+    channelNumber: 74,
     name: "Travel Channel",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/travel_channel_sd/default/index.mpd",
     logo: "https://i.imgur.com/1l5uuSO.png",
@@ -827,6 +901,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "tv5monde",
+    channelNumber: 75,
     name: "TV5 Monde",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/dr_tv5_monde/default/index.mpd",
     logo: "https://i.imgur.com/yNn2BJN.png",
@@ -838,6 +913,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "tvmaria",
+    channelNumber: 76,
     name: "TV Maria",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/tvmaria_prd/default/index.mpd",
     logo: "https://i.imgur.com/QbZlrNY.png",
@@ -849,6 +925,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "tvn-movies-pinoy",
+    channelNumber: 77,
     name: "TVN Movies Pinoy",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_tvnmovie/default/index.mpd",
     logo: "https://i.imgur.com/3zLgtdM.png",
@@ -860,6 +937,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "tvn-premium-hd",
+    channelNumber: 78,
     name: "TVN Premium HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_tvnpre/default/index.mpd",
     logo: "https://i.imgur.com/placeholder.png",
@@ -872,6 +950,7 @@ export const allChannels: Channel[] = [
 
   {
     id: "viva-cignal",
+    channelNumber: 79,
     name: "Viva TV",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/viva_sd/default/index.mpd",
     logo: "https://upload.wikimedia.org/wikipedia/en/thumb/b/b1/Viva_Television_logo.png/220px-Viva_Television_logo.png",
@@ -883,6 +962,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "warnertv-hd-cignal",
+    channelNumber: 80,
     name: "Warner TV HD",
     url: "https://ucdn.mediaquest.com.ph/bpk-tv/cg_warnerhd/default/index.mpd",
     logo: "https://i.imgur.com/NHYowK5.png",
@@ -895,6 +975,7 @@ export const allChannels: Channel[] = [
   // ANIME CHANNELS
   {
     id: "aniplus-sea",
+    channelNumber: 81,
     name: "Aniplus SEA",
     url: "https://amg18481-amg18481c1-amgplt0352.playout.now3.amagi.tv/playlist/amg18481-amg18481c1-amgplt0352/playlist.m3u8",
     logo: "https://scumbyondinfo.weebly.com/uploads/5/1/2/5/5125023/aniplus_orig.jpg",
@@ -905,6 +986,7 @@ export const allChannels: Channel[] = [
   // MOVIES
   {
     id: "cinema-one",
+    channelNumber: 82,
     name: "Cinema One",
     url: "https://abslive.akamaized.net/dash/live/2027618/c1ph/manifest.mpd",
     logo: "https://static.wikia.nocookie.net/russel/images/9/94/Cinema_One_Logo_2020.png",
@@ -917,6 +999,7 @@ export const allChannels: Channel[] = [
   // KIDS CHANNELS
   {
     id: "cartoon-cartoon-ph",
+    channelNumber: 83,
     name: "Cartoon Cartoon PH",
     url: "https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8",
     logo: "https://phcorner.org/attachments/ccph-mod2025_orig-png.3940524/",
@@ -928,6 +1011,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "pop-tv",
+    channelNumber: 84,
     name: "POP TV Rebroadcast",
     url: "https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/1080p/index.m3u8",
     logo: "https://upload.wikimedia.org/wikipedia/en/thumb/3/36/Pop_UK_TV_Logo_%282015%29.svg/1280px-Pop_UK_TV_Logo_%282015%29.svg.png",
@@ -937,6 +1021,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "cartoonito",
+    channelNumber: 85,
     name: "Cartoonito",
     url: "https://cdn4.skygo.mn/live/disk1/Boomerang/HLSv3-FTA/Boomerang.m3u8",
     logo: "https://1000logos.net/wp-content/uploads/2023/10/Cartoonito-Logo-2018.png",
@@ -947,6 +1032,7 @@ export const allChannels: Channel[] = [
   // ==================== EU CHANNELS ====================
   {
     id: "disney-channel-eu",
+    channelNumber: 86,
     name: "Disney Channel (EU)",
     url: "https://tvcdn.tv.telia.lt/live/eds/Disney_Channel_H/DASH_5_CPIX_NPVR/Disney_Channel_H.mpd",
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/2022_Disney_Channel_logo.svg/1280px-2022_Disney_Channel_logo.svg.png",
@@ -958,6 +1044,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "nickelodeon-global",
+    channelNumber: 87,
     name: "Nick Global Unlimited",
     url: "https://tvcdn.tv.telia.lt/live/eds/Nickelodeon_H/DASH_5_CPIX_NPVR/Nickelodeon_H.mpd",
     logo: "https://upload.wikimedia.org/wikipedia/commons/9/93/Nick-logo.png",
@@ -969,6 +1056,7 @@ export const allChannels: Channel[] = [
   },
   {
     id: "disney-junior-eu",
+    channelNumber: 88,
     name: "Disney Junior (EU)",
     url: "https://tvcdn.tv.telia.lt/live/eds/Disney_Junior_H/DASH_5_CPIX_NPVR/Disney_Junior_H.mpd",
     logo: "https://static.wikia.nocookie.net/tv-philippines/images/8/83/2024_Disney_Jr._Logo.png",

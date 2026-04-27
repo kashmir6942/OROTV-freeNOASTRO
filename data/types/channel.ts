@@ -1,5 +1,6 @@
 export interface Channel {
   id: string
+  channelNumber?: number
   name: string
   logo?: string
   category: string
