@@ -1916,8 +1916,10 @@ export function VideoPlayer({
         default:
           // Number keys 0-9: satellite TV style OSD channel switching
           if (/^[0-9]$/.test(e.key)) {
+            console.log("[v0] OSD number key pressed:", e.key)
             setOsdInput(prev => {
               const next = prev + e.key
+              console.log("[v0] OSD input now:", next)
               if (osdTimeoutRef.current) clearTimeout(osdTimeoutRef.current)
               osdTimeoutRef.current = setTimeout(() => {
                 const num = parseInt(next, 10)
@@ -2003,11 +2005,13 @@ export function VideoPlayer({
 
       {/* Satellite TV style OSD — shows whenever typing a number inside the player */}
       {osdInput && (() => {
+        console.log("[v0] OSD rendering with input:", osdInput)
         const num = parseInt(osdInput, 10)
         const match = availableChannels.find(c => (c as any).channelNumber === num)
         return (
           <div
-            className={`${embedded ? 'absolute' : 'fixed'} top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99999] pointer-events-none select-none`}
+            className="fixed inset-0 flex items-center justify-center pointer-events-none select-none"
+            style={{ zIndex: 2147483647 }}
           >
             <div
               className="flex flex-col items-center justify-center gap-3 px-12 py-8 rounded-2xl shadow-2xl"
