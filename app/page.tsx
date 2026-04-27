@@ -1599,21 +1599,38 @@ export default function Home() {
         />
         <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
         
-        {/* Channel Number Input Overlay - shows in all views */}
-        {channelNumberInput && (
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none">
-            <div className="bg-[#919191] rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center min-w-[200px] min-h-[200px] shadow-2xl">
-              <span className="text-4xl md:text-6xl font-bold text-white font-mono tracking-wider" style={{ WebkitTextStroke: '1px black', textShadow: '2px 2px 0 black' }}>
-                {channelNumberInput.padStart(3, '0')}
-              </span>
-              {parseInt(channelNumberInput, 10) > 0 && parseInt(channelNumberInput, 10) <= allChannels.length && (
-                <span className="text-lg md:text-xl font-medium text-white mt-4 text-center" style={{ WebkitTextStroke: '0.5px black' }}>
-                  {allChannels[parseInt(channelNumberInput, 10) - 1]?.name}
+        {/* Channel Number OSD - satellite TV style */}
+        {channelNumberInput && (() => {
+          const num = parseInt(channelNumberInput, 10)
+          const match = allChannels.find(c => c.channelNumber === num)
+          return (
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none select-none">
+              <div
+                className="flex flex-col items-center justify-center gap-3 px-12 py-8 rounded-2xl shadow-2xl"
+                style={{
+                  background: 'rgba(30,30,30,0.72)',
+                  backdropFilter: 'blur(18px)',
+                  WebkitBackdropFilter: 'blur(18px)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  minWidth: 220,
+                }}
+              >
+                <span
+                  className="font-bold text-white leading-none tracking-widest"
+                  style={{ fontSize: '4.5rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
+                >
+                  {channelNumberInput.padStart(3, '0')}
                 </span>
-              )}
+                <span
+                  className="text-white/90 font-semibold text-center leading-snug"
+                  style={{ fontSize: '1.35rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 1px 6px rgba(0,0,0,0.4)', maxWidth: 260 }}
+                >
+                  {match ? match.name : '—'}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
         <QuickChannelSwitch
           isOpen={showQuickSwitch}
           onClose={() => setShowQuickSwitch(false)}
