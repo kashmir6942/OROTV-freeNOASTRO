@@ -594,8 +594,9 @@ export default function Home() {
           // After 1.5s of no input, switch channel
           channelNumberTimeoutRef.current = setTimeout(() => {
             const channelNum = parseInt(newInput, 10)
-            if (channelNum > 0 && channelNum <= allChannels.length) {
-              const targetChannel = allChannels[channelNum - 1]
+            if (channelNum > 0) {
+              // Find by fixed channelNumber field, not array index
+              const targetChannel = allChannels.find(c => c.channelNumber === channelNum)
               // Prevent double play - skip if same channel
               if (targetChannel && targetChannel.id !== selectedChannel?.id) {
                 // If player is already open, destroy first then reopen
@@ -780,8 +781,7 @@ export default function Home() {
 
   const createChannelTile = (channel: Channel, showFavorite = true) => {
     const isChannelFavorite = isFavorite(channel.id)
-    const channelIndex = allChannels.findIndex(c => c.id === channel.id)
-    const channelNum = String(channelIndex + 1).padStart(3, '0')
+    const channelNum = String(channel.channelNumber ?? 0).padStart(3, '0')
 
     return (
       <div
@@ -1098,13 +1098,13 @@ export default function Home() {
       channels = channels.filter(ch => ch.category === listSelectedCategory)
     }
     if (term) {
-      // Check if search is a number - match channel position
+      // Check if search is a number - match fixed channelNumber
       const numericSearch = parseInt(term, 10)
       if (!isNaN(numericSearch) && numericSearch > 0) {
-        channels = channels.filter((ch, idx) => {
-          const channelNum = idx + 1
-          return channelNum.toString().includes(term) || 
-                 channelNum.toString().padStart(3, '0').includes(term)
+        channels = channels.filter(ch => {
+          const num = ch.channelNumber ?? 0
+          return num.toString().includes(term) ||
+                 num.toString().padStart(3, '0').includes(term)
         })
       } else {
         channels = channels.filter(ch =>
@@ -1963,7 +1963,7 @@ export default function Home() {
                         className="text-white font-bold text-sm leading-none self-start z-10"
                         style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}
                       >
-                        {String(index + 1).padStart(3, '0')}
+                        {String(channel.channelNumber ?? 0).padStart(3, '0')}
                       </span>
                       {channel.logo ? (
                         <img
