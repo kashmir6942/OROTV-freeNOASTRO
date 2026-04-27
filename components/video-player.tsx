@@ -149,7 +149,11 @@ export function VideoPlayer({
       : "high-bitrate"
   )
   const wasUIHiddenRef = useRef(false)
-  
+
+  // Internal OSD (satellite TV style number input)
+  const [osdInput, setOsdInput] = useState("")
+  const osdTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   // Restore UI hidden state if prop is set (after auto-reconnect)
   useEffect(() => {
     if (restoreUIHidden) {
@@ -1909,12 +1913,30 @@ export function VideoPlayer({
             setIsMuted(videoRef.current.muted)
           }
           break
+        default:
+          // Number keys 0-9: satellite TV style OSD channel switching
+          if (/^[0-9]$/.test(e.key)) {
+            setOsdInput(prev => {
+              const next = prev + e.key
+              if (osdTimeoutRef.current) clearTimeout(osdTimeoutRef.current)
+              osdTimeoutRef.current = setTimeout(() => {
+                const num = parseInt(next, 10)
+                const target = availableChannels.find(c => (c as any).channelNumber === num)
+                if (target && target.id !== channel.id) {
+                  onChannelChange(target.id)
+                }
+                setOsdInput("")
+              }, 1500)
+              return next
+            })
+          }
+          break
       }
     }
 
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [showEPGOverlay, showChannelList, isMobile])
+  }, [showEPGOverlay, showChannelList, isMobile, availableChannels, channel, onChannelChange])
 
   if (showTechnicalDifficulties && streamStatus) {
     return (
@@ -1979,24 +2001,40 @@ export function VideoPlayer({
         </div>
       )}
 
-      {isTraditionalMode && showChannelNumberOverlay && channelNumberInput && (
-        <div className={`${embedded ? 'absolute' : 'fixed'} top-4 right-4 z-[99999] bg-black/30 text-white p-4 rounded-lg border-2 border-gray-500 shadow-2xl pointer-events-none animate-in fade-in duration-200`}>
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="text-2xl font-bold text-gray-300">{channelNumberInput}</div>
-            <div className="text-sm text-white/60">
-              {(() => {
-                const foundChannel = availableChannels.find(
-                  (ch, index) => (index + 1).toString() === channelNumberInput,
-                )
-                return foundChannel ? foundChannel.name : "Channel not found"
-              })()}
+      {/* Satellite TV style OSD — shows whenever typing a number inside the player */}
+      {osdInput && (() => {
+        const num = parseInt(osdInput, 10)
+        const match = availableChannels.find(c => (c as any).channelNumber === num)
+        return (
+          <div
+            className={`${embedded ? 'absolute' : 'fixed'} top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99999] pointer-events-none select-none`}
+          >
+            <div
+              className="flex flex-col items-center justify-center gap-3 px-12 py-8 rounded-2xl shadow-2xl"
+              style={{
+                background: 'rgba(30,30,30,0.72)',
+                backdropFilter: 'blur(18px)',
+                WebkitBackdropFilter: 'blur(18px)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                minWidth: 220,
+              }}
+            >
+              <span
+                className="font-bold text-white leading-none tracking-widest"
+                style={{ fontSize: '4.5rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
+              >
+                {osdInput.padStart(3, '0')}
+              </span>
+              <span
+                className="text-white/90 font-semibold text-center leading-snug"
+                style={{ fontSize: '1.35rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 1px 6px rgba(0,0,0,0.4)', maxWidth: 260 }}
+              >
+                {match ? match.name : '—'}
+              </span>
             </div>
           </div>
-          <div className="flex items-center space-x-2 mt-3 text-xs text-white/50">
-            <span>Playing in 3 seconds...</span>
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {isTraditionalMode && (
         <div
