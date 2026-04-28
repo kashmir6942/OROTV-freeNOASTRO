@@ -546,10 +546,10 @@ export default function AdminPanel() {
       setMaintenanceMode((prev) =>
         prev
           ? {
-              ...prev,
-              is_active: !prev.is_active,
-              updated_at: new Date().toISOString(),
-            }
+            ...prev,
+            is_active: !prev.is_active,
+            updated_at: new Date().toISOString(),
+          }
           : null,
       )
 
@@ -649,7 +649,7 @@ export default function AdminPanel() {
     const supabase = createClient()
     try {
       console.log("[v0] Updating channel request:", requestId, "to status:", status)
-      
+
       const { error } = await supabase
         .from("channel_requests")
         .update({
@@ -665,7 +665,7 @@ export default function AdminPanel() {
         console.error("[v0] Database error updating channel request:", error)
         throw error
       }
-      
+
       console.log("[v0] Channel request updated successfully")
       await loadData()
     } catch (error) {
@@ -748,9 +748,8 @@ export default function AdminPanel() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-4 py-2 rounded-md transition-colors ${
-                activeTab === tab.id ? "bg-white/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"
-              }`}
+              className={`flex items-center px-4 py-2 rounded-md transition-colors ${activeTab === tab.id ? "bg-white/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
             >
               <tab.icon className="w-4 h-4 mr-2" />
               {tab.label}
@@ -2787,6 +2786,17 @@ export default function AdminPanel() {
                     const drmObj = addChannelForm.drm_key_id && addChannelForm.drm_key
                       ? { clearkey: { [addChannelForm.drm_key_id]: addChannelForm.drm_key } }
                       : null
+
+                    // Get the next channel number starting from 89
+                    const { data: existingChannels } = await supabase
+                      .from("channels")
+                      .select("channel_number")
+                      .order("channel_number", { ascending: false })
+                      .limit(1)
+
+                    const maxChannelNumber = existingChannels?.[0]?.channel_number || 88
+                    const nextChannelNumber = Math.max(89, maxChannelNumber + 1)
+
                     const { error } = await supabase.from("channels").upsert({
                       id: channelId,
                       name: addChannelForm.name,
@@ -2796,6 +2806,8 @@ export default function AdminPanel() {
                       group_name: addChannelForm.group,
                       is_hd: addChannelForm.is_hd,
                       drm: drmObj,
+                      is_active: true,
+                      channel_number: nextChannelNumber,
                     }, { onConflict: "id" })
                     if (error) { alert("Failed: " + error.message); return }
                     const { data } = await supabase.from("channels").select("*").order("name")

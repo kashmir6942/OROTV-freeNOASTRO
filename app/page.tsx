@@ -170,10 +170,10 @@ const ChannelGuideModal = ({
 export default function Home() {
   const { theme } = useTheme()
   const { hasAccess, isCheckingAccess, setHasAccess } = useAccessControl()
-  
+
   // All channels - merged from static file and database
   const [allChannels, setAllChannels] = useState<Channel[]>(staticChannels)
-  
+
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("All")
@@ -265,7 +265,7 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem('light-view-mode', viewMode)
   }, [viewMode])
-  
+
   // Load channels from database and merge with static channels
   useEffect(() => {
     const loadDbChannels = async () => {
@@ -275,11 +275,12 @@ export default function Home() {
           .from("channels")
           .select("*")
           .eq("is_active", true)
-        
+
         if (dbChannels && dbChannels.length > 0) {
           // Convert database channels to Channel type
           const convertedDbChannels: Channel[] = dbChannels.map((ch: any) => ({
             id: ch.id,
+            channelNumber: ch.channel_number || undefined,
             name: ch.name,
             url: ch.url,
             logo: ch.logo || undefined,
@@ -288,18 +289,19 @@ export default function Home() {
             isHD: ch.is_hd || false,
             drm: ch.drm || undefined,
           }))
-          
+
           // Merge: static channels take priority, db channels fill in new ones
           const staticIds = new Set(staticChannels.map(c => c.id))
           const newDbChannels = convertedDbChannels.filter(c => !staticIds.has(c.id))
-          
+
           setAllChannels([...staticChannels, ...newDbChannels])
+          console.log("[v0] Loaded channels from database:", newDbChannels.length, "new channels added")
         }
       } catch (error) {
         console.error("[v0] Failed to load channels from database:", error)
       }
     }
-    
+
     loadDbChannels()
   }, [])
 
@@ -308,7 +310,7 @@ export default function Home() {
   // Check if first-time user and show support popup
   useEffect(() => {
     if (typeof window === 'undefined') return
-    
+
     const hasSeenPopup = localStorage.getItem('supportPopupSeen') === 'true'
     if (!hasSeenPopup) {
       setIsFirstTimeUser(true)
@@ -696,17 +698,17 @@ export default function Home() {
   const handleBitrateModeChange = (mode: "high-bitrate" | "optimized") => {
     // Save mode to localStorage so video player picks it up on reinit
     localStorage.setItem("orotv-streaming-mode", mode)
-    
+
     // Check if UI was hidden (video player sets this in wasUIHiddenRef before calling)
     const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
-    
+
     // Store the current channel to reopen
     pendingChannelRef.current = selectedChannel
     setPendingBitrateMode(mode)
-    
+
     // Close player → home screen is shown
     setSelectedChannel(null)
-    
+
     // Reopen the same channel after brief delay (home briefly visible)
     setTimeout(() => {
       if (pendingChannelRef.current) {
@@ -1035,7 +1037,7 @@ export default function Home() {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-6">
-              <img src="/images/light-logo.png" alt="Light TV" className="h-14 w-auto" />
+          <img src="/images/light-logo.png" alt="Light TV" className="h-14 w-auto" />
           <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
         </div>
       </div>
@@ -1061,48 +1063,48 @@ export default function Home() {
   if (selectedChannel && viewMode === 'grid') {
     return (
       <div className="relative">
-            <VideoPlayer
-              channel={selectedChannel}
-              user={null}
-              onClose={handleClosePlayer}
-              onChannelChange={(channelId: string) => {
-                const target = allChannels.find(c => c.id === channelId)
-                if (!target || target.id === selectedChannel.id) return
-                const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
-                pendingChannelRef.current = target
-                setSelectedChannel(null)
-                setTimeout(() => {
-                  if (pendingChannelRef.current) {
-                    setRestoreUIHidden(wasHidden)
-                    setSelectedChannel(pendingChannelRef.current)
-                    setHeaderTitle(pendingChannelRef.current.name)
-                    addToRecentlyWatched(pendingChannelRef.current.id)
-                    setRecentlyWatched(getRecentlyWatched())
-                    pendingChannelRef.current = null
-                    setTimeout(() => setRestoreUIHidden(false), 1500)
-                  }
-                }, 300)
-              }}
-              onBitrateModeChange={handleBitrateModeChange}
-              restoreUIHidden={restoreUIHidden}
-              availableChannels={allChannels}
-              videoRef={videoRef}
-              isMuted={isMuted}
-              showModernButton={showModernButton}
-              showChannelInfo={showChannelInfo}
-              showChannelList={showChannelList}
-              getCurrentChannelInfo={getCurrentChannelInfo}
-              getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
-              onModernButtonHover={handleModernButtonHover}
-              onChannelInfoHover={handleChannelInfoHover}
-              onChannelListHover={handleChannelListHover}
-              isMobile={isMobile}
-              isPortrait={isPortrait}
-              epgData={epgData}
-              currentPrograms={currentPrograms}
-              onPositionUpdate={handleVideoPositionUpdate}
-              getSavedPosition={getSavedVideoPosition}
-            />
+        <VideoPlayer
+          channel={selectedChannel}
+          user={null}
+          onClose={handleClosePlayer}
+          onChannelChange={(channelId: string) => {
+            const target = allChannels.find(c => c.id === channelId)
+            if (!target || target.id === selectedChannel.id) return
+            const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
+            pendingChannelRef.current = target
+            setSelectedChannel(null)
+            setTimeout(() => {
+              if (pendingChannelRef.current) {
+                setRestoreUIHidden(wasHidden)
+                setSelectedChannel(pendingChannelRef.current)
+                setHeaderTitle(pendingChannelRef.current.name)
+                addToRecentlyWatched(pendingChannelRef.current.id)
+                setRecentlyWatched(getRecentlyWatched())
+                pendingChannelRef.current = null
+                setTimeout(() => setRestoreUIHidden(false), 1500)
+              }
+            }, 300)
+          }}
+          onBitrateModeChange={handleBitrateModeChange}
+          restoreUIHidden={restoreUIHidden}
+          availableChannels={allChannels}
+          videoRef={videoRef}
+          isMuted={isMuted}
+          showModernButton={showModernButton}
+          showChannelInfo={showChannelInfo}
+          showChannelList={showChannelList}
+          getCurrentChannelInfo={getCurrentChannelInfo}
+          getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
+          onModernButtonHover={handleModernButtonHover}
+          onChannelInfoHover={handleChannelInfoHover}
+          onChannelListHover={handleChannelListHover}
+          isMobile={isMobile}
+          isPortrait={isPortrait}
+          epgData={epgData}
+          currentPrograms={currentPrograms}
+          onPositionUpdate={handleVideoPositionUpdate}
+          getSavedPosition={getSavedVideoPosition}
+        />
       </div>
     )
   }
@@ -1121,7 +1123,7 @@ export default function Home() {
         channels = channels.filter(ch => {
           const num = ch.channelNumber ?? 0
           return num.toString().includes(term) ||
-                 num.toString().padStart(3, '0').includes(term)
+            num.toString().padStart(3, '0').includes(term)
         })
       } else {
         channels = channels.filter(ch =>
@@ -1173,21 +1175,19 @@ export default function Home() {
           <div className="px-2 md:px-5">
             <div className="flex items-center justify-between h-14 md:h-14">
               <div className="flex items-center gap-4">
-              <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto" />
+                <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto" />
                 <nav className="hidden md:flex items-center gap-0.5">
                   <button
                     onClick={() => { handleHomeNavigation(); setViewMode('grid'); }}
-                    className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      !isLiveTVView && viewMode === 'grid' ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isLiveTVView && viewMode === 'grid' ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      }`}
                   >
                     Home
                   </button>
                   <button
                     onClick={() => { handleLiveTVNavigation(); setViewMode('grid'); }}
-                    className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      isLiveTVView && viewMode === 'grid' ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${isLiveTVView && viewMode === 'grid' ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      }`}
                   >
                     Live TV
                   </button>
@@ -1266,7 +1266,7 @@ export default function Home() {
                       setSelectedChannel(null)
                       setHeaderTitle("Live TV")
                     }}
-                    onChannelChange={() => {}}
+                    onChannelChange={() => { }}
                     onBitrateModeChange={handleBitrateModeChange}
                     restoreUIHidden={restoreUIHidden}
                     availableChannels={allChannels}
@@ -1294,7 +1294,7 @@ export default function Home() {
                   <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">Thank you for using Light TV.</h1>
                   <p className="text-sm md:text-base text-white/80 mb-6">Get started by clicking these channels on the left</p>
                   <svg className="w-24 h-12 md:w-32 md:h-16 text-white mb-8" viewBox="0 0 120 40" fill="none">
-                    <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <div className="mt-auto">
                     <p className="text-xs font-medium text-white/80 mb-2">Notice</p>
@@ -1343,11 +1343,10 @@ export default function Home() {
                       e.stopPropagation()
                       setListSelectedCategory(cat)
                     }}
-                    className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${
-                      listSelectedCategory === cat
+                    className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${listSelectedCategory === cat
                         ? "bg-foreground text-background"
                         : "bg-secondary/40 text-muted-foreground/70 hover:text-foreground/80 hover:bg-secondary/60"
-                    }`}
+                      }`}
                   >
                     {cat}
                   </button>
@@ -1381,20 +1380,18 @@ export default function Home() {
                         addToRecentlyWatched(channel.id)
                         setRecentlyWatched(getRecentlyWatched())
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${
-                        isActive
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${isActive
                           ? "bg-foreground/[0.06] border-l-2 border-l-foreground/40"
                           : "hover:bg-foreground/[0.03] border-l-2 border-l-transparent"
-                      }`}
+                        }`}
                     >
                       <span className="text-[9px] font-mono text-muted-foreground/30 w-4 text-right shrink-0 tabular-nums">
                         {index + 1}
                       </span>
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border transition-all duration-300 ${
-                        isActive
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border transition-all duration-300 ${isActive
                           ? "bg-white/[0.08] border-white/10"
                           : "bg-foreground/[0.03] border-border/10 group-hover:bg-foreground/[0.05] group-hover:border-border/20"
-                      }`}>
+                        }`}>
                         <img
                           src={channel.logo || "/placeholder.svg"}
                           alt={channel.name}
@@ -1454,11 +1451,10 @@ export default function Home() {
                     e.stopPropagation()
                     setListSelectedCategory(cat)
                   }}
-                  className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${
-                    listSelectedCategory === cat
+                  className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${listSelectedCategory === cat
                       ? "bg-foreground text-background"
                       : "bg-secondary/40 text-muted-foreground/70 hover:text-foreground/80 hover:bg-secondary/60"
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>
@@ -1494,20 +1490,18 @@ export default function Home() {
                         addToRecentlyWatched(channel.id)
                         setRecentlyWatched(getRecentlyWatched())
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${
-                        isActive
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${isActive
                           ? "bg-foreground/[0.06] border-l-2 border-l-foreground/40"
                           : "hover:bg-foreground/[0.03] border-l-2 border-l-transparent"
-                      }`}
+                        }`}
                     >
                       <span className="text-[9px] font-mono text-muted-foreground/30 w-4 text-right shrink-0 tabular-nums">
                         {index + 1}
                       </span>
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border transition-all duration-300 ${
-                        isActive 
-                          ? "bg-white/[0.08] border-white/10" 
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border transition-all duration-300 ${isActive
+                          ? "bg-white/[0.08] border-white/10"
                           : "bg-foreground/[0.03] border-border/10 group-hover:bg-foreground/[0.05] group-hover:border-border/20"
-                      }`}>
+                        }`}>
                         <img
                           src={channel.logo || "/placeholder.svg"}
                           alt={channel.name}
@@ -1552,7 +1546,7 @@ export default function Home() {
                       setSelectedChannel(null)
                       setHeaderTitle("Live TV")
                     }}
-                    onChannelChange={() => {}}
+                    onChannelChange={() => { }}
                     onBitrateModeChange={handleBitrateModeChange}
                     restoreUIHidden={restoreUIHidden}
                     availableChannels={allChannels}
@@ -1595,7 +1589,7 @@ export default function Home() {
                 <h1 className="text-3xl lg:text-5xl font-bold text-white mb-3">Thank you for using Light TV.</h1>
                 <p className="text-base lg:text-lg text-white/80 mb-8">Get started by clicking these channels on the left</p>
                 <svg className="w-40 h-20 text-white mb-12" viewBox="0 0 120 40" fill="none">
-                  <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div className="mt-auto">
                   <p className="text-sm font-medium text-white/80 mb-2">Notice</p>
@@ -1615,7 +1609,7 @@ export default function Home() {
           currentPrograms={currentPrograms}
         />
         <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
-        
+
         {/* Channel Number OSD - satellite TV style */}
         {channelNumberInput && (() => {
           const num = parseInt(channelNumberInput, 10)
@@ -1782,17 +1776,15 @@ export default function Home() {
               <nav className="hidden md:flex items-center gap-0.5">
                 <button
                   onClick={handleHomeNavigation}
-                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    !isLiveTVView ? "bg-secondary/60 text-foreground" : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40"
-                  }`}
+                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isLiveTVView ? "bg-secondary/60 text-foreground" : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40"
+                    }`}
                 >
                   Home
                 </button>
                 <button
                   onClick={handleLiveTVNavigation}
-                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isLiveTVView ? "bg-secondary/60 text-foreground" : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40"
-                  }`}
+                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${isLiveTVView ? "bg-secondary/60 text-foreground" : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40"
+                    }`}
                 >
                   Live TV
                 </button>
@@ -1968,11 +1960,10 @@ export default function Home() {
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`category-pill whitespace-nowrap shrink-0 animate-fade-in ${
-                        selectedCategory === category
+                      className={`category-pill whitespace-nowrap shrink-0 animate-fade-in ${selectedCategory === category
                           ? "active"
                           : ""
-                      }`}
+                        }`}
                       style={{ animationDelay: `${index * 0.05}s` }}
                     >
                       {category}
