@@ -271,14 +271,21 @@ export default function Home() {
     const loadDbChannels = async () => {
       try {
         const supabase = createClient()
-        const { data: dbChannels } = await supabase
+        const { data: dbChannels, error } = await supabase
           .from("channels")
           .select("*")
-          .eq("is_active", true)
 
-        if (dbChannels && dbChannels.length > 0) {
+        if (error) {
+          console.error("[v0] Supabase query error:", error.message)
+          return
+        }
+
+        if (dbChannels && Array.isArray(dbChannels) && dbChannels.length > 0) {
           // Convert database channels to Channel type
-          const convertedDbChannels: Channel[] = dbChannels.map((ch: any) => ({
+          // Filter for active channels (default to true if is_active column doesn't exist)
+          const activeChannels = dbChannels.filter((ch: any) => ch.is_active !== false)
+
+          const convertedDbChannels: Channel[] = activeChannels.map((ch: any) => ({
             id: ch.id,
             channelNumber: ch.channel_number || undefined,
             name: ch.name,
@@ -294,8 +301,9 @@ export default function Home() {
           const staticIds = new Set(staticChannels.map(c => c.id))
           const newDbChannels = convertedDbChannels.filter(c => !staticIds.has(c.id))
 
-          setAllChannels([...staticChannels, ...newDbChannels])
-          console.log("[v0] Loaded channels from database:", newDbChannels.length, "new channels added")
+          if (newDbChannels.length > 0) {
+            setAllChannels([...staticChannels, ...newDbChannels])
+          }
         }
       } catch (error) {
         console.error("[v0] Failed to load channels from database:", error)
