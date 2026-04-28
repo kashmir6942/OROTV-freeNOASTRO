@@ -2171,8 +2171,8 @@ export function VideoPlayer({
                   }
                 }}
                 className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${streamingMode === "high-bitrate"
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-white/70 hover:bg-white/20"
+                  ? "bg-white text-black"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
                   }`}
               >
                 <div className="flex flex-col items-center gap-1">
@@ -2196,8 +2196,8 @@ export function VideoPlayer({
                   }
                 }}
                 className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${streamingMode === "optimized"
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-white/70 hover:bg-white/20"
+                  ? "bg-white text-black"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
                   }`}
               >
                 <div className="flex flex-col items-center gap-1">
@@ -2279,33 +2279,37 @@ export function VideoPlayer({
           </div>
         </div>
 
-        {/* Moving Text Announcements Overlay */}
-        {movingTextAnnouncements.length > 0 && connectionStatus === "connected" && !error && !isBuffering && (
-          <div className="absolute bottom-16 left-0 right-0 z-20 pointer-events-none overflow-hidden">
-            {movingTextAnnouncements.map((announcement, index) => (
+        {/* Moving Text Ticker Overlay — fixed to bottom of player, dark bar, scrolling text */}
+        {movingTextAnnouncements.length > 0 && !error && (
+          <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
+            {movingTextAnnouncements.filter(a => a.is_active !== false).map((announcement, index) => (
               <div
                 key={announcement.id || index}
-                className="w-full py-2 px-4"
+                className="w-full overflow-hidden"
                 style={{
-                  fontFamily: announcement.font || "Segoe UI",
+                  backgroundColor: "rgba(0,0,0,0.82)",
+                  borderTop: "1px solid rgba(255,255,255,0.08)",
+                  fontFamily: announcement.font || "Segoe UI, sans-serif",
+                  padding: "8px 0",
                 }}
               >
                 {announcement.display_mode === "scrolling" ? (
                   <div
-                    className="whitespace-nowrap text-white text-lg font-semibold drop-shadow-lg"
+                    className="whitespace-nowrap text-white font-medium"
                     style={{
-                      animation: `${announcement.scroll_direction === "right" ? "scrollRight" : "scrollLeft"} ${60 / (announcement.scroll_speed || 20)}s linear infinite`,
-                      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                      fontSize: "15px",
+                      lineHeight: "1.4",
+                      animation: `${announcement.scroll_direction === "right" ? "tickerScrollRight" : "tickerScrollLeft"} ${Math.max(10, 80 / (announcement.scroll_speed || 20))}s linear infinite`,
+                      display: "inline-block",
+                      paddingLeft: "100%",
                     }}
                   >
                     {announcement.message}
                   </div>
                 ) : (
                   <div
-                    className="text-center text-white text-lg font-semibold drop-shadow-lg"
-                    style={{
-                      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                    }}
+                    className="text-center text-white font-medium"
+                    style={{ fontSize: "15px", lineHeight: "1.4", padding: "0 16px" }}
                   >
                     {announcement.message}
                   </div>
@@ -2317,13 +2321,13 @@ export function VideoPlayer({
 
         {/* Moving Text Animation Styles */}
         <style jsx>{`
-          @keyframes scrollLeft {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(-100%); }
+          @keyframes tickerScrollLeft {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-200%); }
           }
-          @keyframes scrollRight {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+          @keyframes tickerScrollRight {
+            0%   { transform: translateX(-200%); }
+            100% { transform: translateX(0); }
           }
         `}</style>
 
