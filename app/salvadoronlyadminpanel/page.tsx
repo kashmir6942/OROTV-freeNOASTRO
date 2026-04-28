@@ -2787,17 +2787,8 @@ export default function AdminPanel() {
                       ? { clearkey: { [addChannelForm.drm_key_id]: addChannelForm.drm_key } }
                       : null
 
-                    // Get the next channel number starting from 89
-                    const { data: existingChannels } = await supabase
-                      .from("channels")
-                      .select("channel_number")
-                      .order("channel_number", { ascending: false })
-                      .limit(1)
-
-                    const maxChannelNumber = existingChannels?.[0]?.channel_number || 88
-                    const nextChannelNumber = Math.max(89, maxChannelNumber + 1)
-
-                    const { error } = await supabase.from("channels").upsert({
+                    // Build insert object with only existing columns
+                    const channelData: Record<string, any> = {
                       id: channelId,
                       name: addChannelForm.name,
                       url: addChannelForm.url,
@@ -2806,9 +2797,26 @@ export default function AdminPanel() {
                       group_name: addChannelForm.group,
                       is_hd: addChannelForm.is_hd,
                       drm: drmObj,
-                      is_active: true,
-                      channel_number: nextChannelNumber,
-                    }, { onConflict: "id" })
+                    }
+
+                    // Try to add channel_number and is_active (may fail if columns don't exist)
+                    try {
+                      const { data: existingChannels } = await supabase
+                        .from("channels")
+                        .select("channel_number")
+                        .order("channel_number", { ascending: false })
+                        .limit(1)
+
+                      if (existingChannels && existingChannels[0]?.channel_number !== undefined) {
+                        const maxChannelNumber = existingChannels[0].channel_number || 88
+                        channelData.channel_number = Math.max(89, maxChannelNumber + 1)
+                        channelData.is_active = true
+                      }
+                    } catch {
+                      // Columns don't exist yet, skip
+                    }
+
+                    const { error } = await supabase.from("channels").upsert(channelData, { onConflict: "id" })
                     if (error) { alert("Failed: " + error.message); return }
                     const { data } = await supabase.from("channels").select("*").order("name")
                     setDbChannels(data || [])
