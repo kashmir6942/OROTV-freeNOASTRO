@@ -18,7 +18,7 @@ import { SupportPopup } from "@/components/support-popup"
 import { ReportModal } from "@/components/report-modal"
 import { AnnouncementsSystem } from "@/components/announcements-system"
 import { IOSUnsupportedModal } from "@/components/ios-unsupported-modal"
-import { useAccessControl } from "@/lib/hooks/useAccessControl" // Added import for useAccessControl
+import { useAccessControl } from "@/lib/hooks/useAccessControl"
 import { getFavorites, addFavorite, removeFavorite, isFavorite, addToRecentlyWatched, getRecentlyWatched } from "@/lib/favorites"
 import { QuickChannelSwitch } from "@/components/quick-channel-switch"
 import { ChannelStats } from "@/components/channel-stats"
@@ -62,44 +62,58 @@ const ChannelGuideModal = ({
 }) => {
   if (!isOpen) return null
 
-  const guideFilteredChannels = allChannels.filter(
+  // Ensure allChannels is imported or passed if needed, but since it's global let's use staticChannels for fallback if needed. 
+  // We'll rely on the staticChannels here since allChannels state isn't passed down.
+  const guideFilteredChannels = staticChannels.filter(
     (channel) =>
       channel.name.toLowerCase().includes(channelGuideSearch.toLowerCase()) ||
       channel.category.toLowerCase().includes(channelGuideSearch.toLowerCase()),
   )
 
   return (
-    <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-card rounded-lg w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl h-full sm:h-5/6 max-h-screen flex flex-col border border-border">
-        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border">
-          <h2 className="text-base sm:text-lg font-semibold text-foreground">Channel Guide</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">
-            <X className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4 sm:p-8 animate-in fade-in duration-300">
+      <div className="bg-[#0f0f13] rounded-2xl w-full max-w-5xl h-full max-h-[85vh] flex flex-col border border-white/10 shadow-2xl overflow-hidden">
+        {/* TV Guide Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-white/10 bg-[#14141a]">
+          <div className="flex items-center gap-4 mb-4 sm:mb-0">
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+              <Tv className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-wide">TV Guide</h2>
+              <p className="text-xs text-white/50 tracking-widest uppercase mt-1">Live Programming</p>
+            </div>
+          </div>
 
-        <div className="p-3 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
-            <input
-              type="text"
-              placeholder="Search channels..."
-              value={channelGuideSearch}
-              onChange={(e) => setChannelGuideSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-secondary border-none rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-border text-sm"
-            />
+          <div className="flex items-center gap-4">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search channels..."
+                value={channelGuideSearch}
+                onChange={(e) => setChannelGuideSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm transition-all"
+              />
+            </div>
+            <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all">
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 sm:p-3">
-          <div className="space-y-2">
+        {/* TV Guide Content */}
+        <div className="flex-1 overflow-y-auto p-2 sm:p-4 bg-[#0a0a0c]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {guideFilteredChannels.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8 text-sm">{"No channels found"}</div>
+              <div className="col-span-full text-center text-white/40 py-20 flex flex-col items-center">
+                <Search className="w-12 h-12 mb-4 opacity-20" />
+                <p className="text-lg">No channels found</p>
+              </div>
             ) : (
               guideFilteredChannels.map((channel) => {
                 let epgEntry = null
                 let currentProg = null
-                let nextProg = null
 
                 try {
                   if (epgData && typeof epgData === "object") {
@@ -121,7 +135,6 @@ const ChannelGuideModal = ({
                     }) as any
 
                     currentProg = epgEntry && currentPrograms ? currentPrograms[epgEntry.id] : null
-                    nextProg = epgEntry ? getNextProgram(epgEntry.id, epgEntry) : null
                   }
                 } catch (error) {
                   console.log("[v0] Error matching EPG data:", error)
@@ -130,14 +143,14 @@ const ChannelGuideModal = ({
                 return (
                   <div
                     key={channel.id}
-                    className="rounded-md p-2.5 hover:bg-secondary transition-colors"
+                    className="group bg-[#14141a] border border-white/5 rounded-xl p-4 hover:bg-[#1f1f26] hover:border-white/20 transition-all cursor-pointer"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-16 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/5">
                         <img
                           src={channel.logo || "/placeholder.svg"}
                           alt={channel.name}
-                          className="w-10 h-10 object-contain bg-secondary rounded-md p-1"
+                          className="w-full h-full object-contain"
                           onError={(e) => {
                             e.currentTarget.style.display = "none"
                           }}
@@ -145,15 +158,21 @@ const ChannelGuideModal = ({
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-foreground truncate">{channel.name}</h3>
-                          <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded ml-2 shrink-0">
-                            {channel.category}
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="text-base font-bold text-white truncate">{channel.name}</h3>
+                          <span className="text-[10px] text-white/60 bg-white/10 px-2 py-0.5 rounded font-medium tracking-wider">
+                            CH {String(channel.channelNumber ?? 0).padStart(3, '0')}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {currentProg?.title || "No program info"}
-                        </p>
+                        <span className="inline-block text-[10px] text-blue-400 font-semibold tracking-wider uppercase mb-2">
+                          {channel.category}
+                        </span>
+                        <div className="bg-black/40 rounded p-2 border border-white/5">
+                          <p className="text-[11px] text-white/50 uppercase tracking-widest mb-0.5">Now Playing</p>
+                          <p className="text-xs text-white/90 truncate font-medium">
+                            {currentProg?.title || "Live Broadcast"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -171,9 +190,7 @@ export default function Home() {
   const { theme } = useTheme()
   const { hasAccess, isCheckingAccess, setHasAccess } = useAccessControl()
 
-  // All channels - merged from static file and database
   const [allChannels, setAllChannels] = useState<Channel[]>(staticChannels)
-
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("All")
@@ -198,7 +215,7 @@ export default function Home() {
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [isPortrait, setIsPortrait] = useState(false)
-  const [isLiveTVView, setIsLiveTVView] = useState(true) // Changed from false to true
+  const [isLiveTVView, setIsLiveTVView] = useState(true)
   const [wasInLiveTVBeforePlayer, setWasInLiveTVBeforePlayer] = useState(false)
   const [headerTitle, setHeaderTitle] = useState("Home")
   const [showChannelRequestModal, setShowChannelRequestModal] = useState(false)
@@ -251,6 +268,14 @@ export default function Home() {
     "https://www.open-epg.com/files/philippines2.xml.gz",
   ]
 
+  // Live Clock Update
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   useEffect(() => {
     document.title = headerTitle
   }, [headerTitle])
@@ -281,8 +306,6 @@ export default function Home() {
         }
 
         if (dbChannels && Array.isArray(dbChannels) && dbChannels.length > 0) {
-          // Convert database channels to Channel type
-          // Filter for active channels (default to true if is_active column doesn't exist)
           const activeChannels = dbChannels.filter((ch: any) => ch.is_active !== false)
 
           const convertedDbChannels: Channel[] = activeChannels.map((ch: any) => ({
@@ -297,7 +320,6 @@ export default function Home() {
             drm: ch.drm || undefined,
           }))
 
-          // Merge: static channels take priority, db channels fill in new ones
           const staticIds = new Set(staticChannels.map(c => c.id))
           const newDbChannels = convertedDbChannels.filter(c => !staticIds.has(c.id))
 
@@ -312,8 +334,6 @@ export default function Home() {
 
     loadDbChannels()
   }, [])
-
-
 
   // Check if first-time user and show support popup
   useEffect(() => {
@@ -469,7 +489,6 @@ export default function Home() {
   }, [])
 
   const handleChannelSelectForLiveTV = (channel: Channel) => {
-    // Prevent double play - don't re-select same channel
     if (selectedChannel?.id === channel.id) return
     setWasInLiveTVBeforePlayer(true)
     setSelectedChannel(channel)
@@ -478,7 +497,6 @@ export default function Home() {
   }
 
   const handleChannelSelect = (channel: Channel) => {
-    // Prevent double play - don't re-select same channel
     if (selectedChannel?.id === channel.id) return
     setSavedScrollPosition(window.scrollY)
     if (channel.url) {
@@ -588,32 +606,25 @@ export default function Home() {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  // Handle number input for channel switching (home, list, grid, video player)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only work when not typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
-      // Check if it's a number key (0-9)
       if (/^[0-9]$/.test(e.key)) {
         setChannelNumberInput(prev => {
           const newInput = prev + e.key
           if (channelNumberTimeoutRef.current) {
             clearTimeout(channelNumberTimeoutRef.current)
           }
-          // After 1.5s of no input, switch channel
           channelNumberTimeoutRef.current = setTimeout(() => {
             const channelNum = parseInt(newInput, 10)
             if (channelNum > 0) {
-              // Find by fixed channelNumber field, not array index
               const targetChannel = allChannels.find(c => c.channelNumber === channelNum)
-              // Prevent double play - skip if same channel
               if (targetChannel && targetChannel.id !== selectedChannel?.id) {
-                // If player is already open, destroy first then reopen
                 if (selectedChannel) {
                   const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
                   pendingChannelRef.current = targetChannel
-                  setSelectedChannel(null) // Destroy player
+                  setSelectedChannel(null)
 
                   setTimeout(() => {
                     if (pendingChannelRef.current) {
@@ -627,7 +638,6 @@ export default function Home() {
                     }
                   }, 300)
                 } else {
-                  // No player open - just open the channel directly
                   setSelectedChannel(targetChannel)
                   setHeaderTitle(targetChannel.name)
                   addToRecentlyWatched(targetChannel.id)
@@ -642,7 +652,6 @@ export default function Home() {
       }
     }
 
-    // Always active - works on home, list, grid, and video player
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedChannel])
@@ -653,13 +662,9 @@ export default function Home() {
       const savedRecent = await getUserPreference("ultrafantsa_recent", [])
       const savedFavorites = await getUserPreference("ultrafantsa_favorites", [])
 
-      const isDark = savedTheme === "dark"
-      setIsDarkMode(isDark)
-      if (isDark) {
-        document.documentElement.classList.add("dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-      }
+      // Smart TV styling is predominantly dark mode
+      setIsDarkMode(true)
+      document.documentElement.classList.add("dark")
 
       setRecentChannels(savedRecent)
       setFavoriteChannels(savedFavorites)
@@ -702,29 +707,18 @@ export default function Home() {
     }, 100)
   }
 
-  // Handler for bitrate mode change / auto-reconnect - closes player (shows home UI), then reopens
   const handleBitrateModeChange = (mode: "high-bitrate" | "optimized") => {
-    // Save mode to localStorage so video player picks it up on reinit
     localStorage.setItem("orotv-streaming-mode", mode)
-
-    // Check if UI was hidden (video player sets this in wasUIHiddenRef before calling)
     const wasHidden = localStorage.getItem("orotv-ui-hidden") === "true"
-
-    // Store the current channel to reopen
     pendingChannelRef.current = selectedChannel
     setPendingBitrateMode(mode)
-
-    // Close player → home screen is shown
     setSelectedChannel(null)
 
-    // Reopen the same channel after brief delay (home briefly visible)
     setTimeout(() => {
       if (pendingChannelRef.current) {
-        // Set restore flag if UI was hidden before
         setRestoreUIHidden(wasHidden)
         setSelectedChannel(pendingChannelRef.current)
         pendingChannelRef.current = null
-        // Clear the restore flag after a short delay
         setTimeout(() => setRestoreUIHidden(false), 1500)
       }
       setPendingBitrateMode(null)
@@ -733,7 +727,6 @@ export default function Home() {
 
   const handleVideoPositionUpdate = async (channelId: string, position: number) => {
     if (!userSessionId) return
-
     try {
       const supabase = createClient()
       await supabase.rpc("upsert_video_position", {
@@ -748,7 +741,6 @@ export default function Home() {
 
   const getSavedVideoPosition = async (channelId: string): Promise<number> => {
     if (!userSessionId) return 0
-
     try {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -792,38 +784,52 @@ export default function Home() {
   const createChannelTile = (channel: Channel, showFavorite = true) => {
     const isChannelFavorite = isFavorite(channel.id)
     const channelNum = String(channel.channelNumber ?? 0).padStart(3, '0')
+    const currentProg = getCurrentChannelInfo(channel).current
 
     return (
       <div
         key={channel.id}
-        className="group cursor-pointer shrink-0 animate-slide-up relative"
+        className="group relative cursor-pointer snap-start shrink-0 animate-scale-in"
         onClick={() => handleChannelSelect(channel)}
       >
-        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-[#919191] flex flex-col items-center justify-between py-2 px-1 relative channel-card-smooth hover:bg-[#7a7a7a] transition-colors overflow-hidden">
-          <span className="text-white font-bold text-sm sm:text-base leading-none mt-0.5 self-start pl-1.5 z-10" style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}>
-            {channelNum}
-          </span>
-          {channel.logo ? (
-            <img
-              src={channel.logo}
-              alt={channel.name}
-              className="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-md"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-            />
-          ) : (
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-white font-bold text-lg">{channel.name.charAt(0)}</span>
-            </div>
-          )}
-          <span className="text-white text-[8px] sm:text-[9px] font-semibold text-center leading-tight px-1 truncate w-full" style={{ fontFamily: 'Roboto, sans-serif' }}>
-            {channel.name}
-          </span>
+        <div className="w-[180px] h-[100px] md:w-[260px] md:h-[146px] rounded-xl bg-[#14141a] flex flex-col justify-end overflow-hidden border border-white/5 hover:border-white/40 hover:ring-2 hover:ring-white transition-all duration-300 shadow-xl relative">
+          {/* Subtle gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
+
+          {/* Channel Number Badge */}
+          <div className="absolute top-2 left-2 z-20 bg-black/60 px-2 py-0.5 rounded text-[10px] font-bold text-white tracking-widest backdrop-blur-sm border border-white/10">
+            CH {channelNum}
+          </div>
+
+          {/* Centered Logo */}
+          <div className="absolute inset-0 flex items-center justify-center z-0 p-8 pb-12">
+            {channel.logo ? (
+              <img
+                src={channel.logo}
+                alt={channel.name}
+                className="max-w-full max-h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity drop-shadow-2xl"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                <span className="text-white font-bold text-2xl">{channel.name.charAt(0)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Info Bar */}
+          <div className="relative z-20 p-3 w-full">
+            <h3 className="text-white font-medium text-sm md:text-base truncate drop-shadow-md">{channel.name}</h3>
+            <p className="text-blue-400/90 text-xs truncate mt-0.5 font-medium">{currentProg === "No information available" ? channel.category : currentProg}</p>
+          </div>
+
+          {/* Favorite Button */}
           {showFavorite && (
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(channel.id) }}
-              className="absolute top-1 right-1 z-10 p-0.5 bg-black/30 hover:bg-black/50 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+              className="absolute top-2 right-2 z-30 p-1.5 bg-black/50 hover:bg-white/20 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100 border border-white/10 backdrop-blur-sm"
             >
-              <Star className={`w-2.5 h-2.5 ${isChannelFavorite ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
+              <Star className={`w-3.5 h-3.5 ${isChannelFavorite ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
             </button>
           )}
         </div>
@@ -834,7 +840,7 @@ export default function Home() {
   const scrollChannelRow = (direction: "left" | "right", containerId: string) => {
     const container = document.getElementById(containerId)
     if (container) {
-      const scrollAmount = 300
+      const scrollAmount = window.innerWidth > 768 ? 600 : 300
       const currentScroll = container.scrollLeft
       const newScroll = direction === "left" ? Math.max(0, currentScroll - scrollAmount) : currentScroll + scrollAmount
 
@@ -923,27 +929,26 @@ export default function Home() {
     const rowId = `row-${title.toLowerCase().replace(/\s+/g, "-")}`
 
     return (
-      <div key={title} className="group">
-        <div className="flex items-center gap-2 mb-3">
-          {icon}
-          <h2 className="text-base md:text-lg font-semibold text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground">{channels.length}</span>
+      <div key={title} className="group relative pt-2 pb-6">
+        <div className="flex items-center gap-2 mb-4 px-4 md:px-12">
+          {icon && <span className="text-white/60">{icon}</span>}
+          <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">{title}</h2>
         </div>
-        <div className="relative">
-          <div id={rowId} className="flex gap-2 md:gap-2.5 overflow-x-auto pb-2 scrollbar-hide scroll-smooth">
+        <div className="relative group-hover:z-10">
+          <div id={rowId} className="flex gap-4 overflow-x-auto px-4 md:px-12 pb-4 pt-2 snap-x scrollbar-hide scroll-smooth">
             {channels.map((channel) => createChannelTile(channel, showFavorite))}
           </div>
           <button
             onClick={() => scrollChannelRow("left", rowId)}
-            className="hidden md:flex absolute left-0 top-0 bottom-2 px-3 z-20 bg-gradient-to-r from-background via-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity items-center"
+            className="hidden md:flex absolute left-0 top-0 bottom-6 w-16 z-20 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity items-center justify-start pl-2"
           >
-            <ChevronLeft className="h-5 w-5 text-foreground" />
+            <ChevronLeft className="h-8 w-8 text-white hover:scale-125 transition-transform drop-shadow-xl" />
           </button>
           <button
             onClick={() => scrollChannelRow("right", rowId)}
-            className="hidden md:flex absolute right-0 top-0 bottom-2 px-3 z-20 bg-gradient-to-l from-background via-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity items-center"
+            className="hidden md:flex absolute right-0 top-0 bottom-6 w-16 z-20 bg-gradient-to-l from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity items-center justify-end pr-2"
           >
-            <ChevronRight className="h-5 w-5 text-foreground" />
+            <ChevronRight className="h-8 w-8 text-white hover:scale-125 transition-transform drop-shadow-xl" />
           </button>
         </div>
       </div>
@@ -1009,14 +1014,12 @@ export default function Home() {
   const filteredChannels = useMemo(() => {
     const searchTerm = searchQuery.toLowerCase().trim()
 
-    // If in Live TV view and no search term, show channels based on selected category
     if (isLiveTVView && !searchTerm) {
       return selectedCategory === "All"
         ? allChannels
         : allChannels.filter((channel) => channel.category === selectedCategory)
     }
 
-    // If there's a search term, filter all channels
     if (searchTerm) {
       return allChannels.filter((channel) => {
         const channelName = channel.name.toLowerCase()
@@ -1029,24 +1032,21 @@ export default function Home() {
       })
     }
 
-    // If not in Live TV view and no search term, return empty array (Home view)
     return []
   }, [searchQuery, isLiveTVView, selectedCategory, allChannels])
 
   const categories = useMemo(() => {
-    // Use filteredChannels if searching, otherwise use allChannels for category list
     const channelsToUse = searchQuery || isLiveTVView ? filteredChannels : allChannels
     const categorySet = new Set(channelsToUse.map((channel) => channel.category))
-    // Ensure "All" is always an option
     return ["All", ...Array.from(categorySet).sort()]
   }, [searchQuery, filteredChannels, isLiveTVView, allChannels])
 
   if (isInitialLoading) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
+      <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-6">
-          <img src="/images/light-logo.png" alt="Light TV" className="h-14 w-auto" />
-          <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
+          <img src="/images/light-logo.png" alt="Light TV" className="h-16 w-auto drop-shadow-2xl" />
+          <div className="w-10 h-10 border-4 border-white/10 border-t-white rounded-full animate-spin"></div>
         </div>
       </div>
     )
@@ -1054,23 +1054,18 @@ export default function Home() {
 
   if (isCheckingAccess) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
-          <div className="text-muted-foreground text-sm">Verifying access...</div>
+          <div className="w-10 h-10 border-4 border-white/10 border-t-white rounded-full animate-spin"></div>
+          <div className="text-white/50 text-sm tracking-widest uppercase">Verifying connection</div>
         </div>
       </div>
     )
   }
 
-  // Removed TokenAccessOverlay check - directly proceed to Live TV if access is granted
-  // if (!hasAccess) {
-  //   return <TokenAccessOverlay onAccessGranted={() => setHasAccess(true)} />
-  // }
-
   if (selectedChannel && viewMode === 'grid') {
     return (
-      <div className="relative">
+      <div className="fixed inset-0 z-50 bg-black">
         <VideoPlayer
           channel={selectedChannel}
           user={null}
@@ -1117,7 +1112,6 @@ export default function Home() {
     )
   }
 
-  // List mode filtered channels (supports number search)
   const listFilteredChannels = (() => {
     const term = listSearchQuery.toLowerCase().trim()
     let channels = allChannels
@@ -1125,7 +1119,6 @@ export default function Home() {
       channels = channels.filter(ch => ch.category === listSelectedCategory)
     }
     if (term) {
-      // Check if search is a number - match fixed channelNumber
       const numericSearch = parseInt(term, 10)
       if (!isNaN(numericSearch) && numericSearch > 0) {
         channels = channels.filter(ch => {
@@ -1145,28 +1138,28 @@ export default function Home() {
 
   const listCategories = ["All", ...Array.from(new Set(allChannels.map(ch => ch.category))).sort()]
 
-  // LIST MODE LAYOUT
+  // LIST MODE LAYOUT (Cable TV / Set-top box style)
   if (viewMode === 'list') {
     return (
-      <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden selection:bg-foreground/10">
+      <div className="h-screen bg-[#050505] text-white flex flex-col overflow-hidden selection:bg-white/10 font-sans">
         <SupportPopup isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} isFirstTime={isFirstTimeUser} />
         {showKeyboardShortcuts && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4" onClick={() => setShowKeyboardShortcuts(false)}>
-            <div className="bg-card border border-border/20 rounded-2xl max-w-sm w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-start mb-5">
-                <div className="flex items-center gap-2.5">
-                  <Keyboard className="w-4 h-4 text-foreground/60" />
-                  <h2 className="text-sm font-medium text-foreground tracking-wide uppercase">Shortcuts</h2>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={() => setShowKeyboardShortcuts(false)}>
+            <div className="bg-[#14141a] border border-white/10 rounded-2xl max-w-sm w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-start mb-6">
+                <div className="flex items-center gap-3">
+                  <Keyboard className="w-5 h-5 text-blue-400" />
+                  <h2 className="text-sm font-bold text-white tracking-widest uppercase">Remote Shortcuts</h2>
                 </div>
-                <button onClick={() => setShowKeyboardShortcuts(false)} className="text-muted-foreground/40 hover:text-foreground transition-colors duration-300">
-                  <X className="w-4 h-4" />
+                <button onClick={() => setShowKeyboardShortcuts(false)} className="text-white/40 hover:text-white transition-colors duration-300">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-1">
-                {[['Play/Pause', 'Space'], ['Mute', 'M'], ['Fullscreen', 'F'], ['PiP', 'P'], ['Vol Up', '\u2191'], ['Vol Down', '\u2193'], ['Seek Fwd', '\u2192'], ['Seek Back', '\u2190']].map(([label, key]) => (
-                  <div key={label} className="flex justify-between items-center py-2 border-b border-border/10 last:border-0">
-                    <span className="text-muted-foreground/60 text-sm">{label}</span>
-                    <kbd className="px-2.5 py-1 bg-secondary/40 border border-border/10 rounded-lg text-foreground/80 font-mono text-xs">{key}</kbd>
+              <div className="space-y-1.5">
+                {[['Play/Pause', 'Space'], ['Mute', 'M'], ['Fullscreen', 'F'], ['PiP', 'P'], ['Vol Up', '↑'], ['Vol Down', '↓'], ['Seek Fwd', '→'], ['Seek Back', '←'], ['Direct Channel', '0-9']].map(([label, key]) => (
+                  <div key={label} className="flex justify-between items-center py-2.5 border-b border-white/5 last:border-0">
+                    <span className="text-white/70 text-sm font-medium">{label}</span>
+                    <kbd className="px-3 py-1 bg-white/10 border border-white/10 rounded-md text-white font-mono text-xs font-bold tracking-widest">{key}</kbd>
                   </div>
                 ))}
               </div>
@@ -1178,182 +1171,145 @@ export default function Home() {
         <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} />
         <AnnouncementsSystem />
 
-        {/* SAME HEADER */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border/20 safe-area-top">
-          <div className="px-2 md:px-5">
-            <div className="flex items-center justify-between h-14 md:h-14">
-              <div className="flex items-center gap-4">
-                <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto" />
-                <nav className="hidden md:flex items-center gap-0.5">
-                  <button
-                    onClick={() => { handleHomeNavigation(); setViewMode('grid'); }}
-                    className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isLiveTVView && viewMode === 'grid' ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                      }`}
-                  >
-                    Home
-                  </button>
-                  <button
-                    onClick={() => { handleLiveTVNavigation(); setViewMode('grid'); }}
-                    className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${isLiveTVView && viewMode === 'grid' ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                      }`}
-                  >
-                    Live TV
-                  </button>
-                  <button
-                    onClick={() => setShowChannelRequestModal(true)}
-                    className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
-                  >
-                    Request
-                  </button>
-                  <button
-                    onClick={() => setShowRatingModal(true)}
-                    className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200"
-                  >
-                    Rate
-                  </button>
-                </nav>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setShowQuickSwitch(true)}
-                  className="p-2.5 md:p-2 hover:bg-secondary/60 rounded-lg transition-all duration-200 touch-manipulation"
-                  title="Quick Switch"
-                >
-                  <Zap className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-                </button>
-                <button
-                  onClick={() => setShowChannelStats(true)}
-                  className="hidden sm:block p-2.5 md:p-2 hover:bg-secondary/60 rounded-lg transition-all duration-200 touch-manipulation"
-                  title="Channel Stats"
-                >
-                  <TrendingUp className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className="flex items-center gap-1.5 px-2.5 py-2.5 md:py-2 hover:bg-secondary/60 rounded-lg transition-all duration-200 touch-manipulation"
-                  title="Switch to Grid"
-                >
-                  <LayoutGrid className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-                  <span className="text-xs font-medium text-muted-foreground hidden sm:inline">Grid</span>
-                </button>
-                <button
-                  onClick={() => setShowKeyboardShortcuts(true)}
-                  className="hidden md:block p-2.5 md:p-2 hover:bg-secondary/60 rounded-lg transition-all duration-200 touch-manipulation"
-                  title="Keyboard Shortcuts"
-                >
-                  <Keyboard className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-                </button>
-                <button
-                  onClick={() => setShowSupportModal(true)}
-                  className="flex items-center gap-2 px-2.5 py-2 hover:bg-secondary/60 rounded-lg transition-all duration-200"
-                  title="Support Us"
-                >
-                  <Heart className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-                  <span className="text-xs font-medium text-muted-foreground hidden sm:inline">Support</span>
-                </button>
-                <ThemeToggle />
-                {!isMobile && <SetupCheck />}
-              </div>
+        {/* SMART TV TOP BAR */}
+        <header className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-2xl border-b border-white/5 h-16 flex items-center justify-between px-4 md:px-8">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <button className="md:hidden p-1 text-white/70 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu className="w-6 h-6" />
+              </button>
+              <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto opacity-90" />
             </div>
+            <nav className="hidden md:flex items-center gap-2 border-l border-white/10 pl-6">
+              <button
+                onClick={() => { handleHomeNavigation(); setViewMode('grid'); }}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                HOME
+              </button>
+              <button
+                onClick={() => { handleLiveTVNavigation(); setViewMode('grid'); }}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                LIVE TV
+              </button>
+              <button
+                onClick={() => setShowChannelGuide(true)}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                TV GUIDE
+              </button>
+              <button
+                onClick={() => setShowChannelRequestModal(true)}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                REQUEST
+              </button>
+              <button
+                onClick={() => setShowRatingModal(true)}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                RATE
+              </button>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full mr-2">
+              <Clock className="w-4 h-4 text-blue-400" />
+              <span className="text-sm font-bold text-white tracking-widest">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+
+            <button onClick={() => setShowQuickSwitch(true)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all">
+              <Zap className="w-5 h-5" />
+            </button>
+            <button onClick={() => setShowChannelStats(true)} className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all">
+              <TrendingUp className="w-5 h-5" />
+            </button>
+            <button onClick={() => setViewMode('grid')} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/10 text-white">
+              <LayoutGrid className="w-4 h-4" />
+              <span className="text-xs font-bold tracking-widest hidden sm:block uppercase">Grid UI</span>
+            </button>
           </div>
         </header>
 
-        {/* LIST LAYOUT: Video top + scrollable channel list below on mobile; sidebar + video on desktop */}
-        <div className="flex flex-col md:flex-row flex-1 pt-12 md:pt-14 min-h-0">
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-[100] bg-[#050505]/95 backdrop-blur-3xl flex flex-col pt-8 px-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-end mb-8">
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-white/10 rounded-full text-white/70 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-6">
+              <button onClick={() => { handleHomeNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Home</button>
+              <button onClick={() => { handleLiveTVNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Live TV</button>
+              <button onClick={() => { setShowChannelGuide(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">TV Guide</button>
+              <button onClick={() => { setShowChannelRequestModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Request Channel</button>
+              <button onClick={() => { setShowRatingModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Rate Us</button>
+            </nav>
+          </div>
+        )}
 
-          {/* === MOBILE LAYOUT (stacked: video top, channels below) === */}
+        <div className="flex flex-col md:flex-row flex-1 pt-16 min-h-0 bg-[#050505]">
+          {/* MOBILE LIST LAYOUT */}
           <div className="flex flex-col flex-1 min-h-0 md:hidden">
-            {/* Video area - fixed 16:9 at top */}
             <div className="shrink-0 w-full bg-black relative" style={{ aspectRatio: '16/9' }}>
-              {selectedChannel ? (
-                <>
-                  <VideoPlayer
-                    channel={selectedChannel}
-                    user={null}
-                    onClose={() => {
-                      setSelectedChannel(null)
-                      setHeaderTitle("Live TV")
-                    }}
-                    onChannelChange={() => { }}
-                    onBitrateModeChange={handleBitrateModeChange}
-                    restoreUIHidden={restoreUIHidden}
-                    availableChannels={allChannels}
-                    videoRef={videoRef}
-                    isMuted={isMuted}
-                    showModernButton={showModernButton}
-                    showChannelInfo={showChannelInfo}
-                    showChannelList={showChannelList}
-                    getCurrentChannelInfo={getCurrentChannelInfo}
-                    getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
-                    onModernButtonHover={handleModernButtonHover}
-                    onChannelInfoHover={handleChannelInfoHover}
-                    onChannelListHover={handleChannelListHover}
-                    isMobile={isMobile}
-                    isPortrait={isPortrait}
-                    epgData={epgData}
-                    currentPrograms={currentPrograms}
-                    onPositionUpdate={handleVideoPositionUpdate}
-                    getSavedPosition={getSavedVideoPosition}
-                    embedded={true}
-                  />
-                </>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-start justify-start bg-black p-6 md:p-8">
-                  <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">Thank you for using Light TV.</h1>
-                  <p className="text-sm md:text-base text-white/80 mb-6">Get started by clicking these channels on the left</p>
-                  <svg className="w-24 h-12 md:w-32 md:h-16 text-white mb-8" viewBox="0 0 120 40" fill="none">
-                    <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <div className="mt-auto">
-                    <p className="text-xs font-medium text-white/80 mb-2">Notice</p>
-                    <p className="text-xs text-white/60 max-w-sm">Wait 5-20 seconds for the channel to load, if it still does nothing, you can have a complaint by using the rate function</p>
-                  </div>
+              {selectedChannel && isMobile ? (
+                <VideoPlayer
+                  channel={selectedChannel}
+                  user={null}
+                  onClose={() => { setSelectedChannel(null); setHeaderTitle("Live TV") }}
+                  onChannelChange={() => { }}
+                  onBitrateModeChange={handleBitrateModeChange}
+                  restoreUIHidden={restoreUIHidden}
+                  availableChannels={allChannels}
+                  videoRef={videoRef}
+                  isMuted={isMuted}
+                  showModernButton={showModernButton}
+                  showChannelInfo={showChannelInfo}
+                  showChannelList={showChannelList}
+                  getCurrentChannelInfo={getCurrentChannelInfo}
+                  getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
+                  onModernButtonHover={handleModernButtonHover}
+                  onChannelInfoHover={handleChannelInfoHover}
+                  onChannelListHover={handleChannelListHover}
+                  isMobile={isMobile}
+                  isPortrait={isPortrait}
+                  epgData={epgData}
+                  currentPrograms={currentPrograms}
+                  onPositionUpdate={handleVideoPositionUpdate}
+                  getSavedPosition={getSavedVideoPosition}
+                  embedded={true}
+                />
+              ) : !selectedChannel ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0c] p-6 border-b border-white/5">
+                  <Tv className="w-12 h-12 text-white/20 mb-4" />
+                  <h1 className="text-xl font-bold text-white mb-2 tracking-wide">Ready to Watch</h1>
+                  <p className="text-sm text-white/50 text-center">Select a channel from the guide below</p>
                 </div>
-              )}
+              ) : null}
             </div>
 
-            {/* Now playing bar (mobile) */}
-            {selectedChannel && (
-              <div className="shrink-0 bg-[#060608] border-b border-white/5 px-3 py-2 flex items-center gap-2.5">
-                <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
-                <img
-                  src={selectedChannel.logo || "/placeholder.svg"}
-                  alt=""
-                  className="w-5 h-5 rounded object-contain"
-                  onError={(e) => { e.currentTarget.style.display = "none" }}
+            <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 p-3">
+              <div className="relative group mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                <input
+                  type="text"
+                  placeholder="Search by name or number..."
+                  value={listSearchQuery}
+                  onChange={(e) => setListSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm transition-all"
                 />
-                <p className="text-xs font-medium text-white/80 truncate flex-1">{selectedChannel.name}</p>
-                <span className="text-[9px] text-white/25 uppercase tracking-widest font-medium">Live</span>
               </div>
-            )}
-
-            {/* Search + Categories */}
-            <div className="shrink-0 bg-background border-b border-border/20">
-              <div className="p-2.5">
-                <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within:text-foreground/80 transition-colors duration-300" />
-                  <input
-                    type="text"
-                    placeholder="Search channels..."
-                    value={listSearchQuery}
-                    onChange={(e) => setListSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-secondary/40 border border-border/20 rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-foreground/5 focus:bg-secondary/60 focus:border-foreground/10 text-sm transition-all duration-300"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-2.5 pb-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
                 {listCategories.map((cat) => (
                   <button
                     key={cat}
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setListSelectedCategory(cat)
-                    }}
-                    className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${listSelectedCategory === cat
-                        ? "bg-foreground text-background"
-                        : "bg-secondary/40 text-muted-foreground/70 hover:text-foreground/80 hover:bg-secondary/60"
+                    onClick={() => setListSelectedCategory(cat)}
+                    className={`whitespace-nowrap shrink-0 px-4 py-1.5 rounded-full text-xs font-bold tracking-wider transition-all duration-300 ${listSelectedCategory === cat
+                      ? "bg-white text-black"
+                      : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border border-white/5"
                       }`}
                   >
                     {cat}
@@ -1362,178 +1318,119 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Scrollable channel list */}
-            <div className="flex-1 overflow-y-auto bg-background">
-              <div className="px-2.5 py-1.5">
-                <p className="text-[10px] text-muted-foreground/50 tracking-[0.15em] uppercase font-medium">
-                  {listFilteredChannels.length} Channel{listFilteredChannels.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              {listFilteredChannels.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 px-4">
-                  <Search className="w-8 h-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground text-center">No channels found</p>
-                </div>
-              ) : (
-                listFilteredChannels.map((channel, index) => {
-                  const isActive = selectedChannel?.id === channel.id
-                  return (
-                    <button
-                      key={channel.id}
-                      onClick={() => {
-                        // Prevent re-selecting same channel (fixes double play)
-                        if (selectedChannel?.id === channel.id) return
-                        setSelectedChannel(channel)
-                        setHeaderTitle(channel.name)
-                        addToRecentlyWatched(channel.id)
-                        setRecentlyWatched(getRecentlyWatched())
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${isActive
-                          ? "bg-foreground/[0.06] border-l-2 border-l-foreground/40"
-                          : "hover:bg-foreground/[0.03] border-l-2 border-l-transparent"
-                        }`}
-                    >
-                      <span className="text-[9px] font-mono text-muted-foreground/30 w-4 text-right shrink-0 tabular-nums">
-                        {index + 1}
-                      </span>
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border transition-all duration-300 ${isActive
-                          ? "bg-white/[0.08] border-white/10"
-                          : "bg-foreground/[0.03] border-border/10 group-hover:bg-foreground/[0.05] group-hover:border-border/20"
-                        }`}>
-                        <img
-                          src={channel.logo || "/placeholder.svg"}
-                          alt={channel.name}
-                          className="w-full h-full object-contain p-1.5"
-                          onError={(e) => { e.currentTarget.style.display = "none" }}
-                        />
+            <div className="flex-1 overflow-y-auto bg-[#050505]">
+              {listFilteredChannels.map((channel) => {
+                const isActive = selectedChannel?.id === channel.id
+                const currentProg = getCurrentChannelInfo(channel).current
+
+                return (
+                  <button
+                    key={channel.id}
+                    onClick={() => {
+                      if (selectedChannel?.id === channel.id) return
+                      setSelectedChannel(channel)
+                      setHeaderTitle(channel.name)
+                      addToRecentlyWatched(channel.id)
+                      setRecentlyWatched(getRecentlyWatched())
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-200 border-b border-white/5 ${isActive
+                      ? "bg-blue-600/10 border-l-4 border-l-blue-500"
+                      : "hover:bg-white/5 border-l-4 border-l-transparent"
+                      }`}
+                  >
+                    <span className="text-xs font-bold text-white/30 w-6 text-right shrink-0 tracking-widest">
+                      {String(channel.channelNumber ?? 0).padStart(3, '0')}
+                    </span>
+                    <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center p-1.5 shrink-0">
+                      <img src={channel.logo || "/placeholder.svg"} alt="" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display = "none" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-bold truncate ${isActive ? "text-white" : "text-white/80"}`}>
+                          {channel.name}
+                        </p>
+                        {channel.isHD && <span className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white rounded font-bold tracking-widest">HD</span>}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-[13px] font-medium truncate transition-colors duration-300 ${isActive ? "text-foreground" : "text-foreground/60 group-hover:text-foreground/90"}`}>
-                            {channel.name}
-                          </p>
-                          {channel.isHD && (
-                            <span className="text-[7px] px-1 py-0.5 bg-foreground/10 text-foreground/50 rounded font-semibold shrink-0 tracking-wider">HD</span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground/40 truncate">{channel.category}</p>
-                      </div>
-                      {isActive && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
-                          <span className="text-[9px] font-medium text-foreground/50 uppercase tracking-[0.15em]">Live</span>
-                        </div>
-                      )}
-                    </button>
-                  )
-                })
-              )}
+                      <p className="text-xs text-blue-400/80 truncate font-medium mt-0.5">{currentProg === "No information available" ? channel.category : currentProg}</p>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          {/* === DESKTOP LAYOUT (sidebar left + video right) === */}
-          {/* Channel Sidebar - desktop only */}
-          <aside className="hidden md:flex w-80 lg:w-96 border-r border-border/30 bg-background flex-col shrink-0 overflow-hidden">
-            {/* Sidebar Search */}
-            <div className="p-3 border-b border-border/20">
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within:text-foreground/80 transition-colors duration-300" />
+          {/* DESKTOP LIST LAYOUT (Cignal TV Style sidebar) */}
+          <aside className="hidden md:flex w-[380px] bg-[#0a0a0c] border-r border-white/5 flex-col shrink-0 overflow-hidden shadow-2xl z-10">
+            <div className="p-5 border-b border-white/5 bg-[#0f0f13]">
+              <div className="relative group mb-4">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                 <input
                   type="text"
-                  placeholder="Search channels..."
+                  placeholder="Find channel or number..."
                   value={listSearchQuery}
                   onChange={(e) => setListSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-secondary/40 border border-border/20 rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-foreground/5 focus:bg-secondary/60 focus:border-foreground/10 text-sm transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-black border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm transition-all shadow-inner"
                 />
+              </div>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                {listCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setListSelectedCategory(cat)}
+                    className={`whitespace-nowrap shrink-0 px-4 py-1.5 rounded-full text-xs font-bold tracking-wider transition-all duration-300 ${listSelectedCategory === cat
+                      ? "bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                      : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border border-white/5"
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Category pills */}
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-3 py-2 border-b border-border/20 shrink-0" onClick={(e) => e.stopPropagation()}>
-              {listCategories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setListSelectedCategory(cat)
-                  }}
-                  className={`whitespace-nowrap shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${listSelectedCategory === cat
-                      ? "bg-foreground text-background"
-                      : "bg-secondary/40 text-muted-foreground/70 hover:text-foreground/80 hover:bg-secondary/60"
-                    }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Channel count */}
-            <div className="px-3 py-1.5 border-b border-border/10">
-              <p className="text-[10px] text-muted-foreground/50 tracking-[0.15em] uppercase font-medium">
-                {listFilteredChannels.length} Channel{listFilteredChannels.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-
-            {/* Channel list */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto bg-[#0a0a0c]">
               {listFilteredChannels.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 px-4">
-                  <Search className="w-8 h-8 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground text-center">No channels found</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1 text-center">Try a different search</p>
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                  <Tv className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-base font-medium text-white/50">No matching channels</p>
                 </div>
               ) : (
-                listFilteredChannels.map((channel, index) => {
+                listFilteredChannels.map((channel) => {
                   const isActive = selectedChannel?.id === channel.id
+                  const currentProg = getCurrentChannelInfo(channel).current
+
                   return (
                     <button
                       key={channel.id}
                       onClick={() => {
-                        // Prevent re-selecting same channel (fixes double play)
                         if (selectedChannel?.id === channel.id) return
                         setSelectedChannel(channel)
                         setHeaderTitle(channel.name)
                         addToRecentlyWatched(channel.id)
                         setRecentlyWatched(getRecentlyWatched())
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-300 border-b border-border/10 group ${isActive
-                          ? "bg-foreground/[0.06] border-l-2 border-l-foreground/40"
-                          : "hover:bg-foreground/[0.03] border-l-2 border-l-transparent"
+                      className={`w-full flex items-center gap-4 px-5 py-3.5 text-left transition-all duration-200 border-b border-white/5 group ${isActive
+                        ? "bg-[#14141a] border-l-4 border-l-blue-500"
+                        : "hover:bg-[#111115] border-l-4 border-l-transparent"
                         }`}
                     >
-                      <span className="text-[9px] font-mono text-muted-foreground/30 w-4 text-right shrink-0 tabular-nums">
-                        {index + 1}
+                      <span className="text-[11px] font-bold text-white/30 w-8 text-right shrink-0 tracking-widest tabular-nums group-hover:text-white/50 transition-colors">
+                        {String(channel.channelNumber ?? 0).padStart(3, '0')}
                       </span>
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border transition-all duration-300 ${isActive
-                          ? "bg-white/[0.08] border-white/10"
-                          : "bg-foreground/[0.03] border-border/10 group-hover:bg-foreground/[0.05] group-hover:border-border/20"
-                        }`}>
-                        <img
-                          src={channel.logo || "/placeholder.svg"}
-                          alt={channel.name}
-                          className="w-full h-full object-contain p-1.5"
-                          onError={(e) => { e.currentTarget.style.display = "none" }}
-                        />
+                      <div className={`w-12 h-12 rounded bg-black/40 flex items-center justify-center p-1.5 shrink-0 border transition-all ${isActive ? 'border-white/20' : 'border-white/5'}`}>
+                        <img src={channel.logo || "/placeholder.svg"} alt="" className="w-full h-full object-contain drop-shadow-md" onError={(e) => { e.currentTarget.style.display = "none" }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-[13px] font-medium truncate transition-colors duration-300 ${isActive ? "text-foreground" : "text-foreground/60 group-hover:text-foreground/90"}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className={`text-base font-bold truncate tracking-wide ${isActive ? "text-white" : "text-white/80 group-hover:text-white"}`}>
                             {channel.name}
                           </p>
-                          {channel.isHD && (
-                            <span className="text-[7px] px-1 py-0.5 bg-foreground/10 text-foreground/50 rounded font-semibold shrink-0 tracking-wider">HD</span>
-                          )}
+                          {channel.isHD && <span className="text-[8px] px-1.5 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded font-bold tracking-widest uppercase">HD</span>}
                         </div>
-                        <p className="text-[10px] text-muted-foreground/40 truncate">{channel.category}</p>
+                        <p className={`text-[11px] truncate font-medium ${isActive ? 'text-blue-400' : 'text-white/40 group-hover:text-white/60'}`}>
+                          {currentProg === "No information available" ? channel.category : currentProg}
+                        </p>
                       </div>
-                      {isActive && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
-                          <span className="text-[9px] font-medium text-foreground/50 uppercase tracking-[0.15em]">Live</span>
-                        </div>
-                      )}
                     </button>
                   )
                 })
@@ -1541,438 +1438,276 @@ export default function Home() {
             </div>
           </aside>
 
-          {/* Main Video Area - desktop only */}
-          <div className="hidden md:flex flex-1 flex-col bg-[#060608] min-h-0 overflow-hidden">
-            {selectedChannel ? (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                {/* Video container */}
-                <div className="flex-1 min-h-0 relative">
-                  <VideoPlayer
-                    channel={selectedChannel}
-                    user={null}
-                    onClose={() => {
-                      setSelectedChannel(null)
-                      setHeaderTitle("Live TV")
-                    }}
-                    onChannelChange={() => { }}
-                    onBitrateModeChange={handleBitrateModeChange}
-                    restoreUIHidden={restoreUIHidden}
-                    availableChannels={allChannels}
-                    videoRef={videoRef}
-                    isMuted={isMuted}
-                    showModernButton={showModernButton}
-                    showChannelInfo={showChannelInfo}
-                    showChannelList={showChannelList}
-                    getCurrentChannelInfo={getCurrentChannelInfo}
-                    getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
-                    onModernButtonHover={handleModernButtonHover}
-                    onChannelInfoHover={handleChannelInfoHover}
-                    onChannelListHover={handleChannelListHover}
-                    isMobile={isMobile}
-                    isPortrait={isPortrait}
-                    epgData={epgData}
-                    currentPrograms={currentPrograms}
-                    onPositionUpdate={handleVideoPositionUpdate}
-                    getSavedPosition={getSavedVideoPosition}
-                    embedded={true}
-                  />
-                </div>
-                {/* Now Playing bar */}
-                <div className="shrink-0 bg-[#060608] border-t border-white/5 px-4 py-2.5 flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
-                  <img
-                    src={selectedChannel.logo || "/placeholder.svg"}
-                    alt=""
-                    className="w-6 h-6 rounded object-contain"
-                    onError={(e) => { e.currentTarget.style.display = "none" }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white/90 truncate">{selectedChannel.name}</p>
+          {/* Desktop Video Area */}
+          <div className="hidden md:flex flex-1 flex-col bg-black min-h-0 relative">
+            {selectedChannel && !isMobile ? (
+              <VideoPlayer
+                channel={selectedChannel}
+                user={null}
+                onClose={() => { setSelectedChannel(null); setHeaderTitle("Live TV") }}
+                onChannelChange={() => { }}
+                onBitrateModeChange={handleBitrateModeChange}
+                restoreUIHidden={restoreUIHidden}
+                availableChannels={allChannels}
+                videoRef={videoRef}
+                isMuted={isMuted}
+                showModernButton={showModernButton}
+                showChannelInfo={showChannelInfo}
+                showChannelList={showChannelList}
+                getCurrentChannelInfo={getCurrentChannelInfo}
+                getCurrentSelectedChannelInfo={getCurrentSelectedChannelInfo}
+                onModernButtonHover={handleModernButtonHover}
+                onChannelInfoHover={handleChannelInfoHover}
+                onChannelListHover={handleChannelListHover}
+                isMobile={isMobile}
+                isPortrait={isPortrait}
+                epgData={epgData}
+                currentPrograms={currentPrograms}
+                onPositionUpdate={handleVideoPositionUpdate}
+                getSavedPosition={getSavedVideoPosition}
+                embedded={true}
+              />
+            ) : !selectedChannel ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#14141a] via-[#050505] to-black z-0">
+                <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]"></div>
+                <div className="z-10 flex flex-col items-center text-center max-w-lg px-8">
+                  <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-8 border border-white/10 shadow-[0_0_40px_rgba(255,255,255,0.05)]">
+                    <Tv className="w-10 h-10 text-white/40" />
                   </div>
-                  <span className="text-[10px] text-white/30 uppercase tracking-widest font-medium">Live</span>
+                  <h1 className="text-3xl font-bold text-white tracking-wide mb-4">Welcome to Light TV</h1>
+                  <p className="text-lg text-white/50 leading-relaxed mb-10">Select a channel from the guide to start watching live television.</p>
+
+                  <div className="grid grid-cols-2 gap-4 w-full text-left">
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <Keyboard className="w-5 h-5 text-white/40 mb-2" />
+                      <p className="text-xs text-white/60 font-medium">Use number keys to directly tune to a channel</p>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <Search className="w-5 h-5 text-white/40 mb-2" />
+                      <p className="text-xs text-white/60 font-medium">Search across categories instantly</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-start justify-start bg-black p-8 lg:p-12">
-                <h1 className="text-3xl lg:text-5xl font-bold text-white mb-3">Thank you for using Light TV.</h1>
-                <p className="text-base lg:text-lg text-white/80 mb-8">Get started by clicking these channels on the left</p>
-                <svg className="w-40 h-20 text-white mb-12" viewBox="0 0 120 40" fill="none">
-                  <path d="M100 20 L20 20 M20 20 L35 8 M20 20 L35 32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <div className="mt-auto">
-                  <p className="text-sm font-medium text-white/80 mb-2">Notice</p>
-                  <p className="text-sm text-white/60 max-w-md">Wait 5-20 seconds for the channel to load, if it still does nothing, you can have a complaint by using the rate function</p>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <ChannelGuideModal
-          isOpen={showChannelGuide}
-          onClose={() => setShowChannelGuide(false)}
-          channelGuideSearch={channelGuideSearch}
-          setChannelGuideSearch={setChannelGuideSearch}
-          epgData={epgData}
-          currentPrograms={currentPrograms}
-        />
+        {/* Modals for List View */}
+        <ChannelGuideModal isOpen={showChannelGuide} onClose={() => setShowChannelGuide(false)} channelGuideSearch={channelGuideSearch} setChannelGuideSearch={setChannelGuideSearch} epgData={epgData} currentPrograms={currentPrograms} />
         <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
+        <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} />
 
-        {/* Channel Number OSD - satellite TV style */}
         {channelNumberInput && (() => {
           const num = parseInt(channelNumberInput, 10)
           const match = allChannels.find(c => c.channelNumber === num)
           return (
             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none select-none">
-              <div
-                className="flex flex-col items-center justify-center gap-3 px-12 py-8 rounded-2xl shadow-2xl"
-                style={{
-                  background: 'rgba(30,30,30,0.72)',
-                  backdropFilter: 'blur(18px)',
-                  WebkitBackdropFilter: 'blur(18px)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  minWidth: 220,
-                }}
-              >
-                <span
-                  className="font-bold text-white leading-none tracking-widest"
-                  style={{ fontSize: '4.5rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
-                >
-                  {channelNumberInput.padStart(3, '0')}
-                </span>
-                <span
-                  className="text-white/90 font-semibold text-center leading-snug"
-                  style={{ fontSize: '1.35rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 1px 6px rgba(0,0,0,0.4)', maxWidth: 260 }}
-                >
-                  {match ? match.name : '—'}
-                </span>
+              <div className="flex flex-col items-center justify-center gap-3 px-16 py-10 rounded-3xl shadow-2xl bg-black/80 backdrop-blur-2xl border border-white/10">
+                <span className="font-bold text-white leading-none tracking-widest text-6xl drop-shadow-lg">{channelNumberInput.padStart(3, '0')}</span>
+                <span className="text-blue-400 font-bold text-xl tracking-wide">{match ? match.name : '—'}</span>
               </div>
             </div>
           )
         })()}
-        <QuickChannelSwitch
-          isOpen={showQuickSwitch}
-          onClose={() => setShowQuickSwitch(false)}
-          allChannels={allChannels}
-          onChannelSelect={(ch) => {
-            setSelectedChannel(ch)
-            setHeaderTitle(ch.name)
-            addToRecentlyWatched(ch.id)
-            setRecentlyWatched(getRecentlyWatched())
-          }}
-          currentChannel={selectedChannel}
-        />
-        <ChannelStats
-          isOpen={showChannelStats}
-          onClose={() => setShowChannelStats(false)}
-          allChannels={allChannels}
-          onChannelSelect={(ch) => {
-            setSelectedChannel(ch)
-            setHeaderTitle(ch.name)
-            addToRecentlyWatched(ch.id)
-            setRecentlyWatched(getRecentlyWatched())
-          }}
-        />
-        <PipMode
-          isActive={isPipActive}
-          channel={pipChannel}
-          onClose={deactivatePip}
-          onMaximize={() => {
-            if (pipChannel) {
-              setSelectedChannel(pipChannel)
-              setHeaderTitle(pipChannel.name)
-              deactivatePip()
-            }
-          }}
-        />
+        <QuickChannelSwitch isOpen={showQuickSwitch} onClose={() => setShowQuickSwitch(false)} allChannels={allChannels} onChannelSelect={handleChannelSelect} currentChannel={selectedChannel} />
+        <ChannelStats isOpen={showChannelStats} onClose={() => setShowChannelStats(false)} allChannels={allChannels} onChannelSelect={handleChannelSelect} />
+        <PipMode isActive={isPipActive} channel={pipChannel} onClose={deactivatePip} onMaximize={() => { if (pipChannel) { handleChannelSelect(pipChannel); deactivatePip() } }} />
       </div>
     )
   }
 
-  const renderWelcomeSection = () => {
-    return (
-      <div className="mt-8 pt-6 border-t border-border/20">
-        <div className="space-y-4 py-4 px-3 md:px-5">
-          <img src="/images/light-logo.png" alt="Light TV" className="h-12 w-auto" />
-          <div className="space-y-1.5">
-            <h2 className="text-base md:text-lg font-medium text-foreground tracking-tight">Welcome to Light TV</h2>
-            <p className="text-xs text-muted-foreground/60 leading-relaxed max-w-sm">
-              Your streaming destination for live TV, movies, entertainment, and more.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleLiveTVNavigation} className="premium-button px-5 py-2.5 rounded-xl text-xs h-auto">
-              Explore Live TV
-            </Button>
-            <Button onClick={() => setShowChannelRequestModal(true)} variant="outline" className="px-5 py-2.5 rounded-xl text-xs font-medium border border-border/30 text-foreground/80 hover:bg-secondary/40 hover:border-foreground/10 transition-all duration-300 h-auto">
-              Request a Channel
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+  // GRID MODE LAYOUT (Android TV / Smart TV OS Style)
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-foreground/10">
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-white/20 font-sans">
       <SupportPopup isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} isFirstTime={isFirstTimeUser} />
 
-      {/* Keyboard Shortcuts Modal */}
       {showKeyboardShortcuts && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4" onClick={() => setShowKeyboardShortcuts(false)}>
-          <div className="bg-card border border-border/20 rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-5">
-              <div className="flex items-center gap-2.5">
-                <Keyboard className="w-4 h-4 text-foreground/60" />
-                <h2 className="text-sm font-medium text-foreground tracking-wide uppercase">Shortcuts</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={() => setShowKeyboardShortcuts(false)}>
+          <div className="bg-[#14141a] border border-white/10 rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center gap-3">
+                <Keyboard className="w-5 h-5 text-blue-400" />
+                <h2 className="text-sm font-bold text-white tracking-widest uppercase">Remote Shortcuts</h2>
               </div>
-              <button onClick={() => setShowKeyboardShortcuts(false)} className="text-muted-foreground/40 hover:text-foreground transition-colors duration-300">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowKeyboardShortcuts(false)} className="text-white/40 hover:text-white transition-colors duration-300">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Play/Pause</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">Space</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Mute</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">M</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Fullscreen</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">F</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Picture-in-Picture</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">P</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Volume Up</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">↑</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Volume Down</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">↓</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border/50">
-                <span className="text-muted-foreground">Seek Forward</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">→</kbd>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-muted-foreground">Seek Backward</span>
-                <kbd className="px-2 py-1 bg-secondary rounded text-foreground font-mono text-xs">←</kbd>
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-border">
-              <p className="text-xs text-muted-foreground text-center">Press the keys while watching a video</p>
+            <div className="space-y-1.5 text-sm">
+              {[['Play/Pause', 'Space'], ['Mute', 'M'], ['Fullscreen', 'F'], ['Picture-in-Picture', 'P'], ['Volume Up', '↑'], ['Volume Down', '↓'], ['Seek Forward', '→'], ['Seek Backward', '←']].map(([label, key]) => (
+                <div key={label} className="flex justify-between items-center py-2.5 border-b border-white/5 last:border-0">
+                  <span className="text-white/70 font-medium">{label}</span>
+                  <kbd className="px-3 py-1 bg-white/10 rounded-md text-white font-mono text-xs font-bold tracking-widest border border-white/10">{key}</kbd>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
       <IOSUnsupportedModal />
-
       <ReportModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />
       <AnnouncementsSystem />
 
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border/20">
-        <div className="px-3 md:px-5">
-          <div className="flex items-center justify-between h-12 md:h-14">
-            {/* Logo + Nav together on left */}
-            <div className="flex items-center gap-4">
-              <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto" />
-              <nav className="hidden md:flex items-center gap-0.5">
+      {/* SMART TV TOP BAR FOR GRID */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isNavTransparent ? 'bg-gradient-to-b from-black/90 to-transparent pt-4 pb-12' : 'bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/5 py-3'}`}>
+        <div className="px-6 md:px-12">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 md:gap-8">
+              <button className="md:hidden p-1 text-white/70 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu className="w-6 h-6" />
+              </button>
+              <img src="/images/light-logo.png" alt="Light TV" className="h-10 md:h-12 w-auto drop-shadow-xl" />
+              <nav className="hidden md:flex items-center gap-2">
                 <button
                   onClick={handleHomeNavigation}
-                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isLiveTVView ? "bg-secondary/60 text-foreground" : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40"
-                    }`}
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase transition-all duration-300 ${!isLiveTVView ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]" : "text-white/60 hover:text-white hover:bg-white/10"}`}
                 >
                   Home
                 </button>
                 <button
                   onClick={handleLiveTVNavigation}
-                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${isLiveTVView ? "bg-secondary/60 text-foreground" : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40"
-                    }`}
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase transition-all duration-300 ${isLiveTVView ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]" : "text-white/60 hover:text-white hover:bg-white/10"}`}
                 >
                   Live TV
                 </button>
                 <button
+                  onClick={() => setShowChannelGuide(true)}
+                  className="px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300"
+                >
+                  Guide
+                </button>
+                <button
                   onClick={() => setShowChannelRequestModal(true)}
-                  className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40 transition-all duration-200"
+                  className="px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   Request
                 </button>
                 <button
                   onClick={() => setShowRatingModal(true)}
-                  className="px-2.5 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/70 hover:text-foreground hover:bg-secondary/40 transition-all duration-200"
+                  className="px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   Rate
                 </button>
               </nav>
             </div>
 
-            {/* Right section */}
-            <div className="flex items-center gap-1.5">
-              <div className="hidden md:flex relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+            <div className="flex items-center gap-3">
+              <div className="hidden lg:flex relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search content..."
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-secondary/40 border border-border/20 rounded-lg focus:outline-none focus:ring-1 focus:ring-foreground/5 text-sm w-44 text-foreground placeholder:text-muted-foreground/40 transition-all duration-300"
+                  className="pl-11 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-full focus:outline-none focus:bg-white/10 focus:ring-2 focus:ring-white/30 text-sm w-60 text-white placeholder:text-white/40 transition-all duration-300 shadow-inner"
                 />
               </div>
-              <button
-                onClick={() => setShowQuickSwitch(true)}
-                className="p-2 hover:bg-secondary/50 rounded-lg transition-all duration-200"
-                title="Quick Switch"
-              >
-                <Zap className="w-4 h-4 text-muted-foreground/60 hover:text-foreground transition-colors duration-200" />
+              <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-black/40 border border-white/10 rounded-full backdrop-blur-md">
+                <span className="text-sm font-bold text-white tracking-widest">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+
+              <button onClick={() => setShowQuickSwitch(true)} className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-all text-white/70 hover:text-white"><Zap className="w-5 h-5" /></button>
+              <button onClick={() => setViewMode('list')} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/10 text-white">
+                <List className="w-4 h-4" />
+                <span className="text-xs font-bold tracking-widest hidden sm:block uppercase">List UI</span>
               </button>
-              <button
-                onClick={() => setShowChannelStats(true)}
-                className="p-2 hover:bg-secondary/50 rounded-lg transition-all duration-200"
-                title="Channel Stats"
-              >
-                <TrendingUp className="w-4 h-4 text-muted-foreground/60 hover:text-foreground transition-colors duration-200" />
-              </button>
-              <button
-                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                className="flex items-center gap-1.5 px-2.5 py-2 hover:bg-secondary/50 rounded-lg transition-all duration-200"
-                title={viewMode === 'grid' ? 'Switch to List' : 'Switch to Grid'}
-              >
-                {viewMode === 'grid' ? (
-                  <List className="w-4 h-4 text-muted-foreground/60 hover:text-foreground transition-colors duration-200" />
-                ) : (
-                  <LayoutGrid className="w-4 h-4 text-muted-foreground/60 hover:text-foreground transition-colors duration-200" />
-                )}
-                <span className="text-xs font-medium text-muted-foreground/60 hidden sm:inline">{viewMode === 'grid' ? 'List' : 'Grid'}</span>
-              </button>
-              <button
-                onClick={() => setShowKeyboardShortcuts(true)}
-                className="p-2 hover:bg-secondary/50 rounded-lg transition-all duration-200"
-                title="Keyboard Shortcuts"
-              >
-                <Keyboard className="w-4 h-4 text-muted-foreground/60 hover:text-foreground transition-colors duration-200" />
-              </button>
-              <button
-                onClick={() => setShowSupportModal(true)}
-                className="flex items-center gap-2 px-2.5 py-2 hover:bg-secondary/50 rounded-lg transition-all duration-200"
-                title="Support Us"
-              >
-                <Heart className="w-4 h-4 text-muted-foreground/60 hover:text-foreground transition-colors duration-200" />
-                <span className="text-xs font-medium text-muted-foreground/60 hidden sm:inline">Support</span>
-              </button>
-              <ThemeToggle />
-              {!isMobile && <SetupCheck />}
+              <button onClick={() => setShowKeyboardShortcuts(true)} className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-white/10 rounded-full transition-all text-white/70 hover:text-white"><Keyboard className="w-5 h-5" /></button>
+              <button onClick={() => setShowSupportModal(true)} className="hidden md:flex w-10 h-10 items-center justify-center hover:bg-white/10 rounded-full transition-all text-white/70 hover:text-white"><Heart className="w-5 h-5" /></button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile search bar */}
+      {/* Mobile search overlay */}
       {isMobileSearchOpen && (
-        <div className="md:hidden fixed top-12 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/20 px-3 py-2">
+        <div className="md:hidden fixed top-20 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-2xl border-b border-white/10 px-4 py-4">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <input
               type="text"
               placeholder="Search channels..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               autoFocus
-              className="w-full pl-8 pr-3 py-1.5 bg-secondary/40 border border-border/20 rounded-lg focus:outline-none focus:ring-1 focus:ring-foreground/5 text-sm text-foreground placeholder:text-muted-foreground/40 transition-all duration-300"
+              className="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
         </div>
       )}
 
-      <main className={`pt-12 md:pt-14 ${isMobileSearchOpen ? 'pt-[88px]' : ''} pb-16 md:pb-6 w-full`}>
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-[100] bg-[#050505]/95 backdrop-blur-3xl flex flex-col pt-8 px-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex justify-end mb-8">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-white/10 rounded-full text-white/70 hover:text-white">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <nav className="flex flex-col gap-6">
+            <button onClick={() => { handleHomeNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Home</button>
+            <button onClick={() => { handleLiveTVNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Live TV</button>
+            <button onClick={() => { setShowChannelGuide(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">TV Guide</button>
+            <button onClick={() => { setShowChannelRequestModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Request Channel</button>
+            <button onClick={() => { setShowRatingModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Rate Us</button>
+          </nav>
+        </div>
+      )}
+
+      <main className={`pt-24 md:pt-32 pb-20 w-full relative z-10 ${isMobileSearchOpen ? 'pt-40' : ''}`}>
+
+        {/* Ambient background glow */}
+        <div className="fixed top-0 left-0 right-0 h-[600px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a1a2e] via-[#050505] to-[#050505] pointer-events-none -z-10 opacity-70"></div>
+
         {!isLiveTVView ? (
           <div className="w-full">
-            {/* Quick actions - animated buttons */}
-            <div className="px-3 md:px-5 py-2 md:py-3 flex gap-2">
-              <button
-                onClick={handleLiveTVNavigation}
-                className="premium-button px-4 py-2 rounded-xl text-xs"
-              >
-                Explore Live TV
-              </button>
-              <button
-                onClick={() => setShowChannelRequestModal(true)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold border-2 border-border text-foreground hover:bg-secondary hover:border-foreground/30 transition-all duration-300 hover:shadow-md active:scale-95"
-              >
-                Request Channel
-              </button>
+            {/* Hero / Welcome */}
+            <div className="px-6 md:px-12 pt-4 pb-12">
+              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-4 drop-shadow-lg">Welcome To... <br /><span className="text-blue-500">Light TV - By PHC-SVWG </span></h1>
+              <p className="text-lg text-white/60 max-w-xl mb-8 font-medium">Immerse yourself in endless entertainment. Your premium destination for live channels and programs.</p>
+              <div className="flex gap-4">
+                <Button onClick={handleLiveTVNavigation} className="bg-white text-black hover:bg-gray-200 px-8 py-6 rounded-full text-sm font-bold tracking-widest uppercase transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                  Start Watching
+                </Button>
+                <Button onClick={() => setShowChannelGuide(true)} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 px-8 py-6 rounded-full text-sm font-bold tracking-widest uppercase transition-all backdrop-blur-md">
+                  TV Guide
+                </Button>
+              </div>
             </div>
 
-            {/* Category sections */}
-            <div className="space-y-4 md:space-y-6 px-3 md:px-5">
-              {/* Favorites Row */}
-              {favorites.length > 0 && createRow(
-                "My Favorites",
-                allChannels.filter(ch => favorites.includes(ch.id)),
-                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />,
-                true
-              )}
+            {/* Smart TV Rows */}
+            <div className="space-y-6 md:space-y-10">
+              {favorites.length > 0 && createRow("Favorites", allChannels.filter(ch => favorites.includes(ch.id)), <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />, true)}
+              {recentlyWatched.length > 0 && createRow("Jump Back In", allChannels.filter(ch => recentlyWatched.includes(ch.id)).sort((a, b) => recentlyWatched.indexOf(a.id) - recentlyWatched.indexOf(b.id)), <Clock className="w-5 h-5" />, true)}
 
-              {/* Recently Watched Row */}
-              {recentlyWatched.length > 0 && createRow(
-                "Recently Watched",
-                allChannels.filter(ch => recentlyWatched.includes(ch.id))
-                  .sort((a, b) => recentlyWatched.indexOf(a.id) - recentlyWatched.indexOf(b.id)),
-                <Clock className="w-3 h-3 text-foreground" />,
-                true
-              )}
-
-              {Object.entries(categorizeChannels()).map(([categoryName, categoryChannels], categoryIndex) => {
+              {Object.entries(categorizeChannels()).map(([categoryName, categoryChannels], index) => {
                 if (categoryChannels.length === 0) return null
-
                 return (
-                  <div
-                    key={categoryName}
-                    className="animate-fade-in"
-                    style={{ animationDelay: `${categoryIndex * 0.05}s` }}
-                  >
-                    {createRow(
-                      categoryName,
-                      categoryChannels,
-                      <div className="w-3 h-3 bg-foreground rounded-sm"></div>,
-                      true,
-                    )}
+                  <div key={categoryName} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                    {createRow(categoryName, categoryChannels, null, true)}
                   </div>
                 )
               })}
             </div>
           </div>
         ) : (
-          <div className="w-full px-3 md:px-5">
-            {/* Header + Category pills inline */}
-            <div className="py-3 space-y-3">
-              <div className="flex items-baseline justify-between">
-                <h1 className="text-lg md:text-xl font-semibold text-foreground">
-                  {searchQuery ? "Search Results" : "Live TV"}
-                </h1>
-                {searchQuery && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {filteredChannels.length} found
-                  </p>
-                )}
-              </div>
+          <div className="w-full">
+            <div className="px-6 md:px-12 py-4 mb-6">
+              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-6">
+                {searchQuery ? "Search Results" : "Live Channels"}
+              </h1>
 
-              {/* Category pills - animated */}
+              {/* Smart TV Category Pills */}
               {!searchQuery && (
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3 pb-1">
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x">
                   {categories.map((category, index) => (
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`category-pill whitespace-nowrap shrink-0 animate-fade-in ${selectedCategory === category
-                          ? "active"
-                          : ""
+                      className={`whitespace-nowrap shrink-0 snap-start px-6 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase transition-all duration-300 ${selectedCategory === category
+                        ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)] scale-105"
+                        : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white border border-white/5"
                         }`}
-                      style={{ animationDelay: `${index * 0.05}s` }}
                     >
                       {category}
                     </button>
@@ -1981,98 +1716,71 @@ export default function Home() {
               )}
             </div>
 
-            {/* Channel grid - square cards */}
+            {/* Grid of Channels */}
             {filteredChannels.length > 0 ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-2.5">
+              <div className="px-6 md:px-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                 {filteredChannels.map((channel, index) => (
                   <div
                     key={channel.id}
                     onClick={() => handleChannelSelectForLiveTV(channel)}
-                    className="cursor-pointer group animate-scale-in"
-                    style={{ animationDelay: `${(index % 18) * 0.025}s` }}
+                    className="group relative cursor-pointer animate-scale-in aspect-video bg-[#14141a] rounded-xl border border-white/5 hover:border-white hover:ring-4 hover:ring-white/30 transition-all duration-300 shadow-xl overflow-hidden"
+                    style={{ animationDelay: `${(index % 12) * 0.05}s` }}
                   >
-                    <div className="rounded-2xl bg-[#919191] hover:bg-[#7a7a7a] transition-colors channel-card-smooth aspect-square flex flex-col items-center justify-between py-2 px-2 relative overflow-hidden">
-                      <span
-                        className="text-white font-bold text-sm leading-none self-start z-10"
-                        style={{ fontFamily: 'Roboto, sans-serif', WebkitTextStroke: '0.5px black' }}
-                      >
-                        {String(channel.channelNumber ?? 0).padStart(3, '0')}
-                      </span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
+
+                    <div className="absolute top-3 left-3 z-20 bg-black/60 px-2 py-0.5 rounded text-[10px] font-bold text-white tracking-widest backdrop-blur-sm border border-white/10">
+                      CH {String(channel.channelNumber ?? 0).padStart(3, '0')}
+                    </div>
+
+                    <div className="absolute inset-0 flex items-center justify-center z-0 p-8 pb-12">
                       {channel.logo ? (
-                        <img
-                          src={channel.logo}
-                          alt={channel.name}
-                          className="w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-md"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                        />
+                        <img src={channel.logo} alt={channel.name} className="max-w-full max-h-full object-contain opacity-70 group-hover:opacity-100 transition-opacity drop-shadow-xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                          <span className="text-white font-bold text-xl">{channel.name.charAt(0)}</span>
-                        </div>
+                        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center border border-white/20"><span className="text-white font-bold text-2xl">{channel.name.charAt(0)}</span></div>
                       )}
-                      <span
-                        className="text-white text-[9px] md:text-[10px] font-semibold text-center leading-tight w-full truncate"
-                        style={{ fontFamily: 'Roboto, sans-serif' }}
-                      >
-                        {channel.name}
-                      </span>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
+                      <h3 className="text-white font-bold text-sm md:text-base truncate drop-shadow-md tracking-wide">{channel.name}</h3>
+                      <p className="text-blue-400 text-xs truncate mt-1 font-medium">{getCurrentChannelInfo(channel).current === "No information available" ? channel.category : getCurrentChannelInfo(channel).current}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-sm text-muted-foreground">No channels found</p>
+              <div className="text-center py-20">
+                <Tv className="w-16 h-16 text-white/20 mx-auto mb-4" />
+                <p className="text-xl text-white/50 font-medium">No channels match your search.</p>
               </div>
             )}
           </div>
         )}
       </main>
 
-      <ChannelGuideModal
-        isOpen={showChannelGuide}
-        onClose={() => setShowChannelGuide(false)}
-        channelGuideSearch={channelGuideSearch}
-        setChannelGuideSearch={setChannelGuideSearch}
-        epgData={epgData}
-        currentPrograms={currentPrograms}
-      />
-
+      <ChannelGuideModal isOpen={showChannelGuide} onClose={() => setShowChannelGuide(false)} channelGuideSearch={channelGuideSearch} setChannelGuideSearch={setChannelGuideSearch} epgData={epgData} currentPrograms={currentPrograms} />
       <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
       <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} />
 
-      {/* New Feature Modals */}
-      <QuickChannelSwitch
-        isOpen={showQuickSwitch}
-        onClose={() => setShowQuickSwitch(false)}
-        allChannels={allChannels}
-        onChannelSelect={handleChannelSelect}
-        currentChannel={selectedChannel}
-      />
+      {/* OSD Channel Number overlay */}
+      {channelNumberInput && (() => {
+        const num = parseInt(channelNumberInput, 10)
+        const match = allChannels.find(c => c.channelNumber === num)
+        return (
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none select-none">
+            <div className="flex flex-col items-center justify-center gap-3 px-16 py-10 rounded-3xl shadow-2xl bg-black/80 backdrop-blur-2xl border border-white/10">
+              <span className="font-bold text-white leading-none tracking-widest text-6xl drop-shadow-lg">{channelNumberInput.padStart(3, '0')}</span>
+              <span className="text-blue-400 font-bold text-xl tracking-wide">{match ? match.name : '—'}</span>
+            </div>
+          </div>
+        )
+      })()}
 
-      <ChannelStats
-        isOpen={showChannelStats}
-        onClose={() => setShowChannelStats(false)}
-        allChannels={allChannels}
-        onChannelSelect={handleChannelSelect}
-      />
-
-      <PipMode
-        isActive={isPipActive}
-        channel={pipChannel}
-        onClose={deactivatePip}
-        onMaximize={() => {
-          if (pipChannel) {
-            handleChannelSelect(pipChannel)
-            deactivatePip()
-          }
-        }}
-      />
+      <QuickChannelSwitch isOpen={showQuickSwitch} onClose={() => setShowQuickSwitch(false)} allChannels={allChannels} onChannelSelect={handleChannelSelect} currentChannel={selectedChannel} />
+      <ChannelStats isOpen={showChannelStats} onClose={() => setShowChannelStats(false)} allChannels={allChannels} onChannelSelect={handleChannelSelect} />
+      <PipMode isActive={isPipActive} channel={pipChannel} onClose={deactivatePip} onMaximize={() => { if (pipChannel) { handleChannelSelect(pipChannel); deactivatePip() } }} />
     </div>
   )
 }
-
-// ... rest of code ...
 
 const detectStreamFormat = (url: string): StreamFormat => {
   if (url.includes(".m3u8")) return "HLS"
