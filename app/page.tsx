@@ -1194,6 +1194,18 @@ export default function Home() {
               >
                 TV GUIDE
               </button>
+              <button
+                onClick={() => setShowChannelRequestModal(true)}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                REQUEST
+              </button>
+              <button
+                onClick={() => setShowRatingModal(true)}
+                className="px-4 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 text-white/50 hover:text-white hover:bg-white/10"
+              >
+                RATE
+              </button>
             </nav>
           </div>
 
@@ -1461,6 +1473,8 @@ export default function Home() {
         {/* Modals for List View */}
         <ChannelGuideModal isOpen={showChannelGuide} onClose={() => setShowChannelGuide(false)} channelGuideSearch={channelGuideSearch} setChannelGuideSearch={setChannelGuideSearch} epgData={epgData} currentPrograms={currentPrograms} />
         <ChannelRequestModal isOpen={showChannelRequestModal} onClose={() => setShowChannelRequestModal(false)} />
+        <RatingModal isOpen={showRatingModal} onClose={() => setShowRatingModal(false)} />
+
         {channelNumberInput && (() => {
           const num = parseInt(channelNumberInput, 10)
           const match = allChannels.find(c => c.channelNumber === num)
@@ -1536,6 +1550,18 @@ export default function Home() {
                   className="px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300"
                 >
                   Guide
+                </button>
+                <button
+                  onClick={() => setShowChannelRequestModal(true)}
+                  className="px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300"
+                >
+                  Request
+                </button>
+                <button
+                  onClick={() => setShowRatingModal(true)}
+                  className="px-5 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300"
+                >
+                  Rate
                 </button>
               </nav>
             </div>
