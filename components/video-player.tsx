@@ -165,6 +165,7 @@ export function VideoPlayer({
   const [isUIHidden, setIsUIHidden] = useState(false)
   const [showUIButtonVisible, setShowUIButtonVisible] = useState(true)
   const showUIButtonTimeoutRef = useRef<NodeJS.Timeout>()
+
   // Load streaming mode from localStorage
   const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">(() => {
     if (typeof window !== "undefined") {
@@ -179,6 +180,15 @@ export function VideoPlayer({
       : "high-bitrate"
   )
   const wasUIHiddenRef = useRef(false)
+
+  // Load UI Transparency from localStorage
+  const [uiTransparency, setUiTransparency] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("orotv-ui-transparency")
+      if (saved !== null) return parseInt(saved, 10)
+    }
+    return 50 // Default 50%
+  })
 
   // Internal OSD (satellite TV style number input)
   const [osdInput, setOsdInput] = useState("")
@@ -502,6 +512,12 @@ export function VideoPlayer({
       e.preventDefault()
     }
   }, [])
+
+  const handleTransparencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setUiTransparency(val);
+    localStorage.setItem("orotv-ui-transparency", val.toString());
+  };
 
   const isLiveStream = (channel: Channel): boolean => {
     return !channel.url?.includes("vod") && !channel.url?.includes("replay")
@@ -1402,6 +1418,22 @@ export function VideoPlayer({
             </div>
           </div>
 
+          {/* UI Transparency Setting */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-white/40 text-[10px] uppercase tracking-wider font-bold">UI Transparency</p>
+              <span className="text-white/70 text-[10px] font-bold">{uiTransparency}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={uiTransparency}
+              onChange={handleTransparencyChange}
+              className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white"
+            />
+          </div>
+
           {/* Quick Actions */}
           <div className="space-y-2">
             <button
@@ -1509,8 +1541,11 @@ export function VideoPlayer({
       {/* SATELLITE TV EPG BOTTOM BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-sm border-t border-[#333] text-white p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.5rem)' }}
+          className={`absolute bottom-0 left-0 right-0 z-40 backdrop-blur-sm border-t border-[#333] text-white p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+          style={{
+            paddingBottom: 'max(env(safe-area-inset-bottom), 1.5rem)',
+            backgroundColor: `rgba(10, 10, 10, ${uiTransparency / 100})`
+          }}
         >
           {/* Top Row: Channel Info & Time */}
           <div className="flex justify-between items-center mb-8">
