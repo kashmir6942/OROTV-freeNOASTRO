@@ -1663,7 +1663,7 @@ export default function Home() {
           <div className="w-full">
             {/* Hero / Welcome */}
             <div className="px-6 md:px-12 pt-4 pb-12">
-              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-4 drop-shadow-lg">Discover <br /><span className="text-blue-500">Live TV</span></h1>
+              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-4 drop-shadow-lg">Welcome To... <br /><span className="text-blue-500">Light TV - By PHC-SVWG </span></h1>
               <p className="text-lg text-white/60 max-w-xl mb-8 font-medium">Immerse yourself in endless entertainment. Your premium destination for live channels and programs.</p>
               <div className="flex gap-4">
                 <Button onClick={handleLiveTVNavigation} className="bg-white text-black hover:bg-gray-200 px-8 py-6 rounded-full text-sm font-bold tracking-widest uppercase transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]">
