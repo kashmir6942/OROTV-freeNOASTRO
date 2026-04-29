@@ -18,7 +18,8 @@ import {
   Expand,
   Settings,
   PictureInPicture,
-  Signal
+  Signal,
+  Monitor
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
 
@@ -150,7 +151,6 @@ export function VideoPlayer({
   const [showSettings, setShowSettings] = useState(false)
   const [forceAspectRatio, setForceAspectRatio] = useState(true)
   const [aspectRatioMode, setAspectRatioMode] = useState<"16:9" | "4:3" | "original">("16:9")
-  const [showEPGOverlay, setShowEPGOverlay] = useState(false)
   const [streamStatus, setStreamStatus] = useState<any>(null)
   const [showTechnicalDifficulties, setShowTechnicalDifficulties] = useState(false)
   const [viewerSessionId, setViewerSessionId] = useState<string | null>(null)
@@ -335,381 +335,78 @@ export function VideoPlayer({
     }
   }
 
-  const setHighestQuality = useCallback(() => {
-    try {
-      const isHighBitrate = streamingModeRef.current === "high-bitrate"
-
-      if (playerType === "hls" && hlsRef.current) {
-        const levels = hlsRef.current.levels
-        if (levels && levels.length > 0) {
-          // Extract available quality levels sorted by bitrate
-          const qualities = levels.map((level: any, index: number) => ({
-            index,
-            height: level.height || 0,
-            bitrate: level.bitrate || 0,
-            label: level.height ? `${level.height}p` : `Level ${index + 1}`,
-          })).sort((a: any, b: any) => b.bitrate - a.bitrate)
-          setAvailableQualities(qualities)
-
-          if (isHighBitrate) {
-            // HD MODE: FORCE ABSOLUTE MAXIMUM QUALITY - NO ABR
-            let highestLevel = 0
-            let highestBitrate = 0
-            let highestHeight = 0
-            levels.forEach((level: any, index: number) => {
-              const bitrate = level.bitrate || 0
-              const height = level.height || 0
-              if (bitrate > highestBitrate || (bitrate === highestBitrate && height > highestHeight)) {
-                highestBitrate = bitrate
-                highestHeight = height
-                highestLevel = index
-              }
-            })
-            // COMPLETELY DISABLE ABR - manual level only
-            hlsRef.current.autoLevelEnabled = false
-            // Force to highest level with no fallback
-            hlsRef.current.currentLevel = highestLevel
-            hlsRef.current.loadLevel = highestLevel
-            hlsRef.current.nextLevel = highestLevel
-            hlsRef.current.autoLevelCapping = highestLevel
-            // Set min level to highest so it can never go lower
-            hlsRef.current.config.minAutoBitrate = highestBitrate
-            console.log("[v0] HD Mode: FORCED to MAX quality level", highestLevel, "height:", highestHeight, "bitrate:", highestBitrate, "bps")
-          } else {
-            // SD MODE: Force lowest quality or let ABR pick low
-            let lowestLevel = 0
-            let lowestBitrate = Infinity
-            levels.forEach((level: any, index: number) => {
-              if (level.bitrate < lowestBitrate) {
-                lowestBitrate = level.bitrate
-                lowestLevel = index
-              }
-            })
-            // Start at lowest, cap at middle quality
-            hlsRef.current.currentLevel = lowestLevel
-            hlsRef.current.autoLevelCapping = Math.min(Math.floor(levels.length / 2), levels.length - 1)
-            console.log("[v0] SD Mode: Starting at lowest level", lowestLevel, "capped at", hlsRef.current.autoLevelCapping)
-          }
-        }
-      } else if (playerType === "shaka" && playerRef.current) {
-        const tracks = playerRef.current.getVariantTracks()
-        if (tracks && tracks.length > 0) {
-          if (isHighBitrate) {
-            // HD Mode: Force highest quality track, disable ABR
-            let highestTrack = tracks[0]
-            let highestBandwidth = 0
-            tracks.forEach((track: any) => {
-              if (track.bandwidth > highestBandwidth) {
-                highestBandwidth = track.bandwidth
-                highestTrack = track
-              }
-            })
-            playerRef.current.configure({
-              abr: { enabled: false },
-              streaming: { bufferingGoal: 120, rebufferingGoal: 5 }
-            })
-            playerRef.current.selectVariantTrack(highestTrack, true)
-            console.log("[v0] HD Mode: LOCKED to highest track, bandwidth:", highestBandwidth)
-          } else {
-            // SD Mode: Enable ABR with strict bandwidth limits
-            let lowestTrack = tracks[0]
-            let lowestBandwidth = Infinity
-            tracks.forEach((track: any) => {
-              if (track.bandwidth < lowestBandwidth) {
-                lowestBandwidth = track.bandwidth
-                lowestTrack = track
-              }
-            })
-            playerRef.current.configure({
-              abr: {
-                enabled: true,
-                defaultBandwidthEstimate: 500000, // 500kbps
-                restrictions: { maxBandwidth: 1500000 } // Cap at 1.5Mbps
-              },
-              streaming: { bufferingGoal: 30, rebufferingGoal: 2 }
-            })
-            playerRef.current.selectVariantTrack(lowestTrack, false) // Start low
-            console.log("[v0] SD Mode: ABR with 1.5Mbps cap, starting at lowest")
-          }
-        }
-      }
-    } catch (error) {
-      console.error("[v0] setHighestQuality error:", error)
-    }
-  }, [playerType])
-
-  const handleQualityChange = useCallback((qualityIndex: number) => {
-    try {
-      if (playerType === "hls" && hlsRef.current) {
-        hlsRef.current.currentLevel = qualityIndex
-        setSelectedQuality(qualityIndex)
-        console.log("[v0] Quality changed to:", qualityIndex === -1 ? "Auto" : `${qualityIndex}`)
-      }
-    } catch (error) {
-      console.error("[v0] Failed to change quality:", error)
-    }
-  }, [playerType])
-
-  const loadAudioAndSubtitleTracks = useCallback(() => {
-    try {
-      const video = videoRef.current
-      if (!video) return
-
-      // Check native HTML5 text tracks (for embedded subtitles)
-      const nativeTextTracks = Array.from(video.textTracks || [])
-      console.log("[v0] Native text tracks found:", nativeTextTracks.length)
-
-      if (playerType === "hls" && hlsRef.current) {
-        // HLS.js audio tracks
-        const audioTrackList = hlsRef.current.audioTracks || []
-        const audioTracks = audioTrackList.map((track: any, index: number) => ({
-          id: index,
-          label: track.name || track.lang || `Audio ${index + 1}`,
-          language: track.lang || "unknown",
-        }))
-        setAudioTracks(audioTracks)
-        setCurrentAudioTrack(hlsRef.current.audioTrack)
-
-        // HLS.js subtitle tracks
-        const subtitleTrackList = hlsRef.current.subtitleTracks || []
-        let subtitleTracks = subtitleTrackList.map((track: any, index: number) => ({
-          id: index,
-          label: track.name || track.lang || `Subtitle ${index + 1}`,
-          language: track.lang || "unknown",
-          source: "hls",
-        }))
-
-        // Also check native text tracks
-        const nativeSubs = nativeTextTracks
-          .filter((track) => track.kind === "subtitles" || track.kind === "captions")
-          .map((track, index) => ({
-            id: subtitleTracks.length + index,
-            label: track.label || track.language || `Subtitle ${subtitleTracks.length + index + 1}`,
-            language: track.language || "unknown",
-            source: "native",
-            track: track,
-          }))
-
-        subtitleTracks = [...subtitleTracks, ...nativeSubs]
-        console.log("[v0] Total subtitle tracks:", subtitleTracks.length)
-        setSubtitleTracks(subtitleTracks)
-        setCurrentSubtitleTrack(hlsRef.current.subtitleTrack)
-      } else if (playerType === "shaka" && playerRef.current) {
-        // Shaka Player audio tracks
-        const audioTrackList = playerRef.current.getAudioLanguagesAndRoles() || []
-        const audioTracks = audioTrackList.map((track: any, index: number) => ({
-          id: index,
-          label: track.label || track.language || `Audio ${index + 1}`,
-          language: track.language || "unknown",
-        }))
-        setAudioTracks(audioTracks)
-
-        // Shaka Player text tracks (subtitles)
-        const textTrackList = playerRef.current.getTextLanguagesAndRoles() || []
-        let subtitleTracks = textTrackList.map((track: any, index: number) => ({
-          id: index,
-          label: track.label || track.language || `Subtitle ${index + 1}`,
-          language: track.language || "unknown",
-          source: "shaka",
-        }))
-
-        // Also check native text tracks
-        const nativeSubs = nativeTextTracks
-          .filter((track) => track.kind === "subtitles" || track.kind === "captions")
-          .map((track, index) => ({
-            id: subtitleTracks.length + index,
-            label: track.label || track.language || `Subtitle ${subtitleTracks.length + index + 1}`,
-            language: track.language || "unknown",
-            source: "native",
-            track: track,
-          }))
-
-        subtitleTracks = [...subtitleTracks, ...nativeSubs]
-        console.log("[v0] Total subtitle tracks:", subtitleTracks.length)
-        setSubtitleTracks(subtitleTracks)
-      } else {
-        // Native video player - check text tracks
-        const nativeSubs = nativeTextTracks
-          .filter((track) => track.kind === "subtitles" || track.kind === "captions")
-          .map((track, index) => ({
-            id: index,
-            label: track.label || track.language || `Subtitle ${index + 1}`,
-            language: track.language || "unknown",
-            source: "native",
-            track: track,
-          }))
-
-        console.log("[v0] Native subtitle tracks:", nativeSubs.length)
-        setSubtitleTracks(nativeSubs)
-      }
-    } catch (error) {
-      console.log("[v0] Error loading tracks:", error)
-    }
-  }, [playerType])
-
-  const switchAudioTrack = useCallback(
-    (trackId: number) => {
-      try {
-        if (playerType === "hls" && hlsRef.current) {
-          hlsRef.current.audioTrack = trackId
-          setCurrentAudioTrack(trackId)
-          console.log("[v0] Switched to audio track:", trackId)
-        } else if (playerType === "shaka" && playerRef.current) {
-          const audioTracks = playerRef.current.getAudioLanguagesAndRoles()
-          if (audioTracks[trackId]) {
-            playerRef.current.selectAudioLanguage(audioTracks[trackId].language)
-            setCurrentAudioTrack(trackId)
-            console.log("[v0] Switched to audio language:", audioTracks[trackId].language)
-          }
-        }
-      } catch (error) {
-        console.log("[v0] Error switching audio track:", error)
-      }
-    },
-    [playerType],
-  )
-
-  const switchSubtitleTrack = useCallback(
-    (trackId: number, trackData?: any) => {
-      try {
-        const video = videoRef.current
-        if (!video) return
-
-        // Disable all native text tracks first
-        Array.from(video.textTracks || []).forEach((track) => {
-          track.mode = "hidden"
-        })
-
-        if (trackId === -1) {
-          // Disable all subtitles
-          if (playerType === "hls" && hlsRef.current) {
-            hlsRef.current.subtitleTrack = -1
-          } else if (playerType === "shaka" && playerRef.current) {
-            playerRef.current.setTextTrackVisibility(false)
-          }
-          setCurrentSubtitleTrack(-1)
-          console.log("[v0] Subtitles disabled")
-          return
-        }
-
-        // Check if it's a native track
-        if (trackData && trackData.source === "native" && trackData.track) {
-          trackData.track.mode = "showing"
-          setCurrentSubtitleTrack(trackId)
-          console.log("[v0] Enabled native subtitle track:", trackData.label)
-        } else if (playerType === "hls" && hlsRef.current) {
-          hlsRef.current.subtitleTrack = trackId
-          setCurrentSubtitleTrack(trackId)
-          console.log("[v0] Switched to HLS subtitle track:", trackId)
-        } else if (playerType === "shaka" && playerRef.current) {
-          const textTracks = playerRef.current.getTextLanguagesAndRoles()
-          if (textTracks[trackId]) {
-            playerRef.current.selectTextLanguage(textTracks[trackId].language)
-            playerRef.current.setTextTrackVisibility(true)
-            setCurrentSubtitleTrack(trackId)
-            console.log("[v0] Switched to Shaka subtitle language:", textTracks[trackId].language)
-          }
-        }
-      } catch (error) {
-        console.log("[v0] Error switching subtitle track:", error)
-      }
-    },
-    [playerType],
-  )
-
   const currentChannelIndex = availableChannels.findIndex((ch) => ch.id === channel.id)
 
-  const getCurrentProgram = () => {
-    if (!currentPrograms || !epgData) return null
+  const getEpgSchedule = () => {
+    let nowProg: any = null
+    let nextProg: any = null
+    let laterProg: any = null
 
-    // Try multiple matching strategies
-    let currentProg = null
-
-    // Direct match by channel name
-    if (currentPrograms[channel.name]) {
-      currentProg = currentPrograms[channel.name]
-    }
-
-    // If no direct match, try EPG data matching
-    if (!currentProg && epgData && typeof epgData === "object") {
+    // 1. Get raw programmes list
+    let programmes: any[] = []
+    if (epgData && typeof epgData === "object") {
       const epgEntry = Object.values(epgData).find((epg: any) => {
         if (!epg || !epg.name) return false
         const epgName = epg.name.toLowerCase().trim()
         const channelName = channel.name.toLowerCase().trim()
-
-        // Direct match
         if (epgName === channelName) return true
-
-        // Contains match
         if (epgName.includes(channelName) || channelName.includes(epgName)) return true
-
-        // Remove spaces and special characters for matching
         const cleanEpgName = epgName.replace(/[\s\-_.]/g, "")
         const cleanChannelName = channelName.replace(/[\s\-_.]/g, "")
-
         return cleanEpgName.includes(cleanChannelName) || cleanChannelName.includes(cleanEpgName)
       }) as any
-
-      if (epgEntry && currentPrograms[epgEntry.id]) {
-        currentProg = currentPrograms[epgEntry.id]
+      if (epgEntry && epgEntry.programmes) {
+        programmes = epgEntry.programmes
       }
     }
 
-    return currentProg
-  }
-
-  const getNextProgram = () => {
-    if (!epgData || typeof epgData !== "object") return null
-
-    // Find matching EPG entry for current channel
-    const epgEntry = Object.values(epgData).find((epg: any) => {
-      if (!epg || !epg.name) return false
-      const epgName = epg.name.toLowerCase().trim()
-      const channelName = channel.name.toLowerCase().trim()
-
-      // Direct match
-      if (epgName === channelName) return true
-
-      // Contains match
-      if (epgName.includes(channelName) || channelName.includes(epgName)) return true
-
-      // Remove spaces and special characters for matching
-      const cleanEpgName = epgName.replace(/[\s\-_.]/g, "")
-      const cleanChannelName = channelName.replace(/[\s\-_.]/g, "")
-
-      return cleanEpgName.includes(cleanChannelName) || cleanChannelName.includes(cleanEpgName)
-    }) as any
-
-    if (!epgEntry || !epgEntry.programmes) return null
-
+    // 2. Determine NOW, NEXT, LATER
     const now = new Date()
-    const programmes = epgEntry.programmes
+    if (programmes.length > 0) {
+      const sorted = [...programmes].sort((a: any, b: any) => {
+        if (!a.start || !b.start) return 0
+        const startA = new Date(a.start.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s(.+)/, "$1-$2-$3T$4:$5:$6")).getTime()
+        const startB = new Date(b.start.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s(.+)/, "$1-$2-$3T$4:$5:$6")).getTime()
+        return startA - startB
+      })
 
-    // Find the next program after current time
-    const nextProg = programmes.find((prog: any) => {
-      if (!prog.start) return false
+      for (let i = 0; i < sorted.length; i++) {
+        const prog = sorted[i]
+        if (!prog.start || !prog.stop) continue
+        const startTime = new Date(prog.start.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s(.+)/, "$1-$2-$3T$4:$5:$6"))
+        const stopTime = new Date(prog.stop.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s(.+)/, "$1-$2-$3T$4:$5:$6"))
 
-      const startTime = new Date(
-        prog.start.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s(.+)/, "$1-$2-$3T$4:$5:$6"),
-      )
+        if (now >= startTime && now < stopTime) {
+          nowProg = prog
+          if (i + 1 < sorted.length) nextProg = sorted[i + 1]
+          if (i + 2 < sorted.length) laterProg = sorted[i + 2]
+          break
+        } else if (startTime > now && !nowProg && !nextProg) {
+          nextProg = prog
+          if (i + 1 < sorted.length) laterProg = sorted[i + 1]
+          break
+        }
+      }
+    }
 
-      return startTime > now
-    })
+    // Fallback for NOW if missing from explicit EPG bounds but currentPrograms is injected directly
+    if (!nowProg && currentPrograms && currentPrograms[channel.name]) {
+      nowProg = currentPrograms[channel.name]
+    }
 
-    return nextProg || null
+    return { nowProg, nextProg, laterProg }
   }
+
+  const { nowProg, nextProg, laterProg } = getEpgSchedule()
 
   const formatTime = (dateString: string) => {
     if (!dateString) return ""
 
     try {
       let date: Date
-
-      // Check if it's already in ISO format or a standard date string
       if (dateString.includes("T") || dateString.includes("-")) {
         date = new Date(dateString)
       } else {
-        // Handle XMLTV format: YYYYMMDDHHMMSS +TIMEZONE
         const match = dateString.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*(.+)?/)
         if (match) {
           const [, year, month, day, hour, minute, second] = match
@@ -719,34 +416,49 @@ export function VideoPlayer({
         }
       }
 
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.log("[v0] Invalid date string:", dateString)
-        return "Invalid time"
-      }
+      if (isNaN(date.getTime())) return "Invalid time"
 
       return date.toLocaleTimeString("en-US", {
-        hour: "numeric",
+        hour: "2-digit",
         minute: "2-digit",
-        hour12: true,
+        hour12: false,
       })
     } catch (error) {
-      console.log("[v0] Error formatting time:", error, "for dateString:", dateString)
       return "Invalid time"
+    }
+  }
+
+  const calculateProgress = (startString: string, stopString: string) => {
+    if (!startString || !stopString) return 0
+    try {
+      let startDate: Date, stopDate: Date
+      if (startString.includes("T") || startString.includes("-")) {
+        startDate = new Date(startString)
+        stopDate = new Date(stopString)
+      } else {
+        const m1 = startString.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*(.+)?/)
+        const m2 = stopString.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*(.+)?/)
+        if (m1 && m2) {
+          startDate = new Date(`${m1[1]}-${m1[2]}-${m1[3]}T${m1[4]}:${m1[5]}:${m1[6]}`)
+          stopDate = new Date(`${m2[1]}-${m2[2]}-${m2[3]}T${m2[4]}:${m2[5]}:${m2[6]}`)
+        } else {
+          startDate = new Date(startString)
+          stopDate = new Date(stopString)
+        }
+      }
+      const now = new Date().getTime()
+      const start = startDate.getTime()
+      const end = stopDate.getTime()
+      if (now < start) return 0
+      if (now > end) return 100
+      return Math.round(((now - start) / (end - start)) * 100)
+    } catch (e) {
+      return 0
     }
   }
 
   const isM3u8Stream = (url: string) => {
     return url.includes(".m3u8") || url.includes("m3u8")
-  }
-
-  const getTimeRemaining = () => {
-    if (!user) return "Guest"
-    if (user.isPermanent) return "Permanent"
-    const remaining = new Date(user.expiresAt).getTime() - new Date().getTime()
-    const hours = Math.floor(remaining / (1000 * 60 * 60))
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
-    return `${hours}h ${minutes}m remaining`
   }
 
   // Flash the "Show UI" button for 3 seconds on any activity while UI is hidden
@@ -767,9 +479,10 @@ export function VideoPlayer({
     controlsTimeoutRef.current = setTimeout(
       () => {
         setShowControls(false)
+        setShowSettings(false)
       },
-      isMobile ? 4000 : 3000,
-    ) // Longer timeout for mobile
+      isMobile ? 6000 : 5000,
+    )
   }, [isTraditionalMode, isMobile])
 
   const handleTouchStart = useCallback(
@@ -777,7 +490,6 @@ export function VideoPlayer({
       if (isTraditionalMode) return
       showControlsTemporarily()
 
-      // Prevent default to avoid unwanted scrolling
       if (e.touches.length === 1) {
         e.preventDefault()
       }
@@ -786,15 +498,12 @@ export function VideoPlayer({
   )
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // Prevent scrolling when touching video area
     if (e.touches.length === 1) {
       e.preventDefault()
     }
   }, [])
 
   const isLiveStream = (channel: Channel): boolean => {
-    // Most channels are live streams, only save position for VOD content
-    // You can customize this logic based on your channel types
     return !channel.url?.includes("vod") && !channel.url?.includes("replay")
   }
 
@@ -805,44 +514,34 @@ export function VideoPlayer({
     }
 
     if (!videoRef.current) {
-      console.log("[v0] Video ref not available")
       return
     }
 
     let initTimeout: NodeJS.Timeout | null = null
 
     try {
-      console.log("[v0] Initializing player for channel:", channel.name)
       setIsLoading(true)
       setError(null)
       setConnectionStatus("reconnecting")
 
       const video = videoRef.current
 
-      // Clean up existing players
       if (playerRef.current) {
-        console.log("[v0] player destroy shaka")
         await playerRef.current.destroy()
         playerRef.current = null
       }
       if (hlsRef.current) {
-        console.log("[v0] Player destroy hls js")
         hlsRef.current.destroy()
         hlsRef.current = null
       }
 
-      // Reset video element
       video.src = ""
       video.load()
 
-      // Set a timeout to detect hanging initialization
       initTimeout = setTimeout(() => {
-        console.log("[v0] Player initialization timeout, retry attempt:", retryCount + 1)
         setIsLoading(false)
-        // Auto-retry up to 5 times with random 5-15 second intervals
         if (retryCount < 5) {
-          const retryDelay = Math.floor(Math.random() * 10000) + 5000 // 5-15 seconds
-          console.log("[v0] Retrying in", retryDelay, "ms...")
+          const retryDelay = Math.floor(Math.random() * 10000) + 5000
           setError(`Loading timeout - Retrying (${retryCount + 1}/5)...`)
           setTimeout(() => {
             setRetryCount(prev => prev + 1)
@@ -851,26 +550,19 @@ export function VideoPlayer({
         } else {
           setError("Failed to load channel after 5 attempts. Please try another channel or check your connection.")
         }
-      }, 15000) // 15 second timeout
-
-      const isAndroidTV = /android.*tv|googletv|androidtv|smart-tv|smarttv/i.test(navigator.userAgent.toLowerCase())
+      }, 15000)
 
       if (isM3u8Stream(channel.url)) {
-        console.log("[v0] Detected m3u8 stream, using HLS.js player")
         setPlayerType("hls")
 
-        // Load HLS.js if not available
         if (!window.Hls) {
-          console.log("[v0] Loading HLS.js library")
           const script = document.createElement("script")
           script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest"
           script.onload = () => {
-            console.log("[v0] HLS.js loaded, reinitializing")
             if (initTimeout) clearTimeout(initTimeout)
             initializePlayer()
           }
           script.onerror = () => {
-            console.error("[v0] Failed to load HLS.js")
             setError("Failed to load video player library")
             setIsLoading(false)
             if (initTimeout) clearTimeout(initTimeout)
@@ -882,213 +574,51 @@ export function VideoPlayer({
 
         if (window.Hls.isSupported()) {
           const currentMode = streamingModeRef.current
-          console.log("[v0] HLS.js is supported, creating player, mode:", currentMode)
           const isOptimized = currentMode === "optimized"
 
-          // HD MODE: Maximum quality, no limits, biggest buffers
-          // SD MODE: Strict bandwidth limits for budget/slow internet
           const hlsConfig = isOptimized ? {
-            // SD/OPTIMIZED MODE - For budget internet
             enableWorker: true,
             lowLatencyMode: false,
-            backBufferLength: 15,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 40,
-            manifestLoadingTimeOut: 15000,
-            manifestLoadingMaxRetry: 3,
-            levelLoadingTimeOut: 12000,
-            levelLoadingMaxRetry: 3,
-            fragLoadingTimeOut: 20000,
-            fragLoadingMaxRetry: 4,
-            // START AT LOWEST QUALITY for SD mode
             startLevel: 0,
             autoStartLoad: true,
-            maxLoadingDelay: 8,
-            maxBufferHole: 2,
-            // STRICT BANDWIDTH LIMITS - cap quality aggressively
-            abrEwmaFastLive: 2,
-            abrEwmaSlowLive: 6,
-            abrEwmaDefaultEstimate: 300000, // 300kbps default for SD
-            abrBandWidthFactor: 0.5, // Very conservative
-            abrBandWidthUpFactor: 0.3, // Slow to upgrade quality
-            // CAP BITRATE for budget internet (1.5 Mbps max)
-            abrMaxWithRealBitrate: true,
-            maxStarvationDelay: 6,
-            // Limit to lower quality levels
             capLevelToPlayerSize: true,
-            nudgeMaxRetry: 3,
-            nudgeOffset: 0.3,
-            progressive: true,
-            testBandwidth: true,
           } : {
-            // HD/HIGH-BITRATE MODE - FORCE ABSOLUTE MAXIMUM QUALITY
             enableWorker: true,
             lowLatencyMode: false,
-            // MASSIVE BUFFERS
-            backBufferLength: 180,
-            maxBufferLength: 180,
-            maxMaxBufferLength: 600,
-            manifestLoadingTimeOut: 60000,
-            manifestLoadingMaxRetry: 10,
-            levelLoadingTimeOut: 45000,
-            levelLoadingMaxRetry: 10,
-            fragLoadingTimeOut: 60000,
-            fragLoadingMaxRetry: 15,
-            // CRITICAL: Disable ABR entirely - set to -1 means manual level only
             startLevel: -1,
             autoStartLoad: true,
-            autoLevelCapping: -1, // Unlimited
-            maxLoadingDelay: 2,
-            maxBufferHole: 0.5,
-            // Zero out ABR parameters so they can't affect quality
-            abrEwmaFastLive: 0.5,
-            abrEwmaSlowLive: 0.5,
-            abrEwmaDefaultEstimate: Infinity, // Infinite bandwidth
-            abrBandWidthFactor: 1.0,
-            abrBandWidthUpFactor: 1.0,
-            // NO LIMITS WHATSOEVER
-            capLevelToPlayerSize: false,
-            capLevelOnFPSDrop: false,
-            abrMaxWithRealBitrate: false,
-            maxStarvationDelay: 0,
-            nudgeMaxRetry: 20,
-            nudgeOffset: 0.05,
-            progressive: true,
-            testBandwidth: false,
-            // Force live edge tracking
-            liveBackBufferLength: 30,
+            autoLevelCapping: -1,
           }
 
           hlsRef.current = new window.Hls(hlsConfig)
-          console.log("[v0] HLS initialized with", isOptimized ? "SD/OPTIMIZED" : "HD/MAX QUALITY", "config")
 
           hlsRef.current.loadSource(channel.url)
           hlsRef.current.attachMedia(video)
 
           hlsRef.current.on(window.Hls.Events.MANIFEST_PARSED, () => {
-            console.log("[v0] HLS manifest parsed - forcing MAX quality for HD mode")
             if (initTimeout) clearTimeout(initTimeout)
             setConnectionStatus("connected")
             setIsLoading(false)
             setRetryCount(0)
-
-            if (streamingModeRef.current === "high-bitrate" && hlsRef.current) {
-              const levels = hlsRef.current.levels
-              if (levels && levels.length > 0) {
-                // Find absolute highest level
-                let maxLevel = 0
-                let maxBitrate = 0
-                let maxHeight = 0
-                levels.forEach((level: any, idx: number) => {
-                  const bitrate = level.bitrate || 0
-                  const height = level.height || 0
-                  if (bitrate > maxBitrate || (bitrate === maxBitrate && height > maxHeight)) {
-                    maxBitrate = bitrate
-                    maxHeight = height
-                    maxLevel = idx
-                  }
-                })
-
-                console.log("[v0] HD: Forcing to level", maxLevel, 'bitrate:', maxBitrate, 'height:', maxHeight)
-
-                // FORCE to max level
-                hlsRef.current.currentLevel = maxLevel
-                hlsRef.current.loadLevel = maxLevel
-                hlsRef.current.nextLevel = maxLevel
-                hlsRef.current.autoLevelCapping = maxLevel
-
-                // Prevent ABR from changing the level
-                hlsRef.current.autoLevelEnabled = false
-
-                // Continuous enforcement - every 500ms
-                if ((hlsRef.current as any)._hdQualityLock) {
-                  clearInterval((hlsRef.current as any)._hdQualityLock)
-                }
-
-                ; (hlsRef.current as any)._hdQualityLock = setInterval(() => {
-                  if (hlsRef.current && streamingModeRef.current === "high-bitrate") {
-                    // If level changed, force it back to max
-                    if (hlsRef.current.currentLevel !== maxLevel) {
-                      console.log("[v0] HD: ABR tried to lower quality, forcing back to", maxLevel)
-                      hlsRef.current.currentLevel = maxLevel
-                      hlsRef.current.loadLevel = maxLevel
-                    }
-                    hlsRef.current.nextLevel = maxLevel
-                  }
-                }, 500)
-              }
-            }
-
-            loadAudioAndSubtitleTracks()
             const playPromise = video.play()
             if (playPromise !== undefined) {
               playPromise.catch((err) => {
-                console.error("[v0] Failed to autoplay:", err)
                 setIsLoading(false)
               })
             }
           })
 
-          // CRITICAL: Prevent level switches in HD mode
-          hlsRef.current.on(window.Hls.Events.LEVEL_SWITCHING, (event: any) => {
-            if (streamingModeRef.current === "high-bitrate") {
-              const levels = hlsRef.current?.levels || []
-              if (levels.length > 0) {
-                let maxLevel = 0
-                let maxBitrate = 0
-                levels.forEach((level: any, idx: number) => {
-                  if ((level.bitrate || 0) > maxBitrate) {
-                    maxBitrate = level.bitrate || 0
-                    maxLevel = idx
-                  }
-                })
-                // Block the switch if not to max level
-                if (event.level !== maxLevel) {
-                  console.log("[v0] HD: Blocking level switch to", event.level, "forcing to max", maxLevel)
-                  hlsRef.current!.currentLevel = maxLevel
-                }
-              }
-            }
-          })
-
-          hlsRef.current.on(window.Hls.Events.LEVEL_LOADED, () => {
-            if (streamingModeRef.current === "high-bitrate" && hlsRef.current) {
-              const levels = hlsRef.current.levels
-              if (levels && levels.length > 0) {
-                let maxLevel = 0
-                let maxBitrate = 0
-                levels.forEach((level: any, idx: number) => {
-                  if ((level.bitrate || 0) > maxBitrate) {
-                    maxBitrate = level.bitrate || 0
-                    maxLevel = idx
-                  }
-                })
-                // Immediately force max on every level load
-                hlsRef.current.currentLevel = maxLevel
-                hlsRef.current.nextLevel = maxLevel
-              }
-            }
-          })
-
           hlsRef.current.on(window.Hls.Events.ERROR, (event: any, data: any) => {
-            console.error("[v0] HLS.js error:", data)
-
-            if (!data.fatal) {
-              console.log("[v0] Non-fatal HLS error, continuing...")
-              return
-            }
+            if (!data.fatal) return
 
             reportError("fatal", `HLS Error: ${data.details || data.type}`)
 
             switch (data.type) {
               case window.Hls.ErrorTypes.NETWORK_ERROR:
-                console.log("[v0] Network error, attempting recovery, retry:", retryCount)
                 hlsRef.current?.startLoad()
-                // If recovery doesn't work, retry with random 5-15s delay
                 setTimeout(() => {
                   if (connectionStatus !== "connected" && retryCount < 5) {
                     const retryDelay = Math.floor(Math.random() * 10000) + 5000
-                    console.log("[v0] Network recovery failed, retrying in", retryDelay, "ms...")
                     setError(`Network error - Retrying (${retryCount + 1}/5)...`)
                     setTimeout(() => {
                       setRetryCount(prev => prev + 1)
@@ -1098,25 +628,12 @@ export function VideoPlayer({
                 }, 3000)
                 break
               case window.Hls.ErrorTypes.MEDIA_ERROR:
-                console.log("[v0] Media error, attempting recovery, retry:", retryCount)
                 hlsRef.current?.recoverMediaError()
-                setTimeout(() => {
-                  if (connectionStatus !== "connected" && retryCount < 5) {
-                    const retryDelay = Math.floor(Math.random() * 10000) + 5000
-                    console.log("[v0] Media recovery failed, retrying in", retryDelay, "ms...")
-                    setError(`Media error - Retrying (${retryCount + 1}/5)...`)
-                    setTimeout(() => {
-                      setRetryCount(prev => prev + 1)
-                      retryStream()
-                    }, retryDelay)
-                  }
-                }, 3000)
                 break
               default:
                 if (initTimeout) clearTimeout(initTimeout)
                 setConnectionStatus("disconnected")
                 setIsLoading(false)
-                // Auto-retry up to 5 times
                 if (retryCount < 5) {
                   const retryDelay = Math.floor(Math.random() * 10000) + 5000
                   setError(`Stream error - Retrying (${retryCount + 1}/5)...`)
@@ -1131,28 +648,22 @@ export function VideoPlayer({
             }
           })
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          // Safari native HLS support
-          console.log("[v0] Using native HLS support")
           setPlayerType("hls")
           video.src = channel.url
           video.addEventListener("loadedmetadata", () => {
-            console.log("[v0] Native HLS metadata loaded")
             if (initTimeout) clearTimeout(initTimeout)
             setConnectionStatus("connected")
             setIsLoading(false)
             setRetryCount(0)
             video.play().catch((err) => {
-              console.error("[v0] Failed to autoplay:", err)
               setIsLoading(false)
             })
           })
           video.addEventListener("error", (e) => {
-            console.error("[v0] Native HLS error:", e)
             if (initTimeout) clearTimeout(initTimeout)
             setConnectionStatus("disconnected")
             setIsLoading(false)
             reportError("fatal", "Native HLS playback error")
-            // Auto-retry up to 5 times with 5-15s delay
             if (retryCount < 5) {
               const retryDelay = Math.floor(Math.random() * 10000) + 5000
               setError(`HLS error - Retrying (${retryCount + 1}/5)...`)
@@ -1165,27 +676,22 @@ export function VideoPlayer({
             }
           })
         } else {
-          console.error("[v0] HLS not supported")
           setError("HLS streaming not supported in this browser")
           setIsLoading(false)
           reportError("fatal", "HLS not supported in browser")
           return
         }
       } else {
-        console.log("[v0] Using Shaka Player for DASH/MPD stream")
         setPlayerType("shaka")
 
         if (!window.shaka) {
-          console.log("[v0] Loading Shaka Player library")
           const script = document.createElement("script")
           script.src = "https://cdn.jsdelivr.net/npm/shaka-player@4.3.6/dist/shaka-player.compiled.js"
           script.onload = () => {
-            console.log("[v0] Shaka Player loaded, reinitializing")
             if (initTimeout) clearTimeout(initTimeout)
             initializePlayer()
           }
           script.onerror = () => {
-            console.error("[v0] Failed to load Shaka Player")
             setError("Failed to load video player library")
             setIsLoading(false)
             if (initTimeout) clearTimeout(initTimeout)
@@ -1196,56 +702,30 @@ export function VideoPlayer({
         }
 
         if (!window.shaka.Player.isBrowserSupported()) {
-          console.error("[v0] Shaka Player not supported")
           setError("Shaka Player not supported in this browser")
           setIsLoading(false)
           reportError("fatal", "Shaka Player not supported in browser")
           return
         }
 
-        console.log("[v0] Creating Shaka Player instance")
         playerRef.current = new window.shaka.Player(video)
 
         const isOptimized = streamingModeRef.current === "optimized"
         const isHD = streamingModeRef.current === "high-bitrate"
 
-        // HD MODE: Force MAX quality, disable ABR entirely
-        // SD MODE: Conservative bandwidth, let ABR manage
         playerRef.current.configure({
           streaming: {
             bufferBehind: isHD ? 180 : (isOptimized ? 20 : 60),
             bufferingGoal: isHD ? 180 : (isOptimized ? 30 : 90),
             rebufferingGoal: isHD ? 0.5 : (isOptimized ? 8 : 5),
             bufferAhead: isHD ? 180 : (isOptimized ? 20 : 60),
-            stallEnabled: true,
-            stallThreshold: 1,
-            stallSkip: 0.1,
-            jumpLargeGaps: true,
-            smallGapLimit: 1.5,
           },
           abr: {
-            // HD: DISABLE ABR completely - manual track selection only
-            // SD: Enable conservative ABR
             enabled: isHD ? false : true,
-            switchInterval: isOptimized ? 8 : 4,
-            bandwidthUpgradeTarget: isHD ? 1.0 : (isOptimized ? 0.6 : 0.85),
-            bandwidthDowngradeTarget: isHD ? 1.0 : 0.95,
-            defaultBandwidthEstimate: isHD ? 100000000 : (isOptimized ? 500000 : 5000000), // HD: 100Mbps assumed
-            restrictions: isOptimized ? { maxBandwidth: 1500000 } : {}, // SD: 1.5Mbps cap
-          },
-          manifest: {
-            retryParameters: {
-              timeout: isHD ? 60000 : 25000,
-              maxAttempts: isHD ? 10 : 6,
-              baseDelay: 1500,
-              backoffFactor: 2,
-              fuzzFactor: 0.5,
-            },
           },
         })
 
         if (channel.drm?.clearkey) {
-          console.log("[v0] Configuring DRM clearkeys")
           playerRef.current.configure({
             drm: {
               clearKeys: channel.drm.clearkey,
@@ -1254,7 +734,6 @@ export function VideoPlayer({
         }
 
         playerRef.current.addEventListener("error", (event: any) => {
-          console.error("[v0] Shaka Player error:", event.detail)
           setError(`Stream error: ${event.detail.message || "Failed to load stream"}`)
           setConnectionStatus("disconnected")
           setIsLoading(false)
@@ -1262,68 +741,16 @@ export function VideoPlayer({
         })
 
         try {
-          console.log("[v0] Loading stream")
           await playerRef.current.load(channel.url)
-          console.log("[v0] Stream loaded successfully")
           if (initTimeout) clearTimeout(initTimeout)
           setConnectionStatus("connected")
           setIsLoading(false)
           setRetryCount(0)
 
-          // HD MODE: Force absolute max quality for MPD/DRM streams
-          if (streamingModeRef.current === "high-bitrate" && playerRef.current) {
-            const tracks = playerRef.current.getVariantTracks()
-            if (tracks && tracks.length > 0) {
-              // Find highest bandwidth track
-              let maxTrack = tracks[0]
-              let maxBandwidth = 0
-              let maxHeight = 0
-              tracks.forEach((track: any) => {
-                const bw = track.bandwidth || 0
-                const h = track.height || 0
-                if (bw > maxBandwidth || (bw === maxBandwidth && h > maxHeight)) {
-                  maxBandwidth = bw
-                  maxHeight = h
-                  maxTrack = track
-                }
-              })
-
-              console.log("[v0] HD/DRM: Forcing MAX quality track - bandwidth:", maxBandwidth, "height:", maxHeight)
-
-              // Disable ABR and force max track
-              playerRef.current.configure({ abr: { enabled: false } })
-              playerRef.current.selectVariantTrack(maxTrack, true) // true = clear buffer
-
-              // Continuous quality lock every 500ms
-              if ((playerRef.current as any)._hdQualityLock) {
-                clearInterval((playerRef.current as any)._hdQualityLock)
-              }
-
-              ; (playerRef.current as any)._hdQualityLock = setInterval(() => {
-                if (playerRef.current && streamingModeRef.current === "high-bitrate") {
-                  const currentTracks = playerRef.current.getVariantTracks()
-                  const activeTrack = currentTracks.find((t: any) => t.active)
-
-                  // If not on max track, force it back
-                  if (activeTrack && activeTrack.bandwidth < maxBandwidth) {
-                    console.log("[v0] HD/DRM: Quality dropped, forcing back to max")
-                    const newMaxTrack = currentTracks.reduce((max: any, t: any) =>
-                      (t.bandwidth || 0) > (max.bandwidth || 0) ? t : max, currentTracks[0])
-                    playerRef.current.selectVariantTrack(newMaxTrack, false)
-                  }
-                }
-              }, 500)
-            }
-          }
-
-          loadAudioAndSubtitleTracks()
-
           video.play().catch((err) => {
-            console.error("[v0] Failed to autoplay:", err)
             setIsLoading(false)
           })
         } catch (err: any) {
-          console.error("[v0] Failed to load stream:", err)
           setError(`Failed to load stream: ${err.message}`)
           setConnectionStatus("disconnected")
           setIsLoading(false)
@@ -1331,14 +758,11 @@ export function VideoPlayer({
         }
       }
 
-      // Common video event listeners
       video.addEventListener("loadstart", () => {
-        console.log("[v0] Video load started")
         setConnectionStatus("reconnecting")
       })
 
       video.addEventListener("canplay", () => {
-        console.log("[v0] Video can play")
         if (initTimeout) clearTimeout(initTimeout)
         setConnectionStatus("connected")
         setIsLoading(false)
@@ -1346,12 +770,10 @@ export function VideoPlayer({
       })
 
       video.addEventListener("waiting", () => {
-        console.log("[v0] Video waiting/buffering")
         setIsBuffering(true)
       })
 
       video.addEventListener("playing", () => {
-        console.log("[v0] Video playing")
         setIsBuffering(false)
         setConnectionStatus("connected")
         setIsLoading(false)
@@ -1359,34 +781,28 @@ export function VideoPlayer({
       })
 
       video.addEventListener("play", () => {
-        console.log("[v0] Video play event")
         setIsPlaying(true)
       })
 
       video.addEventListener("pause", () => {
-        console.log("[v0] Video pause event")
         setIsPlaying(false)
       })
 
       video.addEventListener("error", (e) => {
-        console.error("[v0] Video element error:", e)
         setError("Video playback error")
         setConnectionStatus("disconnected")
         setIsLoading(false)
         reportError("fatal", "Video element playback error")
       })
     } catch (err: any) {
-      console.error("[v0] Failed to initialize player:", err)
       if (initTimeout) clearTimeout(initTimeout)
       setConnectionStatus("disconnected")
       setIsLoading(false)
       reportError("fatal", `Player initialization failed: ${err.message}`)
 
-      // Auto-retry up to 5 times with 5-15s delay
       if (retryCount < 5) {
         const retryDelay = Math.floor(Math.random() * 10000) + 5000
         setError(`Failed to connect - Retrying (${retryCount + 1}/5)...`)
-        console.log("[v0] Auto-retrying after error in", retryDelay, "ms...")
         setTimeout(() => {
           setRetryCount(prev => prev + 1)
           retryStream()
@@ -1401,14 +817,9 @@ export function VideoPlayer({
     initializePlayer()
   }
 
-  // Smart reopen: fully destroy player and reinitialize with new settings
   const smartReopenChannel = useCallback(() => {
-    console.log("[v0] Smart reopen: destroying and reinitializing player, mode:", streamingModeRef.current)
-
-    // Remember if UI was hidden to restore it after reopen
     wasUIHiddenRef.current = isUIHidden
 
-    // Clean up current player completely
     if (playerRef.current) {
       playerRef.current.destroy().catch(() => { })
       playerRef.current = null
@@ -1422,17 +833,14 @@ export function VideoPlayer({
       videoRef.current.load()
     }
 
-    // Reset states
     setIsLoading(true)
     setError(null)
     setIsBuffering(false)
     setConnectionStatus("reconnecting")
     bufferingSinceRef.current = null
 
-    // Reinitialize after brief delay
     setTimeout(() => {
       initializePlayer()
-      // Restore UI hidden state after player is ready
       setTimeout(() => {
         if (wasUIHiddenRef.current) {
           setIsUIHidden(true)
@@ -1442,31 +850,24 @@ export function VideoPlayer({
     }, 300)
   }, [channel.id, isUIHidden])
 
-  // Buffering watchdog: if buffering exceeds 10 seconds, close player → go home → reopen
   useEffect(() => {
     if (isBuffering) {
       if (!bufferingSinceRef.current) {
         bufferingSinceRef.current = Date.now()
-        console.log("[v0] Buffering started at:", new Date().toISOString())
       }
 
-      // Check every 2 seconds if we've been buffering too long
       if (!bufferingCheckIntervalRef.current) {
         bufferingCheckIntervalRef.current = setInterval(() => {
           if (bufferingSinceRef.current && isBuffering) {
             const bufferingDuration = Date.now() - bufferingSinceRef.current
-            console.log("[v0] Buffering duration:", bufferingDuration, "ms")
 
-            if (bufferingDuration >= 10000) { // 10 seconds
-              console.log("[v0] Buffering exceeded 10s, closing player and reopening via home")
+            if (bufferingDuration >= 10000) {
               if (bufferingCheckIntervalRef.current) {
                 clearInterval(bufferingCheckIntervalRef.current)
                 bufferingCheckIntervalRef.current = null
               }
               bufferingSinceRef.current = null
-              // Save UI hidden state to restore after reopen
               wasUIHiddenRef.current = isUIHidden
-              // Use parent's close → reopen cycle (goes back to home UI first)
               if (onBitrateModeChange) {
                 onBitrateModeChange(streamingModeRef.current)
               } else {
@@ -1477,7 +878,6 @@ export function VideoPlayer({
         }, 2000)
       }
     } else {
-      // Not buffering anymore, reset
       bufferingSinceRef.current = null
       if (bufferingCheckIntervalRef.current) {
         clearInterval(bufferingCheckIntervalRef.current)
@@ -1525,17 +925,14 @@ export function VideoPlayer({
 
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture()
-        console.log("[v0] Exited Picture-in-Picture")
       } else {
         await videoRef.current.requestPictureInPicture()
-        console.log("[v0] Entered Picture-in-Picture")
       }
     } catch (error) {
       console.error("[v0] PiP error:", error)
     }
   }
 
-  // Keyboard shortcuts integration
   useKeyboardShortcuts({
     onPlayPause: togglePlayPause,
     onMute: toggleMute,
@@ -1563,66 +960,24 @@ export function VideoPlayer({
     },
   })
 
-  const switchChannel = (direction: "prev" | "next") => {
-    const newIndex =
-      direction === "next"
-        ? (currentChannelIndex + 1) % availableChannels.length
-        : (currentChannelIndex - 1 + availableChannels.length) % availableChannels.length
-
-    onChannelChange(availableChannels[newIndex].id)
-  }
-
-  const selectChannel = (channelId: string) => {
-    onChannelChange(channelId)
-    setShowChannelList(false)
-  }
-
-  const getConnectionColor = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "text-green-500"
-      case "disconnected":
-        return "text-destructive"
-      case "reconnecting":
-        return "text-yellow-500"
-      default:
-        return "text-white/50"
-    }
-  }
-
-  const getConnectionIcon = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return <Signal className="h-4 w-4" />
-      case "disconnected":
-        return <AlertTriangle className="h-4 w-4" />
-      case "reconnecting":
-        return <RotateCcw className="h-4 w-4 animate-spin" />
-      default:
-        return <Signal className="h-4 w-4" />
-    }
-  }
-
   const saveCurrentPosition = useCallback(() => {
     if (videoRef.current && onPositionUpdate && !isLiveStream(channel)) {
       const currentTime = videoRef.current.currentTime
       if (currentTime > 0 && Math.abs(currentTime - lastSavedPosition) > 5) {
         onPositionUpdate(channel.id, currentTime)
         setLastSavedPosition(currentTime)
-        console.log(`[v0] Saved position for ${channel.name}: ${currentTime}s`)
       }
     }
   }, [channel, onPositionUpdate, lastSavedPosition])
 
   useEffect(() => {
     if (!isLiveStream(channel)) {
-      positionSaveIntervalRef.current = setInterval(saveCurrentPosition, 10000) // Save every 10 seconds
+      positionSaveIntervalRef.current = setInterval(saveCurrentPosition, 10000)
 
       return () => {
         if (positionSaveIntervalRef.current) {
           clearInterval(positionSaveIntervalRef.current)
         }
-        // Save position one final time when component unmounts
         saveCurrentPosition()
       }
     }
@@ -1635,7 +990,6 @@ export function VideoPlayer({
         if (savedPosition > 0) {
           videoRef.current.currentTime = savedPosition
           setLastSavedPosition(savedPosition)
-          console.log(`[v0] Restored position for ${channel.name}: ${savedPosition}s`)
         }
       } catch (error) {
         console.error("[v0] Failed to restore video position:", error)
@@ -1661,29 +1015,23 @@ export function VideoPlayer({
   }, [channel, restoreSavedPosition])
 
   useEffect(() => {
-    console.log("[v0] Channel changed, initializing player")
-
-    // Use a flag to prevent race conditions and ensure cleanup
     let isActive = true
     let initTimeoutId: NodeJS.Timeout | null = null
 
     const setupPlayer = async () => {
       if (!isActive) return
 
-      // Add a safety timeout to detect stuck initialization
       initTimeoutId = setTimeout(() => {
         if (isActive) {
-          console.log("[v0] setupPlayer timeout - forcing error state")
           setError("Player initialization timed out")
           setIsLoading(false)
           setConnectionStatus("disconnected")
         }
-      }, 20000) // 20 second overall timeout
+      }, 20000)
 
       try {
         await initializePlayer()
       } catch (err) {
-        console.error("[v0] setupPlayer error:", err)
         if (isActive) {
           setError("Failed to initialize player")
           setIsLoading(false)
@@ -1710,33 +1058,22 @@ export function VideoPlayer({
       )
     }, 1000)
 
-    const epgUpdateInterval = setInterval(() => {
-      console.log("[v0] Video player requesting EPG update...")
-      // Trigger a re-render to get fresh EPG data from parent
-      setCurrentTime((prev) => prev) // Force re-render
-    }, 60000)
-
     const heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     return () => {
-      console.log("[v0] Channel cleanup triggered")
       isActive = false
 
       if (initTimeoutId) clearTimeout(initTimeoutId)
 
-      // Clean up players immediately on channel change
       if (playerRef.current) {
-        console.log("[v0] Cleaning up Shaka player on channel change")
         playerRef.current.destroy().catch(console.error)
         playerRef.current = null
       }
       if (hlsRef.current) {
-        console.log("[v0] Cleaning up HLS player on channel change")
         hlsRef.current.destroy()
         hlsRef.current = null
       }
 
-      // Stop video
       if (videoRef.current) {
         videoRef.current.pause()
         videoRef.current.src = ""
@@ -1746,82 +1083,31 @@ export function VideoPlayer({
         clearTimeout(controlsTimeoutRef.current)
       }
       clearInterval(timeInterval)
-      clearInterval(epgUpdateInterval)
       clearInterval(heartbeatInterval)
 
       endViewerSession()
     }
   }, [channel])
 
-  // Load moving text announcements for this channel
-  useEffect(() => {
-    const loadMovingTextAnnouncements = async () => {
-      try {
-        const supabase = createClient()
-        const { data } = await supabase
-          .from("moving_text_announcements")
-          .select("*")
-          .eq("is_active", true)
-
-        if (data) {
-          // Filter announcements that apply to this channel
-          const relevantAnnouncements = data.filter((ann: any) => {
-            if (ann.target === "all") return true
-            if (ann.target === "single" || ann.target === "multiple") {
-              return ann.channel_ids?.includes(channel.id)
-            }
-            return false
-          })
-          setMovingTextAnnouncements(relevantAnnouncements)
-        }
-      } catch (error) {
-        console.error("[v0] Failed to load moving text announcements:", error)
-      }
-    }
-
-    loadMovingTextAnnouncements()
-
-    // Set up realtime subscription
-    const supabase = createClient()
-    const subscription = supabase
-      .channel("moving-text-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "moving_text_announcements" }, () => {
-        loadMovingTextAnnouncements()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(subscription)
-    }
-  }, [channel.id])
-
   useEffect(() => {
     return () => {
-      console.log("[v0] VideoPlayer component unmounting, cleaning up...")
-
-      // Stop and clean up video element
       if (videoRef.current) {
         const video = videoRef.current
         video.pause()
         video.src = ""
         video.load()
-        console.log("[v0] Video element cleaned up")
       }
 
-      // Clean up players
       if (playerRef.current) {
-        console.log("[v0] Destroying Shaka player on unmount")
         playerRef.current.destroy().catch(console.error)
         playerRef.current = null
       }
 
       if (hlsRef.current) {
-        console.log("[v0] Destroying HLS player on unmount")
         hlsRef.current.destroy()
         hlsRef.current = null
       }
 
-      // Clear all timeouts
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
       }
@@ -1831,17 +1117,15 @@ export function VideoPlayer({
       if (positionSaveIntervalRef.current) {
         clearInterval(positionSaveIntervalRef.current)
       }
-
-      console.log("[v0] VideoPlayer cleanup complete")
     }
-  }, []) // Empty dependency array means this runs only on unmount
+  }, [])
 
   useEffect(() => {
     if (isMobile && isPortrait) {
       setShowPortraitWarning(true)
       const timer = setTimeout(() => {
         setShowPortraitWarning(false)
-      }, 5000) // Show for 5 seconds
+      }, 5000)
 
       return () => clearTimeout(timer)
     } else {
@@ -1861,24 +1145,15 @@ export function VideoPlayer({
     }
   }, [])
 
-  const updateAspectRatioSettings = (force: boolean, mode: "16:9" | "4:3" | "original") => {
-    setForceAspectRatio(force)
-    setAspectRatioMode(mode)
-    localStorage.setItem("pambanlo_force_aspect_ratio", force.toString())
-    localStorage.setItem("pambanlo_aspect_ratio_mode", mode)
-  }
-
   const getVideoStyle = () => {
     if (!forceAspectRatio) {
-      return "object-contain" // Original behavior
+      return "object-contain"
     }
-
     return "object-fill"
   }
 
   const getContainerAspectRatio = () => {
     if (embedded) {
-      // In embedded (list) mode, fill parent completely
       return "w-full h-full"
     }
     if (!forceAspectRatio || aspectRatioMode === "original") {
@@ -1895,7 +1170,6 @@ export function VideoPlayer({
     }
   }
 
-  // Handle OSD channel search cleanly with debounce outside of state setter
   useEffect(() => {
     if (!osdInput) return;
 
@@ -1905,7 +1179,7 @@ export function VideoPlayer({
       if (target && target.id !== channel.id) {
         onChannelChange(target.id);
       }
-      setOsdInput(""); // Clear immediately after action
+      setOsdInput("");
     }, 1500);
 
     return () => clearTimeout(timeoutId);
@@ -1913,29 +1187,22 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (isMobile) {
-      // Mobile devices don't need keyboard shortcuts
       return
     }
 
     const handleKeyPress = (event: KeyboardEvent) => {
-      // Prevent default for navigation keys
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Space"].includes(event.key)) {
         event.preventDefault()
       }
 
       switch (event.key) {
-        case "i":
-        case "I":
-          setShowEPGOverlay(!showEPGOverlay)
-          break
         case "Escape":
         case "Backspace":
-          setShowEPGOverlay(false)
           setShowChannelList(false)
+          setShowSettings(false)
           break
         case "Enter":
         case " ":
-          // Toggle play/pause
           if (videoRef.current) {
             if (videoRef.current.paused) {
               videoRef.current.play()
@@ -1944,25 +1211,15 @@ export function VideoPlayer({
             }
           }
           break
-        case "ArrowUp":
-          setShowChannelList(true)
-          break
-        case "ArrowDown":
-          setShowChannelList(false)
-          break
         case "m":
         case "M":
-          // Toggle mute
           if (videoRef.current) {
             videoRef.current.muted = !videoRef.current.muted
             setIsMuted(videoRef.current.muted)
           }
           break
         default:
-          // Number keys 0-9: satellite TV style OSD channel switching
           if (/^[0-9]$/.test(event.key)) {
-            console.log("[v0] OSD number key pressed:", event.key)
-            // Properly update state without side effects inside the setter
             setOsdInput(prev => prev + event.key)
           }
           break
@@ -1971,7 +1228,7 @@ export function VideoPlayer({
 
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [showEPGOverlay, showChannelList, isMobile])
+  }, [showChannelList, isMobile])
 
   if (showTechnicalDifficulties && streamStatus) {
     return (
@@ -2008,7 +1265,7 @@ export function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className={`${embedded ? 'absolute inset-0' : 'fixed inset-0 z-50'} bg-black flex flex-col`}
+      className={`${embedded ? 'absolute inset-0' : 'fixed inset-0 z-50'} bg-black flex flex-col font-sans`}
       onMouseMove={isTraditionalMode ? undefined : () => { showControlsTemporarily(); if (isUIHidden) flashShowUIButton() }}
       onTouchStart={(e) => { handleTouchStart(e); if (isUIHidden) flashShowUIButton() }}
       onTouchMove={handleTouchMove}
@@ -2069,29 +1326,6 @@ export function VideoPlayer({
         </div>
       )}
 
-      {isTraditionalMode && (
-        <div
-          className={`${embedded ? 'absolute' : 'fixed'} top-4 right-4 z-[99998] bg-black/30 text-white p-3 rounded-lg shadow-xl border border-white/20 transition-all duration-300 ${showChannelInfo ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
-            }`}
-          onMouseEnter={onChannelInfoHover}
-        >
-          <div className="flex items-center space-x-3">
-            <img
-              src={channel.logo || "/placeholder.svg?height=32&width=32&text=TV"}
-              alt={channel.name}
-              className="h-8 w-8 rounded object-cover"
-            />
-            <div className="text-white">
-              <div className="text-sm font-medium">{channel.name}</div>
-              <div className="text-xs text-white/50">
-                Channel {currentChannelIndex + 1} • {channel.category}
-                {channel.isHD && " • HD"}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Show UI button - visible on activity when UI is hidden, auto-hides after 3s */}
       {isUIHidden && showUIButtonVisible && (
         <button
@@ -2107,53 +1341,15 @@ export function VideoPlayer({
         </button>
       )}
 
-      {/* NEW MINIMAL TOP BAR */}
-      {!isTraditionalMode && !isUIHidden && (
+      {/* SETTINGS PANEL overlaying the STB Interface */}
+      {showSettings && !isUIHidden && (
         <div
-          className={`absolute top-0 left-0 right-0 z-20 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-            }`}
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
-        >
-          <div className="flex items-center justify-between p-3">
-            {/* Left: Close + Channel Name */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              >
-                <X className="w-5 h-5 text-white" />
-              </button>
-              <div className="flex flex-col">
-                <span className="text-white font-semibold text-sm truncate max-w-[180px]">{channel.name}</span>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-white" : connectionStatus === "reconnecting" ? "bg-white/50 animate-pulse" : "bg-white/30"}`}></div>
-                  <span className="text-white/50 text-xs">{streamingMode === "optimized" ? "SD" : "HD"}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Settings */}
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-              style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-            >
-              <Settings className="w-5 h-5 text-white" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* NEW MINIMAL SETTINGS PANEL */}
-      {showSettings && (
-        <div
-          className="absolute top-16 right-3 z-30 bg-black/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 w-72"
+          className="absolute bottom-[180px] left-6 z-50 bg-[#111] border border-white/10 rounded-2xl p-4 w-72 shadow-2xl"
           style={{ pointerEvents: "auto" }}
         >
           {/* Quality Mode - Main Focus */}
           <div className="mb-4">
-            <p className="text-white/40 text-[10px] uppercase tracking-wider mb-3 font-medium">Quality</p>
+            <p className="text-white/40 text-[10px] uppercase tracking-wider mb-3 font-bold">Quality</p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
@@ -2162,7 +1358,6 @@ export function VideoPlayer({
                     streamingModeRef.current = "high-bitrate"
                     setStreamingMode("high-bitrate")
                     setShowSettings(false)
-                    // Trigger parent close → reopen cycle (goes back to home then reopens)
                     if (onBitrateModeChange) {
                       onBitrateModeChange("high-bitrate")
                     } else {
@@ -2170,7 +1365,7 @@ export function VideoPlayer({
                     }
                   }
                 }}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${streamingMode === "high-bitrate"
+                className={`py-3 px-4 rounded-xl text-sm font-bold transition-all ${streamingMode === "high-bitrate"
                   ? "bg-white text-black"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
                   }`}
@@ -2187,7 +1382,6 @@ export function VideoPlayer({
                     streamingModeRef.current = "optimized"
                     setStreamingMode("optimized")
                     setShowSettings(false)
-                    // Trigger parent close → reopen cycle (goes back to home then reopens)
                     if (onBitrateModeChange) {
                       onBitrateModeChange("optimized")
                     } else {
@@ -2195,7 +1389,7 @@ export function VideoPlayer({
                     }
                   }
                 }}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all ${streamingMode === "optimized"
+                className={`py-3 px-4 rounded-xl text-sm font-bold transition-all ${streamingMode === "optimized"
                   ? "bg-white text-black"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
                   }`}
@@ -2210,7 +1404,6 @@ export function VideoPlayer({
 
           {/* Quick Actions */}
           <div className="space-y-2">
-            {/* Hide UI */}
             <button
               onClick={() => { setIsUIHidden(true); setShowSettings(false); setTimeout(() => setShowUIButtonVisible(false), 100) }}
               className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
@@ -2218,14 +1411,12 @@ export function VideoPlayer({
               <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
               </svg>
-              <span className="text-white/80 text-sm">Hide Controls</span>
+              <span className="text-white/80 text-sm font-bold">Hide Controls</span>
             </button>
 
-            {/* Refresh */}
             <button
               onClick={() => {
                 setShowSettings(false)
-                // Properly destroy and reinitialize
                 if (hlsRef.current) {
                   hlsRef.current.destroy()
                   hlsRef.current = null
@@ -2246,7 +1437,7 @@ export function VideoPlayer({
               className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
             >
               <RotateCcw className="w-5 h-5 text-white/60" />
-              <span className="text-white/80 text-sm">Restart Stream</span>
+              <span className="text-white/80 text-sm font-bold">Restart Stream</span>
             </button>
           </div>
         </div>
@@ -2279,227 +1470,32 @@ export function VideoPlayer({
           </div>
         </div>
 
-        {/* Moving Text Ticker Overlay — fixed to bottom of player, dark bar, scrolling text */}
-        {movingTextAnnouncements.length > 0 && !error && (
-          <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
-            {movingTextAnnouncements.filter(a => a.is_active !== false).map((announcement, index) => (
-              <div
-                key={announcement.id || index}
-                className="w-full overflow-hidden"
-                style={{
-                  backgroundColor: "rgba(0,0,0,0.82)",
-                  borderTop: "1px solid rgba(255,255,255,0.08)",
-                  fontFamily: announcement.font || "Segoe UI, sans-serif",
-                  padding: "8px 0",
-                }}
-              >
-                {announcement.display_mode === "scrolling" ? (
-                  <div
-                    className="whitespace-nowrap text-white font-medium"
-                    style={{
-                      fontSize: "15px",
-                      lineHeight: "1.4",
-                      animation: `${announcement.scroll_direction === "right" ? "tickerScrollRight" : "tickerScrollLeft"} ${Math.max(10, 80 / (announcement.scroll_speed || 20))}s linear infinite`,
-                      display: "inline-block",
-                      paddingLeft: "100%",
-                    }}
-                  >
-                    {announcement.message}
-                  </div>
-                ) : (
-                  <div
-                    className="text-center text-white font-medium"
-                    style={{ fontSize: "15px", lineHeight: "1.4", padding: "0 16px" }}
-                  >
-                    {announcement.message}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Moving Text Animation Styles */}
-        <style jsx>{`
-          @keyframes tickerScrollLeft {
-            0%   { transform: translateX(0); }
-            100% { transform: translateX(-200%); }
-          }
-          @keyframes tickerScrollRight {
-            0%   { transform: translateX(-200%); }
-            100% { transform: translateX(0); }
-          }
-        `}</style>
-
-        {showEPGOverlay && !isLoading && !error && (
-          <div
-            className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-6"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowEPGOverlay(false)
-              }
-            }}
-          >
-            <div className="max-w-4xl mx-auto">
-              <div className="flex justify-between items-center mb-2">
-                {isMobile && (
-                  <button
-                    onClick={() => setShowEPGOverlay(!showEPGOverlay)}
-                    className="bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium touch-manipulation min-h-[48px] min-w-[48px] flex items-center justify-center"
-                    style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                  >
-                    Info
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowEPGOverlay(false)}
-                  className={`text-white/70 hover:text-white transition-colors touch-manipulation ${isMobile ? "min-h-[48px] min-w-[48px] flex items-center justify-center" : ""
-                    }`}
-                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
-                >
-                  <X className={`${isMobile ? "h-6 w-6" : "h-5 w-5"}`} />
-                </button>
-              </div>
-
-              {/* Channel Info Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-white text-black px-2.5 py-1 rounded text-sm font-bold">
-                    {String(currentChannelIndex + 1).padStart(3, "0")}
-                  </div>
-                  <div className="text-white">
-                    <h2 className="text-lg font-semibold">{channel.name}</h2>
-                    <div className="flex items-center gap-2 text-sm text-white/60">
-                      <span>{channel.category}</span>
-                      {channel.isHD && <span>• HD</span>}
-                      <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                        <span>LIVE</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Program Schedule */}
-              <div className="space-y-2">
-                {getCurrentProgram() ? (
-                  <div className="bg-white/10 text-white p-3 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-xs text-white/50 mb-1">NOW</div>
-                        <div className="font-medium">{getCurrentProgram().title}</div>
-                        {getCurrentProgram().desc && (
-                          <div className="text-sm text-white/60 mt-1">{getCurrentProgram().desc}</div>
-                        )}
-                        <div className="text-xs text-white/50 mt-1">
-                          {getCurrentProgram().start && getCurrentProgram().stop ? (
-                            <>
-                              {formatTime(getCurrentProgram().start)} - {formatTime(getCurrentProgram().stop)}
-                            </>
-                          ) : (
-                            "Live"
-                          )}
-                        </div>
-                      </div>
-                      {getCurrentProgram().rating && (
-                        <div className="bg-white/10 px-2 py-1 rounded text-xs">
-                          {getCurrentProgram().rating}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white/10 text-white p-3 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-xs text-white/50 mb-1">NOW</div>
-                        <div className="font-medium">{channel.name}</div>
-                        <div className="text-sm text-white/60 mt-1">Live broadcast</div>
-                      </div>
-                      <div className="bg-white/10 px-2 py-1 rounded text-xs">LIVE</div>
-                    </div>
-                  </div>
-                )}
-
-                {getNextProgram() ? (
-                  <div className="bg-gray-800/80 text-white p-3 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-sm opacity-90">UP NEXT</div>
-                        <div className="font-bold">{getNextProgram().title}</div>
-                        {getNextProgram().desc && (
-                          <div className="text-sm opacity-75 mt-1">{getNextProgram().desc}</div>
-                        )}
-                        <div className="text-sm opacity-90 mt-1">
-                          {getNextProgram().start && getNextProgram().stop ? (
-                            <>
-                              {formatTime(getNextProgram().start)} - {formatTime(getNextProgram().stop)}
-                            </>
-                          ) : (
-                            "Coming up next"
-                          )}
-                        </div>
-                      </div>
-                      {getNextProgram().rating && (
-                        <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">{getNextProgram().rating}</div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-800/80 text-white p-3 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-sm opacity-90">UP NEXT</div>
-                        <div className="font-bold">No Information Available.</div>
-                        <div className="text-sm opacity-75 mt-1">No Programme Available</div>
-                        <div className="text-sm opacity-90 mt-1">Invalid Time - Invalid Time</div>
-                      </div>
-                      <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">LIVE</div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-4 text-center">
-                  <div className="text-xs text-gray-400">
-                    {isMobile ? (
-                      <>Tap "Info" to toggle program details • Tap "×" to close</>
-                    ) : (
-                      <>Press 'I' to toggle program info • Press 'ESC' to close</>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {isLoading && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black animate-in fade-in duration-300">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 animate-in fade-in duration-300">
             <div className="text-center">
               <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-white/80 text-sm">{channel.name}</p>
+              <p className="text-white/80 text-sm font-bold">{channel.name}</p>
             </div>
           </div>
         )}
 
         {!isTraditionalMode && error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black animate-in fade-in duration-300">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 animate-in fade-in duration-300 z-50">
             <div className="max-w-sm mx-4 text-center">
               <AlertTriangle className="h-12 w-12 text-white/60 mx-auto mb-4" />
-              <h3 className="text-white font-medium text-lg mb-2">Stream Unavailable</h3>
+              <h3 className="text-white font-bold text-lg mb-2">Stream Unavailable</h3>
               <p className="text-white/50 text-sm mb-6">{error}</p>
               <div className="space-y-2">
                 <button
                   onClick={retryStream}
-                  className="w-full py-3 px-4 bg-white text-black rounded-xl font-medium transition-colors hover:bg-white/90 active:bg-white/80 touch-manipulation"
+                  className="w-full py-3 px-4 bg-white text-black rounded-xl font-bold transition-colors hover:bg-white/90 active:bg-white/80 touch-manipulation"
                   style={{ pointerEvents: "auto", touchAction: "manipulation" }}
                 >
                   Retry
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-full py-3 px-4 bg-white/10 text-white rounded-xl font-medium transition-colors hover:bg-white/20 active:bg-white/10 touch-manipulation"
+                  className="w-full py-3 px-4 bg-white/10 text-white rounded-xl font-bold transition-colors hover:bg-white/20 active:bg-white/10 touch-manipulation"
                   style={{ pointerEvents: "auto", touchAction: "manipulation" }}
                 >
                   Back
@@ -2510,115 +1506,131 @@ export function VideoPlayer({
         )}
       </div>
 
-      {/* NEW MINIMAL BOTTOM BAR */}
+      {/* SATELLITE TV EPG BOTTOM BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-20 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-            }`}
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
+          className={`absolute bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-sm border-t border-[#333] text-white p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.5rem)' }}
         >
-          <div className="p-3 flex items-center justify-between">
-            {/* Left: Play/Pause + Volume */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={togglePlayPause}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              >
-                {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white ml-0.5" />}
-              </button>
-              <button
-                onClick={toggleMute}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              >
-                {isMuted ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
-              </button>
-            </div>
+          {/* Top Row: Channel Info & Time */}
+          <div className="flex justify-between items-center mb-8">
+            {/* Left side: Channel details and icons */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-2xl font-black tracking-wider w-12 text-center">
+                {String(currentChannelIndex + 1).padStart(3, '0')}
+              </span>
 
-            {/* Center: Channel Navigation (desktop only) */}
-            {!isMobile && (
-              <div className="flex items-center gap-2">
+              <div className="relative h-10 w-16 bg-white/5 rounded-md flex items-center justify-center overflow-hidden border border-white/10">
+                <img
+                  src={channel.logo || "/placeholder.svg?height=40&width=64"}
+                  alt={channel.name}
+                  className="h-full w-full object-contain p-1"
+                />
+              </div>
+
+              <span className="text-2xl font-bold tracking-tight ml-2 truncate max-w-[200px] md:max-w-none">
+                {channel.name.toUpperCase()}
+              </span>
+
+              <span className="border border-white/40 text-[10px] font-black px-1.5 py-0.5 rounded bg-white/10 ml-2">
+                {channel.isHD ? 'HD' : 'SD'}
+              </span>
+
+              {/* Action Icons */}
+              <div className="flex items-center gap-1 ml-4" style={{ pointerEvents: "auto" }}>
                 <button
-                  onClick={() => switchChannel("prev")}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors touch-manipulation"
-                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="p-2.5 hover:bg-white/10 rounded-full transition-colors active:scale-95"
                 >
-                  <SkipBack className="w-4 h-4 text-white/70" />
+                  <Settings className="w-5 h-5 text-white" />
                 </button>
-                <span className="text-white/60 text-xs px-2">{currentChannelIndex + 1}/{availableChannels.length}</span>
+                {!isMobile && (
+                  <button
+                    onClick={togglePictureInPicture}
+                    className="p-2.5 hover:bg-white/10 rounded-full transition-colors active:scale-95"
+                  >
+                    <Monitor className="w-5 h-5 text-white" />
+                  </button>
+                )}
+                {/* Play/Pause fallback inside STB interface */}
                 <button
-                  onClick={() => switchChannel("next")}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors touch-manipulation"
-                  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+                  onClick={togglePlayPause}
+                  className="p-2.5 hover:bg-white/10 rounded-full transition-colors active:scale-95 md:hidden"
                 >
-                  <SkipForward className="w-4 h-4 text-white/70" />
+                  {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white" />}
                 </button>
               </div>
-            )}
+            </div>
 
-            {/* Right: Fullscreen + PiP */}
-            <div className="flex items-center gap-2">
-              {!isMobile && (
-                <button
-                  onClick={togglePictureInPicture}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-                  style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                  title="Picture-in-Picture"
-                >
-                  <PictureInPicture className="w-5 h-5 text-white" />
-                </button>
-              )}
+            {/* Right side: Live badge, Time, Close */}
+            <div className="flex items-center gap-5">
+              <span className="bg-[#2a2a2a] text-white/90 text-[11px] font-black px-3 py-1 rounded-full border border-[#444] tracking-widest hidden sm:block">
+                LIVE
+              </span>
+              <span className="text-xl md:text-2xl font-bold tracking-tight tabular-nums">
+                {currentTime || "00:00"}
+              </span>
               <button
-                onClick={toggleFullscreen}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors touch-manipulation"
-                style={{ pointerEvents: "auto", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                onClick={onClose}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors ml-2"
+                style={{ pointerEvents: "auto" }}
               >
-                {document.fullscreenElement ? <Minimize className="w-5 h-5 text-white" /> : <Expand className="w-5 h-5 text-white" />}
+                <X className="w-6 h-6 text-white/70 hover:text-white" />
               </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Audio Track Menu - simplified */}
-      {showAudioMenu && audioTracks.length > 1 && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 bg-black/95 backdrop-blur border border-white/10 rounded-xl p-3 min-w-[200px]">
-          <p className="text-white/50 text-xs mb-2">Audio Track</p>
-          {audioTracks.map((track) => (
-            <button
-              key={track.id}
-              onClick={() => { switchAudioTrack(track.id); setShowAudioMenu(false) }}
-              className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors ${currentAudioTrack === track.id ? "bg-white text-black" : "text-white/80 hover:bg-white/10"}`}
-              style={{ pointerEvents: "auto" }}
-            >
-              {track.language || track.label || `Track ${track.id}`}
-            </button>
-          ))}
-        </div>
-      )}
+          {/* Bottom Row: EPG Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-12 relative">
+            {/* NOW */}
+            <div className="relative">
+              <div className="text-[11px] text-white/40 font-black mb-2 tracking-widest uppercase">NOW</div>
+              <div className="font-bold text-sm md:text-base mb-3 truncate pr-4 text-white">
+                {nowProg?.title || "No Information Available"}
+              </div>
+              <div className="flex items-center gap-4">
+                {nowProg?.start ? (
+                  <>
+                    <div className="flex-1 h-1.5 bg-[#222] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-white transition-all duration-1000 ease-linear"
+                        style={{ width: `${calculateProgress(nowProg.start, nowProg.stop)}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-[11px] text-white/50 font-medium whitespace-nowrap">
+                      {formatTime(nowProg.start)} - {formatTime(nowProg.stop)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[11px] text-white/50 font-medium whitespace-nowrap">
+                    --:-- - --:--
+                  </div>
+                )}
+              </div>
+            </div>
 
-      {/* Subtitle Menu - simplified */}
-      {showSubtitleMenu && subtitleTracks.length > 0 && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 bg-black/95 backdrop-blur border border-white/10 rounded-xl p-3 min-w-[200px]">
-          <p className="text-white/50 text-xs mb-2">Subtitles</p>
-          <button
-            onClick={() => { switchSubtitleTrack(-1); setShowSubtitleMenu(false) }}
-            className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors ${currentSubtitleTrack === -1 ? "bg-white text-black" : "text-white/80 hover:bg-white/10"}`}
-            style={{ pointerEvents: "auto" }}
-          >
-            Off
-          </button>
-          {subtitleTracks.map((track) => (
-            <button
-              key={track.id}
-              onClick={() => { switchSubtitleTrack(track.id); setShowSubtitleMenu(false) }}
-              className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors ${currentSubtitleTrack === track.id ? "bg-white text-black" : "text-white/80 hover:bg-white/10"}`}
-              style={{ pointerEvents: "auto" }}
-            >
-              {track.language || track.label || `Subtitle ${track.id}`}
-            </button>
-          ))}
+            {/* NEXT */}
+            <div className="relative md:border-l border-[#222] md:pl-8 hidden sm:block">
+              <div className="text-[11px] text-white/40 font-black mb-2 tracking-widest uppercase">NEXT</div>
+              <div className="font-bold text-sm md:text-base mb-3 truncate pr-4 text-white">
+                {nextProg?.title || "No Information Available"}
+              </div>
+              <div className="text-[11px] text-white/50 font-medium">
+                {nextProg?.start ? formatTime(nextProg.start) : "--:--"}
+              </div>
+            </div>
+
+            {/* LATER */}
+            <div className="relative md:border-l border-[#222] md:pl-8 hidden md:block">
+              <div className="text-[11px] text-white/40 font-black mb-2 tracking-widest uppercase">LATER</div>
+              <div className="font-bold text-sm md:text-base mb-3 truncate pr-4 text-white">
+                {laterProg?.title || "No Information Available"}
+              </div>
+              <div className="text-[11px] text-white/50 font-medium">
+                {laterProg?.start ? formatTime(laterProg.start) : "--:--"}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
