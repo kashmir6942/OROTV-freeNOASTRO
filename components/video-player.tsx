@@ -1537,28 +1537,51 @@ export function VideoPlayer({
               </span>
 
               {/* Action Icons */}
-              <div className="flex items-center gap-1 ml-4" style={{ pointerEvents: "auto" }}>
+              <div className="flex items-center gap-1 sm:gap-1.5 ml-2 sm:ml-4" style={{ pointerEvents: "auto" }}>
+                {/* Restored Media Controls */}
+                {!isMobile && (
+                  <button onClick={() => switchChannel("prev")} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Previous Channel">
+                    <SkipBack className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button onClick={togglePlayPause} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Play/Pause">
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                </button>
+
+                {!isMobile && (
+                  <button onClick={() => switchChannel("next")} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Next Channel">
+                    <SkipForward className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button onClick={toggleMute} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Volume">
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+
+                <button onClick={toggleFullscreen} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white hidden sm:block" title="Fullscreen">
+                  {document.fullscreenElement ? <Minimize className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
+                </button>
+
+                <div className="w-px h-5 bg-white/20 mx-1 hidden sm:block"></div>
+
+                {/* STB Accented Icons (Matching Reference Image) */}
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="p-2.5 hover:bg-white/10 rounded-full transition-colors active:scale-95"
+                  className="p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md"
+                  title="Settings"
                 >
-                  <Settings className="w-5 h-5 text-white" />
+                  <Settings className="w-5 h-5 text-black" />
                 </button>
                 {!isMobile && (
                   <button
                     onClick={togglePictureInPicture}
-                    className="p-2.5 hover:bg-white/10 rounded-full transition-colors active:scale-95"
+                    className="p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md"
+                    title="Picture-in-Picture"
                   >
-                    <Monitor className="w-5 h-5 text-white" />
+                    <PictureInPicture className="w-5 h-5 text-black" />
                   </button>
                 )}
-                {/* Play/Pause fallback inside STB interface */}
-                <button
-                  onClick={togglePlayPause}
-                  className="p-2.5 hover:bg-white/10 rounded-full transition-colors active:scale-95 md:hidden"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white" />}
-                </button>
               </div>
             </div>
 
