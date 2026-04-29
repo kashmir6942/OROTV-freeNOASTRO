@@ -1,4 +1,4 @@
-"use client"
+""use client"
 
 import type React from "react"
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -1174,7 +1174,12 @@ export default function Home() {
         {/* SMART TV TOP BAR */}
         <header className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-2xl border-b border-white/5 h-16 flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center gap-6">
-            <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto opacity-90" />
+            <div className="flex items-center gap-3">
+              <button className="md:hidden p-1 text-white/70 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu className="w-6 h-6" />
+              </button>
+              <img src="/images/light-logo.png" alt="Light TV" className="h-8 md:h-10 w-auto opacity-90" />
+            </div>
             <nav className="hidden md:flex items-center gap-2 border-l border-white/10 pl-6">
               <button
                 onClick={() => { handleHomeNavigation(); setViewMode('grid'); }}
@@ -1228,11 +1233,29 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-[100] bg-[#050505]/95 backdrop-blur-3xl flex flex-col pt-8 px-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-end mb-8">
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-white/10 rounded-full text-white/70 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-6">
+              <button onClick={() => { handleHomeNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Home</button>
+              <button onClick={() => { handleLiveTVNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Live TV</button>
+              <button onClick={() => { setShowChannelGuide(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">TV Guide</button>
+              <button onClick={() => { setShowChannelRequestModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Request Channel</button>
+              <button onClick={() => { setShowRatingModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Rate Us</button>
+            </nav>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row flex-1 pt-16 min-h-0 bg-[#050505]">
           {/* MOBILE LIST LAYOUT */}
           <div className="flex flex-col flex-1 min-h-0 md:hidden">
             <div className="shrink-0 w-full bg-black relative" style={{ aspectRatio: '16/9' }}>
-              {selectedChannel ? (
+              {selectedChannel && isMobile ? (
                 <VideoPlayer
                   channel={selectedChannel}
                   user={null}
@@ -1259,13 +1282,13 @@ export default function Home() {
                   getSavedPosition={getSavedVideoPosition}
                   embedded={true}
                 />
-              ) : (
+              ) : !selectedChannel ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0c] p-6 border-b border-white/5">
                   <Tv className="w-12 h-12 text-white/20 mb-4" />
                   <h1 className="text-xl font-bold text-white mb-2 tracking-wide">Ready to Watch</h1>
                   <p className="text-sm text-white/50 text-center">Select a channel from the guide below</p>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 p-3">
@@ -1417,7 +1440,7 @@ export default function Home() {
 
           {/* Desktop Video Area */}
           <div className="hidden md:flex flex-1 flex-col bg-black min-h-0 relative">
-            {selectedChannel ? (
+            {selectedChannel && !isMobile ? (
               <VideoPlayer
                 channel={selectedChannel}
                 user={null}
@@ -1444,7 +1467,7 @@ export default function Home() {
                 getSavedPosition={getSavedVideoPosition}
                 embedded={true}
               />
-            ) : (
+            ) : !selectedChannel ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#14141a] via-[#050505] to-black z-0">
                 <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]"></div>
                 <div className="z-10 flex flex-col items-center text-center max-w-lg px-8">
@@ -1466,7 +1489,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -1530,7 +1553,10 @@ export default function Home() {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isNavTransparent ? 'bg-gradient-to-b from-black/90 to-transparent pt-4 pb-12' : 'bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/5 py-3'}`}>
         <div className="px-6 md:px-12">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4 md:gap-8">
+              <button className="md:hidden p-1 text-white/70 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu className="w-6 h-6" />
+              </button>
               <img src="/images/light-logo.png" alt="Light TV" className="h-10 md:h-12 w-auto drop-shadow-xl" />
               <nav className="hidden md:flex items-center gap-2">
                 <button
@@ -1607,6 +1633,24 @@ export default function Home() {
               className="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
+        </div>
+      )}
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-[100] bg-[#050505]/95 backdrop-blur-3xl flex flex-col pt-8 px-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex justify-end mb-8">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-white/10 rounded-full text-white/70 hover:text-white">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <nav className="flex flex-col gap-6">
+            <button onClick={() => { handleHomeNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Home</button>
+            <button onClick={() => { handleLiveTVNavigation(); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Live TV</button>
+            <button onClick={() => { setShowChannelGuide(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">TV Guide</button>
+            <button onClick={() => { setShowChannelRequestModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Request Channel</button>
+            <button onClick={() => { setShowRatingModal(true); setIsMobileMenuOpen(false); }} className="text-2xl font-black text-left text-white tracking-widest uppercase border-b border-white/10 pb-4">Rate Us</button>
+          </nav>
         </div>
       )}
 
