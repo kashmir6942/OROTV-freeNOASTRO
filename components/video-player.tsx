@@ -491,9 +491,9 @@ export function VideoPlayer({
         setShowControls(false)
         setShowSettings(false)
       },
-      isMobile ? 6000 : 5000,
+      3000, // Strictly hide after 3 seconds of no activity
     )
-  }, [isTraditionalMode, isMobile])
+  }, [isTraditionalMode])
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
@@ -1207,6 +1207,8 @@ export function VideoPlayer({
     }
 
     const handleKeyPress = (event: KeyboardEvent) => {
+      showControlsTemporarily() // Register keyboard activity
+
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Space"].includes(event.key)) {
         event.preventDefault()
       }
@@ -1285,7 +1287,7 @@ export function VideoPlayer({
       onMouseMove={isTraditionalMode ? undefined : () => { showControlsTemporarily(); if (isUIHidden) flashShowUIButton() }}
       onTouchStart={(e) => { handleTouchStart(e); if (isUIHidden) flashShowUIButton() }}
       onTouchMove={handleTouchMove}
-      onClick={() => { if (isUIHidden) flashShowUIButton() }}
+      onClick={() => { showControlsTemporarily(); if (isUIHidden) flashShowUIButton() }}
       tabIndex={0}
       onFocus={showControlsTemporarily}
       style={{
