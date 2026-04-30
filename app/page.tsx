@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { VideoPlayer } from "@/components/video-player"
 import { allChannels as staticChannels } from "@/data/channels/all-channels"
 import { Button } from "@/components/ui/button"
@@ -175,8 +176,45 @@ const ChannelGuideModal = ({
 }
 
 export default function Home() {
+  const router = useRouter()
   const { theme } = useTheme()
   const { hasAccess, isCheckingAccess, setHasAccess } = useAccessControl()
+
+  // Auth check - redirect to /auth if not authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        router.push('/auth')
+        return
+      }
+
+      // Check for valid token
+      const { data: tokenData } = await supabase
+        .from('user_tokens')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!tokenData) {
+        router.push('/auth')
+        return
+      }
+
+      const expiresAt = new Date(tokenData.expires_at)
+      if (new Date() > expiresAt) {
+        router.push('/auth')
+        return
+      }
+
+      // Redirect to user-specific URL with token
+      router.push(`/users/${tokenData.username}?token=${tokenData.token}`)
+    }
+
+    checkAuth()
+  }, [router])
 
   const [allChannels, setAllChannels] = useState<Channel[]>(staticChannels)
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
