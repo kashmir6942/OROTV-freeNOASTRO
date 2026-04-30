@@ -78,14 +78,24 @@ export default function AuthPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (username.length < 3) {
+      setError('Username must be at least 3 characters')
       setIsLoading(false)
       return
     }
 
-    if (username.length < 3) {
-      setError('Username must be at least 3 characters')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
+      setIsLoading(false)
+      return
+    }
+
+    // Password strength check
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    if (!(hasUpperCase && hasLowerCase && hasNumber)) {
+      setError('Password must contain uppercase, lowercase, and number')
       setIsLoading(false)
       return
     }
@@ -93,46 +103,57 @@ export default function AuthPage() {
     try {
       const supabase = createClient()
       
-      // Create account with email format username@lightiptv.local
-      const email = `${username.toLowerCase()}@lightiptv.local`
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username: username.toLowerCase(),
-            phcorner_user: phcornerUser || null,
-          },
-        },
-      })
+      // Check if username already exists in pending_users
+      const { data: existingPending } = await supabase
+        .from('pending_users')
+        .select('id, status')
+        .eq('username', username.toLowerCase())
+        .single()
 
-      if (signUpError) throw signUpError
-
-      if (data.user) {
-        // Generate token for new user
-        const token = generateToken()
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000)
-
-        const { error: tokenError } = await supabase
-          .from('user_tokens')
-          .insert({
-            user_id: data.user.id,
-            username: username.toLowerCase(),
-            token,
-            expires_at: expiresAt.toISOString(),
-          })
-
-        if (tokenError) throw tokenError
-
-        // Redirect to user page with token
-        router.push(`/users/${username.toLowerCase()}?token=${token}`)
+      if (existingPending) {
+        if (existingPending.status === 'pending') {
+          setError('Registration pending approval. Please wait.')
+        } else if (existingPending.status === 'rejected') {
+          setError('Registration was rejected. Contact admin.')
+        } else if (existingPending.status === 'banned') {
+          setError('This username is banned.')
+        } else {
+          setError('Username already exists.')
+        }
+        setIsLoading(false)
+        return
       }
+
+      // Submit to pending_users for admin approval
+      const { error: pendingError } = await supabase
+        .from('pending_users')
+        .insert({
+          username: username.toLowerCase(),
+          phcorner_user: phcornerUser || null,
+          password_hash: password, // Note: In production, hash this on server side
+          status: 'pending',
+        })
+
+      if (pendingError) {
+        if (pendingError.message.includes('unique') || pendingError.message.includes('duplicate')) {
+          setError('Username already taken')
+        } else {
+          throw pendingError
+        }
+        setIsLoading(false)
+        return
+      }
+
+      // Show success message
+      setError(null)
+      alert('Registration submitted! Please wait for admin approval.')
+      setMode('login')
+      setUsername('')
+      setPassword('')
+      setRetypePassword('')
+      setPhcornerUser('')
     } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('already registered')) {
-        setError('Username already taken')
-      } else {
-        setError(err instanceof Error ? err.message : 'Registration failed')
-      }
+      setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setIsLoading(false)
     }
@@ -151,6 +172,15 @@ export default function AuthPage() {
         }}>
           {/* Logo */}
           <div className="flex flex-col items-center mb-6">
+            <img 
+              src="/images/light-logo.png" 
+              alt="Light IPTV" 
+              className="h-16 w-auto mb-2"
+              onError={(e) => {
+                // Fallback to icon if image fails
+                e.currentTarget.style.display = 'none'
+              }}
+            />
             <div className="flex items-center gap-2 mb-2">
               <Tv className="w-8 h-8 text-cyan-400" />
               <h1 className="text-2xl font-bold text-cyan-400">Light IPTV</h1>
