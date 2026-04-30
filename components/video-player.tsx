@@ -1348,10 +1348,10 @@ export function VideoPlayer({
       {isUIHidden && showUIButtonVisible && (
         <button
           onClick={() => { setIsUIHidden(false); setShowUIButtonVisible(false) }}
-          className="absolute top-4 right-4 z-50 flex items-center gap-1.5 bg-black/80 hover:bg-black text-white text-sm font-medium px-3 py-2 rounded-full border border-white/20 transition-opacity duration-300"
+          className="absolute top-2 sm:top-4 right-2 sm:right-4 z-50 flex items-center gap-1.5 bg-black/80 hover:bg-black text-white text-xs sm:text-sm font-medium px-2 sm:px-3 py-1.5 sm:py-2 rounded-full border border-white/20 transition-opacity duration-300"
           style={{ pointerEvents: "auto", touchAction: "manipulation" }}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
@@ -1362,13 +1362,13 @@ export function VideoPlayer({
       {/* SETTINGS PANEL overlaying the STB Interface */}
       {showSettings && !isUIHidden && (
         <div
-          className="absolute bottom-[180px] left-6 z-50 bg-[#111] border border-white/10 rounded-2xl p-4 w-72 shadow-2xl"
+          className="absolute bottom-[90px] md:bottom-[180px] left-2 md:left-6 z-50 bg-[#111] border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 w-48 sm:w-72 shadow-2xl max-h-[70vh] overflow-y-auto"
           style={{ pointerEvents: "auto" }}
         >
           {/* Quality Mode - Main Focus */}
-          <div className="mb-4">
-            <p className="text-white/40 text-[10px] uppercase tracking-wider mb-3 font-bold">Quality</p>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mb-3 md:mb-4">
+            <p className="text-white/40 text-[9px] md:text-[10px] uppercase tracking-wider mb-2 md:mb-3 font-bold">Quality</p>
+            <div className="grid grid-cols-2 gap-1.5 md:gap-2">
               <button
                 onClick={() => {
                   if (streamingMode !== "high-bitrate") {
@@ -1383,14 +1383,14 @@ export function VideoPlayer({
                     }
                   }
                 }}
-                className={`py-3 px-4 rounded-xl text-sm font-bold transition-all ${streamingMode === "high-bitrate"
+                className={`py-1.5 md:py-3 px-2 md:px-4 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all ${streamingMode === "high-bitrate"
                   ? "bg-white text-black"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
                   }`}
               >
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-lg">HD</span>
-                  <span className="text-[10px] opacity-50">Best Quality</span>
+                <div className="flex flex-col items-center gap-0.5 md:gap-1">
+                  <span className="text-sm md:text-lg">HD</span>
+                  <span className="text-[8px] md:text-[10px] opacity-50">Best Quality</span>
                 </div>
               </button>
               <button
@@ -1407,24 +1407,24 @@ export function VideoPlayer({
                     }
                   }
                 }}
-                className={`py-3 px-4 rounded-xl text-sm font-bold transition-all ${streamingMode === "optimized"
+                className={`py-1.5 md:py-3 px-2 md:px-4 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all ${streamingMode === "optimized"
                   ? "bg-white text-black"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
                   }`}
               >
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-lg">SD</span>
-                  <span className="text-[10px] opacity-50">Save Data</span>
+                <div className="flex flex-col items-center gap-0.5 md:gap-1">
+                  <span className="text-sm md:text-lg">SD</span>
+                  <span className="text-[8px] md:text-[10px] opacity-50">Save Data</span>
                 </div>
               </button>
             </div>
           </div>
 
           {/* UI Transparency Setting */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-white/40 text-[10px] uppercase tracking-wider font-bold">UI Transparency</p>
-              <span className="text-white/70 text-[10px] font-bold">{uiTransparency}%</span>
+          <div className="mb-3 md:mb-4">
+            <div className="flex justify-between items-center mb-1 md:mb-2">
+              <p className="text-white/40 text-[9px] md:text-[10px] uppercase tracking-wider font-bold">UI Transparency</p>
+              <span className="text-white/70 text-[9px] md:text-[10px] font-bold">{uiTransparency}%</span>
             </div>
             <input
               type="range"
@@ -1437,15 +1437,15 @@ export function VideoPlayer({
           </div>
 
           {/* Quick Actions */}
-          <div className="space-y-2">
+          <div className="space-y-1.5 md:space-y-2">
             <button
               onClick={() => { setIsUIHidden(true); setShowSettings(false); setTimeout(() => setShowUIButtonVisible(false), 100) }}
-              className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+              className="w-full flex items-center gap-2 md:gap-3 py-1.5 md:py-2.5 px-2 md:px-3 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
             >
-              <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-4 h-4 md:w-5 md:h-5 text-white/60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
               </svg>
-              <span className="text-white/80 text-sm font-bold">Hide Controls</span>
+              <span className="text-white/80 text-xs md:text-sm font-bold">Hide Controls</span>
             </button>
 
             <button
@@ -1468,10 +1468,10 @@ export function VideoPlayer({
                 setIsBuffering(false)
                 setTimeout(() => initializePlayer(), 200)
               }}
-              className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+              className="w-full flex items-center gap-2 md:gap-3 py-1.5 md:py-2.5 px-2 md:px-3 rounded-lg md:rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
             >
-              <RotateCcw className="w-5 h-5 text-white/60" />
-              <span className="text-white/80 text-sm font-bold">Restart Stream</span>
+              <RotateCcw className="w-4 h-4 md:w-5 md:h-5 text-white/60" />
+              <span className="text-white/80 text-xs md:text-sm font-bold">Restart Stream</span>
             </button>
           </div>
         </div>
@@ -1543,126 +1543,126 @@ export function VideoPlayer({
       {/* SATELLITE TV EPG BOTTOM BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-40 backdrop-blur-sm border-t border-[#333] text-white p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
-          style={{
-            paddingBottom: 'max(env(safe-area-inset-bottom), 1.5rem)',
-            backgroundColor: `rgba(10, 10, 10, ${uiTransparency / 100})`
+          className={`absolute bottom-0 left-0 right-0 z-40 backdrop-blur-sm border-t border-[#333] text-white p-2 sm:p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+          style={{ 
+            paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)',
+            backgroundColor: `rgba(10, 10, 10, ${uiTransparency / 100})` 
           }}
         >
           {/* Top Row: Channel Info & Time */}
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-center mb-1.5 sm:mb-8">
             {/* Left side: Channel details and icons */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-2xl font-black tracking-wider w-12 text-center">
+            <div className="flex items-center gap-1 sm:gap-4 flex-wrap">
+              <span className="text-sm sm:text-2xl font-black tracking-wider w-6 sm:w-12 text-center">
                 {String(currentChannelIndex + 1).padStart(3, '0')}
               </span>
-
-              <div className="relative h-10 w-16 bg-white/5 rounded-md flex items-center justify-center overflow-hidden border border-white/10">
-                <img
-                  src={channel.logo || "/placeholder.svg?height=40&width=64"}
-                  alt={channel.name}
-                  className="h-full w-full object-contain p-1"
+              
+              <div className="relative h-5 w-8 sm:h-10 sm:w-16 bg-white/5 rounded-sm sm:rounded-md flex items-center justify-center overflow-hidden border border-white/10">
+                <img 
+                  src={channel.logo || "/placeholder.svg?height=40&width=64"} 
+                  alt={channel.name} 
+                  className="h-full w-full object-contain p-0.5 sm:p-1" 
                 />
               </div>
 
-              <span className="text-2xl font-bold tracking-tight ml-2 truncate max-w-[200px] md:max-w-none">
+              <span className="text-sm sm:text-2xl font-bold tracking-tight ml-1 sm:ml-2 truncate max-w-[80px] sm:max-w-[200px] md:max-w-none">
                 {channel.name.toUpperCase()}
               </span>
 
-              <span className="border border-white/40 text-[10px] font-black px-1.5 py-0.5 rounded bg-white/10 ml-2">
+              <span className="border border-white/40 text-[8px] sm:text-[10px] font-black px-1 py-0.5 rounded bg-white/10 ml-1 sm:ml-2">
                 {channel.isHD ? 'HD' : 'SD'}
               </span>
 
               {/* Action Icons */}
-              <div className="flex items-center gap-1 sm:gap-1.5 ml-2 sm:ml-4" style={{ pointerEvents: "auto" }}>
+              <div className="flex items-center gap-0.5 sm:gap-1.5 ml-1 sm:ml-4" style={{ pointerEvents: "auto" }}>
                 {/* Restored Media Controls */}
                 {!isMobile && (
-                  <button onClick={() => switchChannel("prev")} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Previous Channel">
-                    <SkipBack className="w-4 h-4" />
+                  <button onClick={() => switchChannel("prev")} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Previous Channel">
+                    <SkipBack className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 )}
-
-                <button onClick={togglePlayPause} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Play/Pause">
-                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                
+                <button onClick={togglePlayPause} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Play/Pause">
+                  {isPlaying ? <Pause className="w-3.5 h-3.5 sm:w-5 sm:h-5" /> : <Play className="w-3.5 h-3.5 sm:w-5 sm:h-5" />}
                 </button>
-
+                
                 {!isMobile && (
-                  <button onClick={() => switchChannel("next")} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Next Channel">
-                    <SkipForward className="w-4 h-4" />
+                  <button onClick={() => switchChannel("next")} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Next Channel">
+                    <SkipForward className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 )}
-
-                <button onClick={toggleMute} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Volume">
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                
+                <button onClick={toggleMute} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white hidden sm:block" title="Volume">
+                  {isMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-5 sm:h-5" /> : <Volume2 className="w-3.5 h-3.5 sm:w-5 sm:h-5" />}
                 </button>
 
-                <button onClick={toggleFullscreen} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white hidden sm:block" title="Fullscreen">
-                  {document.fullscreenElement ? <Minimize className="w-5 h-5" /> : <Expand className="w-5 h-5" />}
+                <button onClick={toggleFullscreen} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white hidden sm:block" title="Fullscreen">
+                  {document.fullscreenElement ? <Minimize className="w-3.5 h-3.5 sm:w-5 sm:h-5" /> : <Expand className="w-3.5 h-3.5 sm:w-5 sm:h-5" />}
                 </button>
 
-                <div className="w-px h-5 bg-white/20 mx-1 hidden sm:block"></div>
+                <div className="w-px h-3 sm:h-5 bg-white/20 mx-0.5 sm:mx-1 hidden sm:block"></div>
 
                 {/* STB Accented Icons (Matching Reference Image) */}
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md"
+                <button 
+                  onClick={() => setShowSettings(!showSettings)} 
+                  className="p-1 sm:p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md ml-0.5 sm:ml-0"
                   title="Settings"
                 >
-                  <Settings className="w-5 h-5 text-black" />
+                  <Settings className="w-3 h-3 sm:w-5 sm:h-5 text-black" />
                 </button>
                 {!isMobile && (
-                  <button
-                    onClick={togglePictureInPicture}
-                    className="p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md"
+                  <button 
+                    onClick={togglePictureInPicture} 
+                    className="p-1 sm:p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md"
                     title="Picture-in-Picture"
                   >
-                    <PictureInPicture className="w-5 h-5 text-black" />
+                    <PictureInPicture className="w-3 h-3 sm:w-5 sm:h-5 text-black" />
                   </button>
                 )}
               </div>
             </div>
 
             {/* Right side: Live badge, Time, Close */}
-            <div className="flex items-center gap-5">
-              <span className="bg-[#2a2a2a] text-white/90 text-[11px] font-black px-3 py-1 rounded-full border border-[#444] tracking-widest hidden sm:block">
+            <div className="flex items-center gap-1 sm:gap-5">
+              <span className="bg-[#2a2a2a] text-white/90 text-[9px] sm:text-[11px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#444] tracking-widest hidden md:block">
                 LIVE
               </span>
-              <span className="text-xl md:text-2xl font-bold tracking-tight tabular-nums">
+              <span className="text-xs sm:text-xl md:text-2xl font-bold tracking-tight tabular-nums">
                 {currentTime || "00:00"}
               </span>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors ml-2"
+              <button 
+                onClick={onClose} 
+                className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors ml-0.5 sm:ml-2"
                 style={{ pointerEvents: "auto" }}
               >
-                <X className="w-6 h-6 text-white/70 hover:text-white" />
+                <X className="w-4 h-4 sm:w-6 sm:h-6 text-white/70 hover:text-white" />
               </button>
             </div>
           </div>
 
           {/* Bottom Row: EPG Columns */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-12 relative">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-6 md:gap-12 relative">
             {/* NOW */}
             <div className="relative">
-              <div className="text-[11px] text-white/40 font-black mb-2 tracking-widest uppercase">NOW</div>
-              <div className="font-bold text-sm md:text-base mb-3 truncate pr-4 text-white">
+              <div className="text-[9px] sm:text-[11px] text-white/40 font-black mb-0.5 sm:mb-2 tracking-widest uppercase">NOW</div>
+              <div className="font-bold text-xs sm:text-sm md:text-base mb-1 sm:mb-3 truncate pr-4 text-white">
                 {nowProg?.title || "No Information Available"}
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 {nowProg?.start ? (
                   <>
-                    <div className="flex-1 h-1.5 bg-[#222] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white transition-all duration-1000 ease-linear"
+                    <div className="flex-1 h-1 sm:h-1.5 bg-[#222] rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-white transition-all duration-1000 ease-linear" 
                         style={{ width: `${calculateProgress(nowProg.start, nowProg.stop)}%` }}
                       ></div>
                     </div>
-                    <div className="text-[11px] text-white/50 font-medium whitespace-nowrap">
+                    <div className="text-[9px] sm:text-[11px] text-white/50 font-medium whitespace-nowrap">
                       {formatTime(nowProg.start)} - {formatTime(nowProg.stop)}
                     </div>
                   </>
                 ) : (
-                  <div className="text-[11px] text-white/50 font-medium whitespace-nowrap">
+                  <div className="text-[9px] sm:text-[11px] text-white/50 font-medium whitespace-nowrap">
                     --:-- - --:--
                   </div>
                 )}
@@ -1671,22 +1671,22 @@ export function VideoPlayer({
 
             {/* NEXT */}
             <div className="relative md:border-l border-[#222] md:pl-8 hidden sm:block">
-              <div className="text-[11px] text-white/40 font-black mb-2 tracking-widest uppercase">NEXT</div>
-              <div className="font-bold text-sm md:text-base mb-3 truncate pr-4 text-white">
+              <div className="text-[9px] sm:text-[11px] text-white/40 font-black mb-0.5 sm:mb-2 tracking-widest uppercase">NEXT</div>
+              <div className="font-bold text-xs sm:text-sm md:text-base mb-1 sm:mb-3 truncate pr-4 text-white">
                 {nextProg?.title || "No Information Available"}
               </div>
-              <div className="text-[11px] text-white/50 font-medium">
+              <div className="text-[9px] sm:text-[11px] text-white/50 font-medium">
                 {nextProg?.start ? formatTime(nextProg.start) : "--:--"}
               </div>
             </div>
 
             {/* LATER */}
             <div className="relative md:border-l border-[#222] md:pl-8 hidden md:block">
-              <div className="text-[11px] text-white/40 font-black mb-2 tracking-widest uppercase">LATER</div>
-              <div className="font-bold text-sm md:text-base mb-3 truncate pr-4 text-white">
+              <div className="text-[9px] sm:text-[11px] text-white/40 font-black mb-0.5 sm:mb-2 tracking-widest uppercase">LATER</div>
+              <div className="font-bold text-xs sm:text-sm md:text-base mb-1 sm:mb-3 truncate pr-4 text-white">
                 {laterProg?.title || "No Information Available"}
               </div>
-              <div className="text-[11px] text-white/50 font-medium">
+              <div className="text-[9px] sm:text-[11px] text-white/50 font-medium">
                 {laterProg?.start ? formatTime(laterProg.start) : "--:--"}
               </div>
             </div>
