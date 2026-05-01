@@ -166,6 +166,37 @@ export function VideoPlayer({
   const [showUIButtonVisible, setShowUIButtonVisible] = useState(true)
   const showUIButtonTimeoutRef = useRef<NodeJS.Timeout>()
 
+  // Check if developer testing mode is active (bypasses L1 security)
+  const isDevTestMode = typeof window !== 'undefined' && (
+    window.location.href.includes('/permanent') ||
+    localStorage.getItem('dev_drm_bypass') === 'true' ||
+    document.cookie.includes('dev_drm_bypass=true')
+  );
+
+  // L1 Security & Anti-DevTools Trap
+  useEffect(() => {
+    // If testing mode is active, do not trap the developer tools
+    if (isDevTestMode) return;
+
+    const blockDevTools = setInterval(() => {
+      const before = new Date().getTime();
+      // This debugger statement halts execution if devtools is open
+      // eslint-disable-next-line no-debugger
+      debugger;
+      const after = new Date().getTime();
+      if (after - before > 100) {
+        // Devtools was detected
+        if (videoRef.current) {
+          videoRef.current.pause();
+          setError("Security Policy: Playback disabled while developer tools are active. Extensions and sniffing are prohibited.");
+          setConnectionStatus("disconnected");
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(blockDevTools);
+  }, [isDevTestMode]);
+
   // Load streaming mode from localStorage
   const [streamingMode, setStreamingMode] = useState<"high-bitrate" | "optimized">(() => {
     if (typeof window !== "undefined") {
@@ -601,9 +632,10 @@ export function VideoPlayer({
           } : {
             enableWorker: true,
             lowLatencyMode: false,
-            startLevel: -1,
+            // HLS FIX: Allow natural buffering without forcing destructive quality switches
             autoStartLoad: true,
-            autoLevelCapping: -1,
+            // Only cap at max, but do not force start level negatively
+            capLevelToPlayerSize: false,
           }
 
           hlsRef.current = new window.Hls(hlsConfig)
@@ -616,6 +648,25 @@ export function VideoPlayer({
             setConnectionStatus("connected")
             setIsLoading(false)
             setRetryCount(0)
+
+            // Safely set HD mode to max level on load without setInterval buffer clearing
+            if (streamingModeRef.current === "high-bitrate" && hlsRef.current) {
+              const levels = hlsRef.current.levels
+              if (levels && levels.length > 0) {
+                let maxLevel = 0
+                let maxBitrate = 0
+                levels.forEach((level: any, idx: number) => {
+                  if ((level.bitrate || 0) > maxBitrate) {
+                    maxBitrate = level.bitrate || 0
+                    maxLevel = idx
+                  }
+                })
+                // Safe HD locking without buffer wipe
+                hlsRef.current.autoLevelCapping = maxLevel
+                hlsRef.current.nextLevel = maxLevel
+              }
+            }
+
             const playPromise = video.play()
             if (playPromise !== undefined) {
               playPromise.catch((err) => {
@@ -741,16 +792,26 @@ export function VideoPlayer({
           },
         })
 
+        // L1 DRM SECURITY CONFIGURATION with Developer Testing Bypass
+        const drmConfig: any = {
+          advanced: {
+            'com.widevine.alpha': {
+              // If dev testing is active, fallback to software decryption, else enforce Hardware L1
+              videoRobustness: isDevTestMode ? 'SW_SECURE_CRYPTO' : 'HW_SECURE_ALL', 
+              audioRobustness: 'SW_SECURE_CRYPTO'
+            }
+          }
+        };
+
         if (channel.drm?.clearkey) {
-          playerRef.current.configure({
-            drm: {
-              clearKeys: channel.drm.clearkey,
-            },
-          })
+          drmConfig.clearKeys = channel.drm.clearkey;
         }
 
+        playerRef.current.configure({ drm: drmConfig });
+
         playerRef.current.addEventListener("error", (event: any) => {
-          setError(`Stream error: ${event.detail.message || "Failed to load stream"}`)
+          // HW_SECURE_ALL Failure gracefully falls back to error
+          setError(`Stream error: ${event.detail.message || "Failed to load stream (DRM L1 Required)"}`)
           setConnectionStatus("disconnected")
           setIsLoading(false)
           reportError("fatal", `Shaka Player Error: ${event.detail.message || "Unknown error"}`)
@@ -762,6 +823,17 @@ export function VideoPlayer({
           setConnectionStatus("connected")
           setIsLoading(false)
           setRetryCount(0)
+          
+          // Safe HD mode without buffer flushing
+          if (streamingModeRef.current === "high-bitrate" && playerRef.current) {
+            const tracks = playerRef.current.getVariantTracks()
+            if (tracks && tracks.length > 0) {
+              const maxTrack = tracks.reduce((max: any, t: any) => 
+                (t.bandwidth || 0) > (max.bandwidth || 0) ? t : max, tracks[0])
+              playerRef.current.configure({ abr: { enabled: false } })
+              playerRef.current.selectVariantTrack(maxTrack, false) // false = no buffer clear
+            }
+          }
 
           video.play().catch((err) => {
             setIsLoading(false)
@@ -1189,6 +1261,16 @@ export function VideoPlayer({
   useEffect(() => {
     if (!osdInput) return;
 
+    // Check for developer test mode activation
+    if (osdInput === "2013") {
+      document.cookie = "dev_drm_bypass=true; path=/; max-age=31536000";
+      localStorage.setItem("dev_drm_bypass", "true");
+      setOsdInput("");
+      // Reload to apply the new testing parameters immediately
+      window.location.reload();
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       const num = parseInt(osdInput, 10);
       const target = availableChannels.find((c) => (c as any).channelNumber === num);
@@ -1288,6 +1370,7 @@ export function VideoPlayer({
       onTouchStart={(e) => { handleTouchStart(e); if (isUIHidden) flashShowUIButton() }}
       onTouchMove={handleTouchMove}
       onClick={() => { showControlsTemporarily(); if (isUIHidden) flashShowUIButton() }}
+      onContextMenu={(e) => { if (!isDevTestMode) e.preventDefault(); }} // Allow context menu in dev testing
       tabIndex={0}
       onFocus={showControlsTemporarily}
       style={{
@@ -1335,6 +1418,7 @@ export function VideoPlayer({
               style={{ fontSize: '1.35rem', fontFamily: 'system-ui, sans-serif', textShadow: '0 1px 6px rgba(0,0,0,0.4)', maxWidth: 260 }}
             >
               {(() => {
+                if (osdInput === "2013") return "DEV MODE UNLOCKED";
                 const num = parseInt(osdInput, 10);
                 const match = availableChannels.find(c => (c as any).channelNumber === num);
                 return match ? match.name : '—';
@@ -1515,7 +1599,7 @@ export function VideoPlayer({
 
         {!isTraditionalMode && error && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 animate-in fade-in duration-300 z-50">
-            <div className="max-w-sm mx-4 text-center">
+            <div className="max-w-sm mx-4 text-center p-6 bg-black/90 border border-white/10 rounded-2xl">
               <AlertTriangle className="h-12 w-12 text-white/60 mx-auto mb-4" />
               <h3 className="text-white font-bold text-lg mb-2">Stream Unavailable</h3>
               <p className="text-white/50 text-sm mb-6">{error}</p>
