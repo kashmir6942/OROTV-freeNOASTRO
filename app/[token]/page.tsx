@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { validateTokenClient } from "@/lib/token-manager"
-import Home from "@/components/home-experience"
+import Home from "../page"
 import { useViewerTracking } from "@/hooks/use-viewer-tracking"
 
 export default function TokenPage() {
