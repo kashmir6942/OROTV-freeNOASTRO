@@ -106,7 +106,7 @@ export default function RegisterPage() {
         <div className="text-center space-y-4">
           <img src="/images/what-brand-logo.png" alt="OROTV" className="h-24 w-auto mx-auto" />
           <div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">OROTV</h1>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Light - Owned By PHC SVWG</h1>
             <p className="font-mono text-muted-foreground text-xs">CREATE A NEW ACCOUNT</p>
           </div>
         </div>
