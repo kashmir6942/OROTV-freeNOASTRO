@@ -274,22 +274,28 @@ export default function AdminPanel() {
         .order("created_at", { ascending: false })
 
       // Load pending users for approval
-      const { data: pendingUsersData } = await supabase
+      const { data: pendingUsersData, error: pendingError } = await supabase
         .from("pending_users")
         .select("*")
         .order("created_at", { ascending: false })
 
+      console.log("[v0] Loaded pending users:", pendingUsersData?.length, "Error:", pendingError)
+
       // Load banned users
-      const { data: bannedUsersData } = await supabase
+      const { data: bannedUsersData, error: bannedError } = await supabase
         .from("banned_users")
         .select("*")
         .order("banned_at", { ascending: false })
 
+      console.log("[v0] Loaded banned users:", bannedUsersData?.length, "Error:", bannedError)
+
       // Load user accounts
-      const { data: userAccountsData } = await supabase
+      const { data: userAccountsData, error: accountsError } = await supabase
         .from("user_accounts")
         .select("*")
         .order("created_at", { ascending: false })
+
+      console.log("[v0] Loaded user accounts:", userAccountsData?.length, "Error:", accountsError)
 
       setPendingUsers(pendingUsersData || [])
       setBannedUsers(bannedUsersData || [])
@@ -357,6 +363,7 @@ export default function AdminPanel() {
 
   // User approval functions
   const approveUser = async (pendingUserId: string) => {
+    console.log("[v0] approveUser called with id:", pendingUserId)
     const supabase = createClient()
     try {
       // Get pending user data
@@ -366,6 +373,7 @@ export default function AdminPanel() {
         .eq("id", pendingUserId)
         .single()
 
+      console.log("[v0] Pending user data:", pendingUser, "Error:", fetchError)
       if (fetchError || !pendingUser) throw fetchError
 
       // Create user account
@@ -374,27 +382,33 @@ export default function AdminPanel() {
         .insert({
           username: pendingUser.username,
           password_hash: pendingUser.password_hash,
+          phcorner_user: pendingUser.phcorner_user,
           is_active: true,
         })
 
+      console.log("[v0] Insert user_account error:", insertError)
       if (insertError) throw insertError
 
       // Update pending user status
-      await supabase
+      const { error: updateError } = await supabase
         .from("pending_users")
         .update({ status: 'approved', updated_at: new Date().toISOString() })
         .eq("id", pendingUserId)
 
+      console.log("[v0] Update pending_users error:", updateError)
+      alert(`User ${pendingUser.username} approved successfully!`)
       await loadData()
     } catch (error) {
       console.error("[v0] Error approving user:", error)
+      alert(`Error approving user: ${error}`)
     }
   }
 
   const rejectUser = async (pendingUserId: string, reason: string) => {
+    console.log("[v0] rejectUser called with id:", pendingUserId, "reason:", reason)
     const supabase = createClient()
     try {
-      await supabase
+      const { error } = await supabase
         .from("pending_users")
         .update({ 
           status: 'rejected', 
@@ -403,9 +417,13 @@ export default function AdminPanel() {
         })
         .eq("id", pendingUserId)
 
+      console.log("[v0] Reject error:", error)
+      if (error) throw error
+      alert(`User rejected successfully!`)
       await loadData()
     } catch (error) {
       console.error("[v0] Error rejecting user:", error)
+      alert(`Error rejecting user: ${error}`)
     }
   }
 
@@ -1117,23 +1135,33 @@ export default function AdminPanel() {
                     )
                     .map((user) => (
                     <div key={user.id} className="bg-white/5 p-4 rounded-lg border border-white/10">
-                      <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="space-y-1">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-medium">{user.username}</span>
+                            <span className="text-white font-bold text-lg">{user.username}</span>
                             <Badge className="bg-yellow-500/20 text-yellow-400">Pending</Badge>
                           </div>
-                          {user.phcorner_user && (
-                            <p className="text-sm text-gray-400">PHCorner: {user.phcorner_user}</p>
-                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-500">PHCorner User:</span>
+                              <span className="text-white ml-2">{user.phcorner_user || 'N/A'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Password:</span>
+                              <span className="text-white ml-2 font-mono">{user.password_hash}</span>
+                            </div>
+                          </div>
                           <p className="text-xs text-gray-500">
                             Registered: {new Date(user.created_at).toLocaleString()}
                           </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <Button
                             size="sm"
-                            onClick={() => approveUser(user.id)}
+                            onClick={() => {
+                              console.log("[v0] Approve button clicked for user:", user.id)
+                              approveUser(user.id)
+                            }}
                             className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
                           >
                             <CheckCircle className="w-4 h-4 mr-1" />
@@ -1142,7 +1170,7 @@ export default function AdminPanel() {
                           <Button
                             size="sm"
                             onClick={() => {
-                              setSelectedPendingUser(user.id)
+                              console.log("[v0] Reject button clicked for user:", user.id)
                               const reason = prompt("Enter rejection reason:")
                               if (reason) {
                                 rejectUser(user.id, reason)
