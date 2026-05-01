@@ -257,6 +257,9 @@ export default function Home() {
     "https://epgshare01.online/epgshare01/epg_ripper_US1.xml.gz",
     "https://www.open-epg.com/files/philippines1.xml.gz",
     "https://www.open-epg.com/files/philippines2.xml.gz",
+    "https://raw.githubusercontent.com/AqFad2811/epg/main/astro.xml",
+    "https://epg.pw/xmltv/epg_PH.xml",
+    "https://raw.githubusercontent.com/AqFad2811/epg/main/singapore.xml",
   ]
 
   // Live Clock Update
