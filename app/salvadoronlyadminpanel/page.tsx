@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
 import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil, Check } from 'lucide-react'
 import { allChannels } from "@/data/channels/all-channels"
+import { AdminUserApprovals } from "@/components/admin-user-approvals"
 
 interface TokenData {
   id: string
@@ -730,6 +731,7 @@ export default function AdminPanel() {
         <div className="flex flex-wrap gap-2 mb-8 bg-white/5 p-1 rounded-lg">
           {[
             { id: "overview", label: "Overview", icon: BarChart3 },
+            { id: "user-approvals", label: "User Approvals", icon: UserCheck },
             { id: "generate", label: "Generate Tokens", icon: Plus },
             { id: "manage", label: "Manage Tokens", icon: Settings },
             { id: "analytics", label: "Analytics", icon: Users },
@@ -897,6 +899,8 @@ export default function AdminPanel() {
             </Card>
           </>
         )}
+
+        {activeTab === "user-approvals" && <AdminUserApprovals />}
 
         {activeTab === "generate" && (
           <Card className="bg-white/10 backdrop-blur-lg border-white/20 mb-8">
