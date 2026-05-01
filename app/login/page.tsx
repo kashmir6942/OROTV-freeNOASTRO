@@ -51,111 +51,110 @@ export default function LoginPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{
-        background: 'linear-gradient(135deg, #0a1628 0%, #1a2744 50%, #0d1a2d 100%)',
-      }}
-    >
-      <div className="w-full max-w-md space-y-6">
-        {/* Back Button */}
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      {/* Header */}
+      <div className="border-b border-gray-800 px-6 py-4">
         <button
           onClick={() => router.push('/')}
-          className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors"
+          className="flex items-center gap-2 text-gray-400 hover:text-white"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          Back
         </button>
+      </div>
 
-        {/* Logo and Title */}
-        <div className="text-center space-y-4">
-          <img 
-            src="/images/light-logo.png" 
-            alt="Light TV" 
-            className="h-20 w-auto mx-auto"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
-          />
-          <div className="flex items-center justify-center gap-2">
-            <Tv className="w-8 h-8 text-cyan-400" />
-            <h1 className="text-3xl font-bold text-cyan-400">Light TV</h1>
+      {/* Main Content */}
+      <div className="flex-1 flex items-center justify-center px-6 py-20">
+        <div className="max-w-md w-full space-y-8">
+          
+          {/* Logo and Title */}
+          <div className="space-y-4 text-center">
+            <div className="mb-6">
+              <img 
+                src="/logo.png" 
+                alt="Light TV" 
+                className="h-16 w-auto mx-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            </div>
+            <h1 className="text-4xl font-bold">Light TV</h1>
+            <p className="text-gray-400">Login to your account</p>
           </div>
-          <p className="text-gray-400">Welcome back! Sign in to continue.</p>
-        </div>
 
-        {/* Login Form */}
-        <div 
-          className="p-8 rounded-2xl"
-          style={{
-            background: 'rgba(20, 35, 60, 0.6)',
-            border: '1px solid rgba(100, 150, 200, 0.15)',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <form onSubmit={handleLogin} className="space-y-5">
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-6">
+            {error && (
+              <Alert className="bg-red-500/10 border-red-500/20">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <AlertDescription className="text-red-500">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Username */}
             <div className="space-y-2">
-              <label className="text-sm text-gray-400">Username</label>
+              <label className="text-sm font-medium">Username</label>
               <Input
                 type="text"
                 placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="bg-slate-900/50 border-slate-700 text-white placeholder:text-gray-500 h-12"
-                required
-                disabled={loading}
+                className="bg-white/5 border-gray-800 text-white placeholder-gray-500"
               />
             </div>
 
+            {/* Password */}
             <div className="space-y-2">
-              <label className="text-sm text-gray-400">Password</label>
+              <label className="text-sm font-medium">Password</label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-slate-900/50 border-slate-700 text-white placeholder:text-gray-500 h-12 pr-12"
-                  required
-                  disabled={loading}
+                  className="bg-white/5 border-gray-800 text-white placeholder-gray-500 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                  disabled={loading}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
 
-            {error && (
-              <Alert className="border-red-500/50 bg-red-500/10">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-400">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full h-12 text-lg font-semibold"
-              style={{
-                background: 'linear-gradient(90deg, #06b6d4 0%, #22d3ee 50%, #67e8f9 100%)',
-              }}
+            {/* Submit Button */}
+            <Button
+              type="submit"
               disabled={loading}
+              className="w-full bg-white text-black hover:bg-gray-200 font-bold py-2"
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? "Logging in..." : "Login"}
             </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-700 text-center">
+          {/* Register Link */}
+          <div className="text-center">
             <p className="text-gray-400">
-              Don&apos;t have an account?{" "}
-              <a href="/register" className="text-cyan-400 hover:underline font-semibold">
+              Don&apos;t have an account?{' '}
+              <button
+                onClick={() => router.push('/register')}
+                className="text-white hover:underline font-medium"
+              >
                 Register here
-              </a>
+              </button>
             </p>
+          </div>
+
+          {/* Terms Link */}
+          <div className="text-center text-sm text-gray-500">
+            <a href="/terms" className="hover:text-white">Terms of Service</a>
           </div>
         </div>
       </div>
