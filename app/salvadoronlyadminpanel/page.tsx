@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil, Check } from 'lucide-react'
+import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil, Check, Ban } from 'lucide-react'
 import { allChannels } from "@/data/channels/all-channels"
 
 interface TokenData {
@@ -55,6 +55,12 @@ export default function AdminPanel() {
   const [tokens, setTokens] = useState<TokenData[]>([])
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [phcornerUsernames, setPhcornerUsernames] = useState<PHCornerUsername[]>([])
+  const [pendingUsers, setPendingUsers] = useState<any[]>([])
+  const [bannedUsers, setBannedUsers] = useState<any[]>([])
+  const [userAccounts, setUserAccounts] = useState<any[]>([])
+  const [userSearchQuery, setUserSearchQuery] = useState("")
+  const [rejectionReason, setRejectionReason] = useState("")
+  const [selectedPendingUser, setSelectedPendingUser] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [dbError, setDbError] = useState<string | null>(null)
   const [stats, setStats] = useState({
@@ -267,6 +273,27 @@ export default function AdminPanel() {
         .select("*")
         .order("created_at", { ascending: false })
 
+      // Load pending users for approval
+      const { data: pendingUsersData } = await supabase
+        .from("pending_users")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      // Load banned users
+      const { data: bannedUsersData } = await supabase
+        .from("banned_users")
+        .select("*")
+        .order("banned_at", { ascending: false })
+
+      // Load user accounts
+      const { data: userAccountsData } = await supabase
+        .from("user_accounts")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      setPendingUsers(pendingUsersData || [])
+      setBannedUsers(bannedUsersData || [])
+      setUserAccounts(userAccountsData || [])
       setSessions(sessionsData || [])
       setDbChannels(channelsData || [])
       setCeasedChannels(ceasedData || [])
@@ -325,6 +352,128 @@ export default function AdminPanel() {
     } catch (error) {
       console.error("Error fetching tokens:", error)
       setDbError("Failed to load tokens. Check database connection.")
+    }
+  }
+
+  // User approval functions
+  const approveUser = async (pendingUserId: string) => {
+    const supabase = createClient()
+    try {
+      // Get pending user data
+      const { data: pendingUser, error: fetchError } = await supabase
+        .from("pending_users")
+        .select("*")
+        .eq("id", pendingUserId)
+        .single()
+
+      if (fetchError || !pendingUser) throw fetchError
+
+      // Create user account
+      const { error: insertError } = await supabase
+        .from("user_accounts")
+        .insert({
+          username: pendingUser.username,
+          password_hash: pendingUser.password_hash,
+          is_active: true,
+        })
+
+      if (insertError) throw insertError
+
+      // Update pending user status
+      await supabase
+        .from("pending_users")
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq("id", pendingUserId)
+
+      await loadData()
+    } catch (error) {
+      console.error("[v0] Error approving user:", error)
+    }
+  }
+
+  const rejectUser = async (pendingUserId: string, reason: string) => {
+    const supabase = createClient()
+    try {
+      await supabase
+        .from("pending_users")
+        .update({ 
+          status: 'rejected', 
+          rejection_reason: reason,
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", pendingUserId)
+
+      await loadData()
+    } catch (error) {
+      console.error("[v0] Error rejecting user:", error)
+    }
+  }
+
+  const banUser = async (userId: string, username: string, reason: string) => {
+    const supabase = createClient()
+    try {
+      // Add to banned_users
+      await supabase
+        .from("banned_users")
+        .insert({
+          user_id: userId,
+          username,
+          reason,
+          banned_by: 'admin',
+        })
+
+      // Deactivate account
+      await supabase
+        .from("user_accounts")
+        .update({ is_active: false })
+        .eq("id", userId)
+
+      // Delete their tokens
+      await supabase
+        .from("user_tokens")
+        .delete()
+        .eq("username", username)
+
+      await loadData()
+    } catch (error) {
+      console.error("[v0] Error banning user:", error)
+    }
+  }
+
+  const unbanUser = async (bannedId: string, username: string) => {
+    const supabase = createClient()
+    try {
+      // Remove from banned_users
+      await supabase
+        .from("banned_users")
+        .delete()
+        .eq("id", bannedId)
+
+      // Reactivate account if exists
+      await supabase
+        .from("user_accounts")
+        .update({ is_active: true })
+        .eq("username", username)
+
+      await loadData()
+    } catch (error) {
+      console.error("[v0] Error unbanning user:", error)
+    }
+  }
+
+  const forceLogoutUser = async (username: string) => {
+    const supabase = createClient()
+    try {
+      // Delete their tokens to force re-login
+      await supabase
+        .from("user_tokens")
+        .delete()
+        .eq("username", username)
+
+      await loadData()
+      alert(`User ${username} has been logged out`)
+    } catch (error) {
+      console.error("[v0] Error forcing logout:", error)
     }
   }
 
@@ -730,6 +879,7 @@ export default function AdminPanel() {
         <div className="flex flex-wrap gap-2 mb-8 bg-white/5 p-1 rounded-lg">
           {[
             { id: "overview", label: "Overview", icon: BarChart3 },
+            { id: "user-approvals", label: "User Approvals", icon: UserCheck },
             { id: "generate", label: "Generate Tokens", icon: Plus },
             { id: "manage", label: "Manage Tokens", icon: Settings },
             { id: "analytics", label: "Analytics", icon: Users },
@@ -896,6 +1046,212 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {activeTab === "user-approvals" && (
+          <div className="space-y-6">
+            {/* Search and Bulk Actions */}
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <UserCheck className="w-5 h-5" />
+                  User Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        placeholder="Search users..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white pl-10"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      const pending = pendingUsers.filter(u => u.status === 'pending')
+                      for (const user of pending) {
+                        await approveUser(user.id)
+                      }
+                    }}
+                    className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Approve All ({pendingUsers.filter(u => u.status === 'pending').length})
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      const reason = prompt("Enter rejection reason for all:")
+                      if (reason) {
+                        const pending = pendingUsers.filter(u => u.status === 'pending')
+                        for (const user of pending) {
+                          await rejectUser(user.id, reason)
+                        }
+                      }
+                    }}
+                    className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Reject All
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pending Users */}
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Pending Approvals ({pendingUsers.filter(u => u.status === 'pending').length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pendingUsers
+                    .filter(u => u.status === 'pending')
+                    .filter(u => 
+                      u.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                      u.phcorner_user?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                    )
+                    .map((user) => (
+                    <div key={user.id} className="bg-white/5 p-4 rounded-lg border border-white/10">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-medium">{user.username}</span>
+                            <Badge className="bg-yellow-500/20 text-yellow-400">Pending</Badge>
+                          </div>
+                          {user.phcorner_user && (
+                            <p className="text-sm text-gray-400">PHCorner: {user.phcorner_user}</p>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            Registered: {new Date(user.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => approveUser(user.id)}
+                            className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPendingUser(user.id)
+                              const reason = prompt("Enter rejection reason:")
+                              if (reason) {
+                                rejectUser(user.id, reason)
+                              }
+                            }}
+                            className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingUsers.filter(u => u.status === 'pending').length === 0 && (
+                    <p className="text-gray-400 text-center py-8">No pending approvals</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Users */}
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Active Users ({userAccounts.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {userAccounts
+                    .filter(u => 
+                      u.username?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                    )
+                    .map((user) => (
+                    <div key={user.id} className="bg-white/5 p-4 rounded-lg border border-white/10">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <span className="text-white font-medium">{user.username}</span>
+                          <p className="text-xs text-gray-500">
+                            Created: {new Date(user.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => forceLogoutUser(user.username)}
+                            className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+                          >
+                            Force Logout
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const reason = prompt("Enter ban reason:")
+                              if (reason) {
+                                banUser(user.id, user.username, reason)
+                              }
+                            }}
+                            className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                          >
+                            Ban
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Banned Users */}
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white text-red-400">Banned Users ({bannedUsers.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  {bannedUsers
+                    .filter(u => 
+                      u.username?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                    )
+                    .map((user) => (
+                    <div key={user.id} className="bg-red-500/10 p-4 rounded-lg border border-red-500/20">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <span className="text-white font-medium">{user.username}</span>
+                          {user.reason && (
+                            <p className="text-sm text-red-400">Reason: {user.reason}</p>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            Banned: {new Date(user.banned_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => unbanUser(user.id, user.username)}
+                          className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                        >
+                          Unban
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {bannedUsers.length === 0 && (
+                    <p className="text-gray-400 text-center py-8">No banned users</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {activeTab === "generate" && (
