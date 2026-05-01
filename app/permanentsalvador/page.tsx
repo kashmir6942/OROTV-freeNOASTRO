@@ -1,6 +1,6 @@
 "use client"
 
-import Home from "@/components/home-experience"
+import Home from "../page"
 
 export default function PermanentSalvadorPage() {
   return <Home />
