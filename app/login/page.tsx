@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, AlertTriangle } from "lucide-react"
+import { Eye, EyeOff, AlertTriangle, ShieldCheck } from "lucide-react"
 import { setUserPreference } from "@/lib/user-preferences"
 
 export default function LoginPage() {
@@ -28,7 +27,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       })
 
       const data = await response.json()
@@ -38,16 +37,22 @@ export default function LoginPage() {
         return
       }
 
-      // Store user info
       await setUserPreference("musictv_user", {
         id: data.user.id,
         username: data.user.username,
-        isPermanent: true,
-        expiresAt: "2199-12-31T23:59:59.999Z",
+        token: data.token,
+        expiresAt: data.expiresAt,
       })
 
-      // Redirect to /playlistbe instead of /
-      router.push("/playlistbe")
+      // Persist for client-side guards
+      try {
+        sessionStorage.setItem(
+          "orotv_session",
+          JSON.stringify({ username: data.user.username, token: data.token, expiresAt: data.expiresAt }),
+        )
+      } catch {}
+
+      router.push(data.redirectTo || `/users/${encodeURIComponent(data.user.username)}?token=${data.token}`)
     } catch (err) {
       setError("An error occurred. Please try again.")
       console.error("[v0] Login error:", err)
@@ -59,21 +64,23 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Logo and Title */}
+        {/* Logo + branding */}
         <div className="text-center space-y-4">
-          <img src="/images/what-brand-logo.png" alt="what brand?" className="h-24 w-auto mx-auto" />
+          <img src="/images/what-brand-logo.png" alt="OROTV" className="h-24 w-auto mx-auto" />
           <div>
-            <h1 className="text-3xl font-bold text-foreground">what brand?</h1>
-            <p className="font-mono text-muted-foreground">SIGN IN TO YOUR ACCOUNT</p>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">OROTV</h1>
+            <p className="font-mono text-muted-foreground text-xs">SECURE STREAMING ACCESS</p>
           </div>
         </div>
 
-        {/* Login Form */}
         <Card className="bg-card border border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Login</CardTitle>
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              Sign in
+            </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Enter your username and password to access what brand?
+              Enter your credentials. Sessions rotate every 30 minutes.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -84,9 +91,9 @@ export default function LoginPage() {
                   placeholder="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="bg-background border-border text-foreground placeholder:text-muted-foreground"
                   required
                   disabled={loading}
+                  autoComplete="username"
                 />
               </div>
 
@@ -96,15 +103,17 @@ export default function LoginPage() {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-background border-border text-foreground placeholder:text-muted-foreground pr-10"
+                  className="pr-10"
                   required
                   disabled={loading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
                   disabled={loading}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -124,7 +133,7 @@ export default function LoginPage() {
 
             <div className="mt-6 pt-6 border-t border-border text-center">
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <a href="/register" className="text-primary hover:underline font-semibold">
                   Register here
                 </a>
