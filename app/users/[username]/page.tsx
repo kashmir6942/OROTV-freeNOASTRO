@@ -163,7 +163,7 @@ export default function UserPage() {
         }}>
           <div className="text-red-400 text-xl mb-4">{error || 'Invalid session'}</div>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/auth')}
             className="px-6 py-3 rounded-lg font-medium text-white"
             style={{
               background: 'linear-gradient(90deg, #06b6d4 0%, #22d3ee 50%, #67e8f9 100%)',
