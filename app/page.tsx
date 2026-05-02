@@ -2,8 +2,6 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { VideoPlayer } from "@/components/video-player"
 import { allChannels as staticChannels } from "@/data/channels/all-channels"
 import { Button } from "@/components/ui/button"
@@ -790,57 +788,6 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-zinc-800 border-t-blue-500 rounded-full animate-spin"></div>
           <div className="text-zinc-500 text-sm font-medium">Connecting...</div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show welcome/login page if user doesn't have access
-  if (!hasAccess) {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-        {/* Logo */}
-        <div className="mb-4">
-          <img 
-            src="/images/light-logo.png" 
-            alt="Light" 
-            className="h-16 w-auto"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
-          />
-        </div>
-        
-        {/* Welcome Text */}
-        <p className="text-white text-lg mb-6 text-center font-light italic">
-          Welcome, Please log in, or sign up.
-        </p>
-        
-        {/* White Card with Buttons */}
-        <div className="bg-white rounded-3xl p-8 w-full max-w-xs shadow-lg">
-          <div className="flex flex-col gap-4">
-            {/* Log In Button */}
-            <Link 
-              href="/auth"
-              className="w-full py-4 px-6 bg-gray-400 hover:bg-gray-500 text-black text-2xl font-bold text-center rounded-full transition-colors"
-              style={{
-                textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff',
-              }}
-            >
-              Log in
-            </Link>
-            
-            {/* Sign Up Button */}
-            <Link 
-              href="/auth?mode=register"
-              className="w-full py-4 px-6 bg-gray-400 hover:bg-gray-500 text-black text-2xl font-bold text-center rounded-full transition-colors"
-              style={{
-                textShadow: '1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff',
-              }}
-            >
-              Sign Up
-            </Link>
-          </div>
         </div>
       </div>
     )
