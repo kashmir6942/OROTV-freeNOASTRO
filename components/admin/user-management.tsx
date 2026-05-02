@@ -49,9 +49,16 @@ interface UserAccount {
   last_login_at: string | null
 }
 
+interface UserToken {
+  username: string
+  device_id: string | null
+  expires_at: string
+}
+
 export function UserManagement({ onBack }: { onBack: () => void }) {
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [accounts, setAccounts] = useState<UserAccount[]>([])
+  const [loggedInUsers, setLoggedInUsers] = useState<Record<string, UserToken>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
@@ -73,6 +80,22 @@ export function UserManagement({ onBack }: { onBack: () => void }) {
       if (data.success) {
         setPendingUsers(data.pending || [])
         setAccounts(data.accounts || [])
+      }
+
+      // Fetch logged-in users (those with device_id and valid token)
+      const supabase = createClient()
+      const { data: tokens } = await supabase
+        .from('user_tokens')
+        .select('username, device_id, expires_at')
+        .not('device_id', 'is', null)
+        .gt('expires_at', new Date().toISOString())
+
+      if (tokens) {
+        const loggedInMap: Record<string, UserToken> = {}
+        tokens.forEach(t => {
+          loggedInMap[t.username] = t
+        })
+        setLoggedInUsers(loggedInMap)
       }
     } catch (error) {
       console.error('[v0] Failed to load users:', error)
@@ -380,7 +403,9 @@ export function UserManagement({ onBack }: { onBack: () => void }) {
         ))}
 
         {/* Approved Users */}
-        {filteredAccounts.filter(u => u.is_approved && !u.is_banned).map(user => (
+        {filteredAccounts.filter(u => u.is_approved && !u.is_banned).map(user => {
+          const isLoggedIn = !!loggedInUsers[user.username]
+          return (
           <div key={user.id} className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -390,6 +415,11 @@ export function UserManagement({ onBack }: { onBack: () => void }) {
                   <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
                     APPROVED
                   </span>
+                  {isLoggedIn && (
+                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-medium">
+                      ONLINE
+                    </span>
+                  )}
                 </div>
                 <p className="text-gray-400 text-sm mb-1">
                   <span className="text-cyan-400">PHCorner:</span> {user.phcorner_username || 'N/A'}
@@ -407,6 +437,11 @@ export function UserManagement({ onBack }: { onBack: () => void }) {
                   Registered: {new Date(user.created_at).toLocaleDateString()}
                   {user.last_login_at && ` | Last login: ${new Date(user.last_login_at).toLocaleDateString()}`}
                 </p>
+                {isLoggedIn && (
+                  <p className="text-blue-400 text-xs mt-1">
+                    Device bound (1 device per account)
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 <Button
@@ -418,19 +453,21 @@ export function UserManagement({ onBack }: { onBack: () => void }) {
                   <Ban className="w-4 h-4 mr-1" />
                   Ban
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-yellow-500/30 bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/30"
-                  onClick={() => forceLogout(user.username)}
-                >
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Force Logout
-                </Button>
+                {isLoggedIn && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-yellow-500/30 bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/30"
+                    onClick={() => forceLogout(user.username)}
+                  >
+                    <LogOut className="w-4 h-4 mr-1" />
+                    Force Logout
+                  </Button>
+                )}
               </div>
             </div>
           </div>
-        ))}
+        )})}
 
         {/* Rejected Users */}
         {filteredPending.filter(u => u.status === 'declined' || u.status === 'rejected').map(user => (

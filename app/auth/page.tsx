@@ -116,8 +116,9 @@ function AuthContent() {
         .update({ last_login_at: new Date().toISOString() })
         .eq('id', userAccount.id)
 
-      // Redirect to user page with token
-      router.push(`/users/${username.toLowerCase()}?token=${token}`)
+      // Redirect to user page: /user/phc/username?token=xxx
+      const phcPath = userAccount.phcorner_username || 'phcorner-user'
+      router.push(`/user/phc/${username.toLowerCase()}?token=${token}`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
