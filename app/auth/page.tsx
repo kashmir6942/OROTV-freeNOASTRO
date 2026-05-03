@@ -57,8 +57,8 @@ export default function AuthPage() {
 
         if (tokenError) throw tokenError
 
-        // Redirect to user page with token
-        router.push(`/users/${username.toLowerCase()}?token=${token}`)
+        // Redirect to user page with token (singular /user/{username})
+        router.push(`/user/${username.toLowerCase()}?token=${token}`)
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed')

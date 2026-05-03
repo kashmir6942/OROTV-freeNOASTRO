@@ -19,9 +19,11 @@ import {
   Settings,
   PictureInPicture,
   Signal,
-  Monitor
+  Monitor,
+  Grid2x2
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
+import { SessionTimer } from "@/components/session-timer"
 
 // Mock Supabase client to resolve import error in preview environment
 const createClient = () => ({
@@ -1656,6 +1658,21 @@ export function VideoPlayer({
               <span className="border border-white/40 text-[8px] sm:text-[10px] font-black px-1 py-0.5 rounded bg-white/10 ml-1 sm:ml-2">
                 {channel.isHD ? 'HD' : 'SD'}
               </span>
+
+              {/* Session token countdown (rotates every 30 minutes) */}
+              <SessionTimer className="ml-1 sm:ml-2" />
+
+              {/* Multi-View shortcut */}
+              <a
+                href="/multiview"
+                className="ml-1 sm:ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-200 text-[9px] sm:text-[11px] font-bold tracking-wider transition-colors"
+                title="Multi-View: watch up to 4 channels at once"
+                onClick={(e) => e.stopPropagation()}
+                style={{ pointerEvents: "auto" }}
+              >
+                <Grid2x2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                <span className="hidden sm:inline">Multi</span>
+              </a>
 
               {/* Action Icons */}
               <div className="flex items-center gap-0.5 sm:gap-1.5 ml-1 sm:ml-4" style={{ pointerEvents: "auto" }}>

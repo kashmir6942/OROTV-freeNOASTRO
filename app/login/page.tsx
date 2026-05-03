@@ -54,7 +54,7 @@ export default function LoginPage() {
       }
 
       const target = data.token
-        ? `/users/${encodeURIComponent(data.user.username)}?token=${encodeURIComponent(data.token)}`
+        ? `/user/${encodeURIComponent(data.user.username)}?token=${encodeURIComponent(data.token)}`
         : "/playlistbe"
       router.push(target)
     } catch (err) {
