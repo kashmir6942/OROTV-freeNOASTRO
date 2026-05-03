@@ -4,12 +4,10 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, AlertTriangle } from "lucide-react"
+import { Eye, EyeOff, AlertTriangle, User, Lock, ArrowRight, ExternalLink } from "lucide-react"
 import { setUserPreference } from "@/lib/user-preferences"
+import { getDeviceId } from "@/lib/device-id"
+import { LightLogo } from "@/components/light-logo"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -17,28 +15,31 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+  const [errorDetail, setErrorDetail] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setErrorDetail(null)
     setLoading(true)
 
     try {
+      const deviceId = getDeviceId()
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, deviceId }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
         setError(data.error || "Login failed")
+        if (data.detail) setErrorDetail(data.detail)
         return
       }
 
-      // Store user info
       await setUserPreference("musictv_user", {
         id: data.user.id,
         username: data.user.username,
@@ -46,8 +47,16 @@ export default function LoginPage() {
         expiresAt: "2199-12-31T23:59:59.999Z",
       })
 
-      // Redirect to /playlistbe instead of /
-      router.push("/playlistbe")
+      if (data.token) {
+        try {
+          sessionStorage.setItem("currentToken", data.token)
+        } catch {}
+      }
+
+      const target = data.token
+        ? `/user/${encodeURIComponent(data.user.username)}?token=${encodeURIComponent(data.token)}`
+        : "/playlistbe"
+      router.push(target)
     } catch (err) {
       setError("An error occurred. Please try again.")
       console.error("[v0] Login error:", err)
@@ -57,81 +66,108 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Logo and Title */}
-        <div className="text-center space-y-4">
-          <img src="/images/what-brand-logo.png" alt="what brand?" className="h-24 w-auto mx-auto" />
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">what brand?</h1>
-            <p className="font-mono text-muted-foreground">SIGN IN TO YOUR ACCOUNT</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 25% 25%, rgba(6, 182, 212, 0.08) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(6, 182, 212, 0.05) 0%, transparent 50%)",
+        }}
+      />
 
-        {/* Login Form */}
-        <Card className="bg-card border border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">Login</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Enter your username and password to access what brand?
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Input
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+        <div className="mb-6">
+          <LightLogo size="md" variant="light" />
+        </div>
+        <div className="w-full bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+          <div className="text-center space-y-2 mb-6">
+            <h1 className="text-2xl font-bold text-white">Welcome back</h1>
+            <p className="text-sm text-zinc-400">Sign in to continue to Light TV</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-zinc-200 mb-2 block">Username</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <input
                   type="text"
-                  placeholder="Username"
+                  placeholder="Your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="w-full h-11 pl-10 pr-3 rounded-lg bg-[#1a1a1d] border border-zinc-800/80 text-white placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
                   required
                   disabled={loading}
+                  autoComplete="username"
                 />
               </div>
+            </div>
 
-              <div className="space-y-2 relative">
-                <Input
+            <div>
+              <label className="text-sm font-medium text-zinc-200 mb-2 block">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-background border-border text-foreground placeholder:text-muted-foreground pr-10"
+                  className="w-full h-11 pl-10 pr-10 rounded-lg bg-[#1a1a1d] border border-zinc-800/80 text-white placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
                   required
                   disabled={loading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
                   disabled={loading}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-
-              {error && (
-                <Alert className="border-destructive bg-destructive/10">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                  <AlertDescription className="text-destructive">{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-
-            <div className="mt-6 pt-6 border-t border-border text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <a href="/register" className="text-primary hover:underline font-semibold">
-                  Register here
-                </a>
-              </p>
             </div>
-          </CardContent>
-        </Card>
+
+            {error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 flex gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="text-sm text-red-300 leading-relaxed">
+                  <div className="font-medium">{error}</div>
+                  {errorDetail && <div className="mt-1 text-red-300/80 text-xs">{errorDetail}</div>}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 rounded-lg bg-cyan-400 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              {loading ? "Signing in..." : (<>Sign In <ArrowRight className="h-4 w-4" /></>)}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-zinc-800/80 text-center">
+            <p className="text-sm text-zinc-400">
+              {"Don't have an account? "}
+              <a href="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold">
+                Create one
+              </a>
+            </p>
+          </div>
+
+          <div className="mt-4 text-center">
+            <a
+              href="https://phcorner.org/direct-messages/add?to=PHC-SVWG"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-zinc-500 hover:text-cyan-400 inline-flex items-center gap-1"
+            >
+              Need help? Contact PHC-SVWG <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   )

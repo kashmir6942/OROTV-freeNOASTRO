@@ -1,51 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { validateTokenClient } from '@/lib/token-manager'
+import { useEffect } from 'react'
 import { useDeviceRedirect } from '@/hooks/use-device-redirect'
 import Home from '../page'
 
 export default function PermanentPage() {
-  const [isValidating, setIsValidating] = useState(true)
-  const [isValid, setIsValid] = useState(false)
   useDeviceRedirect('permanent')
 
+  // Mark this session as the permanent token holder so any downstream
+  // checks (favorites, history, etc.) work just like a normal logged-in view.
   useEffect(() => {
-    const validateAccess = async () => {
-      try {
-        const tokenInfo = await validateTokenClient('permanent')
-
-        if (tokenInfo.isValid) {
-          sessionStorage.setItem('currentToken', 'permanent')
-          setIsValid(true)
-        }
-      } catch (error) {
-        console.error('Token validation failed:', error)
-        sessionStorage.setItem('currentToken', 'permanent')
-        setIsValid(true)
-      }
-
-      setIsValidating(false)
+    try {
+      sessionStorage.setItem('currentToken', 'permanent')
+    } catch {
+      // sessionStorage can be unavailable (SSR, privacy mode) — safe to ignore.
     }
-
-    validateAccess()
   }, [])
 
-  if (isValidating) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-foreground text-xl">Validating access...</div>
-      </div>
-    )
-  }
-
-  if (!isValid) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-foreground text-xl">Access Denied</div>
-      </div>
-    )
-  }
-
-  return <Home />
+  // Render channels directly. bypassAuth skips the loading + welcome gates
+  // in <Home /> so /permanent goes straight into the IPTV UI.
+  return <Home bypassAuth />
 }

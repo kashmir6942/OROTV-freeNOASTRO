@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
 import { Users, Clock, Shield, Trash2, AlertTriangle, Plus, Download, RefreshCw, Settings, BarChart3, Copy, CheckCircle, UserCheck, Star, Tv, Upload, Search, X, MessageSquare, Pencil, Check } from 'lucide-react'
 import { allChannels } from "@/data/channels/all-channels"
+import UserManagement from "@/components/admin/user-management"
 
 interface TokenData {
   id: string
@@ -744,6 +745,7 @@ export default function AdminPanel() {
             { id: "channel-manager", label: "Channel Manager", icon: Tv },
             { id: "channel-status", label: "Channel Status", icon: AlertTriangle },
             { id: "moving-text", label: "Moving Text", icon: MessageSquare },
+            { id: "user-approvals", label: "User Approvals", icon: UserCheck },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -2678,6 +2680,13 @@ export default function AdminPanel() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* User Approvals Tab */}
+        {activeTab === "user-approvals" && (
+          <div className="space-y-6">
+            <UserManagement />
           </div>
         )}
 

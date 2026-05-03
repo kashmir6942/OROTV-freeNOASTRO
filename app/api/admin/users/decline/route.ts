@@ -15,11 +15,14 @@ export async function POST(request: NextRequest) {
     const declineReason = (reason && String(reason).trim()) || "Registration declined by administrator"
     const supabase = await createClient()
 
+    // Note: pending_users.status CHECK constraint only allows
+    // 'pending' | 'approved' | 'rejected' | 'banned'. We must write 'rejected'.
     let query = supabase
       .from("pending_users")
       .update({
-        status: "declined",
+        status: "rejected",
         decline_reason: declineReason,
+        rejection_reason: declineReason,
         decided_at: new Date().toISOString(),
       })
       .eq("status", "pending")

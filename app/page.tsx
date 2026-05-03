@@ -19,6 +19,7 @@ import { ReportModal } from "@/components/report-modal"
 import { AnnouncementsSystem } from "@/components/announcements-system"
 import { IOSUnsupportedModal } from "@/components/ios-unsupported-modal"
 import { useAccessControl } from "@/lib/hooks/useAccessControl"
+import { LightLogo } from "@/components/light-logo"
 import { getFavorites, addFavorite, removeFavorite, isFavorite, addToRecentlyWatched, getRecentlyWatched } from "@/lib/favorites"
 import { QuickChannelSwitch } from "@/components/quick-channel-switch"
 import { ChannelStats } from "@/components/channel-stats"
@@ -174,7 +175,7 @@ const ChannelGuideModal = ({
   )
 }
 
-export default function Home() {
+export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = {}) {
   const { theme } = useTheme()
   const { hasAccess, isCheckingAccess, setHasAccess } = useAccessControl()
 
@@ -782,12 +783,75 @@ export default function Home() {
     )
   }
 
-  if (isCheckingAccess) {
+  if (isCheckingAccess && !bypassAuth) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-zinc-800 border-t-blue-500 rounded-full animate-spin"></div>
-          <div className="text-zinc-500 text-sm font-medium">Connecting...</div>
+          <div className="w-8 h-8 border-2 border-zinc-800 border-t-cyan-500 rounded-full animate-spin"></div>
+          <div className="text-zinc-500 text-sm font-medium">Loading...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasAccess && !bypassAuth) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Subtle grid pattern background */}
+        <div
+          className="absolute inset-0 opacity-30 pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 25% 25%, rgba(6, 182, 212, 0.08) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(6, 182, 212, 0.05) 0%, transparent 50%)",
+          }}
+        />
+
+        <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+          {/* Brand wordmark */}
+          <div className="mb-8">
+            <LightLogo size="lg" variant="light" />
+          </div>
+
+          {/* Card */}
+          <div className="w-full bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+            <div className="text-center space-y-2 mb-8">
+              <h1 className="text-2xl md:text-3xl font-bold text-white text-balance leading-tight">
+                Welcome to Light TV
+              </h1>
+              <p className="text-sm text-zinc-400 text-pretty leading-relaxed">
+                Sign in to access premium streaming content
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => { window.location.href = "/login" }}
+                className="w-full h-12 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-semibold text-base transition-colors"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { window.location.href = "/register" }}
+                className="w-full h-12 rounded-xl bg-[#1a1a1d] hover:bg-[#222226] text-white font-semibold text-base border border-zinc-800/80 transition-colors"
+              >
+                Create Account
+              </button>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-zinc-800/80 text-center">
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Registration requires PHCorner verification.{" "}
+                <a
+                  href="https://phcorner.org/direct-messages/add?to=PHC-SVWG"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline font-medium"
+                >
+                  Learn more
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     )

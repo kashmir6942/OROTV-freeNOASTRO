@@ -18,8 +18,10 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     await supabase.from("user_tokens").delete().in("username", usernames)
-    const inserts = usernames.map((u: string) => ({ username: u, consumed: false }))
-    await supabase.from("forced_logouts").insert(inserts)
+    // forced_logouts columns: id, user_id (nullable, FK we don't use), username, forced_at
+    const inserts = usernames.map((u: string) => ({ username: u }))
+    const { error: flError } = await supabase.from("forced_logouts").insert(inserts)
+    if (flError) console.error("[v0] forced_logouts insert error:", flError)
 
     return NextResponse.json({ success: true, signedOut: usernames.length })
   } catch (e) {
