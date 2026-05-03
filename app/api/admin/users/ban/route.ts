@@ -41,9 +41,10 @@ export async function POST(request: NextRequest) {
     // Drop tokens immediately so the next API call kicks them out
     await supabase.from("user_tokens").delete().in("username", usernames)
 
-    // Append to banned_users history
-    const inserts = usernames.map((u: string) => ({ username: u, ban_reason: banReason }))
-    await supabase.from("banned_users").insert(inserts)
+    // Append to banned_users history. Column is `reason`, not `ban_reason`.
+    const inserts = usernames.map((u: string) => ({ username: u, reason: banReason }))
+    const { error: bhError } = await supabase.from("banned_users").insert(inserts)
+    if (bhError) console.error("[v0] banned_users insert error:", bhError)
 
     return NextResponse.json({ success: true, banned: usernames.length })
   } catch (e) {

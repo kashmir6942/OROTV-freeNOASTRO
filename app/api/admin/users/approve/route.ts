@@ -14,8 +14,12 @@ export async function POST(request: NextRequest) {
     const { ids, all } = await request.json()
     const supabase = await createClient()
 
-    let query = supabase.from("pending_users").select("*").eq("status", "pending")
-    if (!all) {
+    // For bulk "all" mode we only target rows that are still pending. For
+    // explicit ids the admin can also re-approve a previously rejected user.
+    let query = supabase.from("pending_users").select("*")
+    if (all) {
+      query = query.eq("status", "pending")
+    } else {
       if (!Array.isArray(ids) || ids.length === 0) {
         return NextResponse.json({ error: "Missing ids" }, { status: 400 })
       }

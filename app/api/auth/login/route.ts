@@ -142,10 +142,11 @@ export async function POST(request: NextRequest) {
     const token = generateToken()
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MS).toISOString()
 
-    // Replace existing token rows for this user so there's only one active session
+    // Replace existing token rows for this user so there's only one active session.
+    // NOTE: user_tokens.user_id has a FK to auth.users which we don't use in
+    // this custom auth flow — we intentionally omit it (column is nullable).
     await supabase.from("user_tokens").delete().eq("username", username)
     const { error: tokenError } = await supabase.from("user_tokens").insert({
-      user_id: user.id,
       username,
       token,
       device_id: deviceId,
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
     })
     if (tokenError) {
       console.error("[v0] login token insert error:", tokenError)
-      return NextResponse.json({ error: "Failed to start session" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to start session", detail: tokenError.message }, { status: 500 })
     }
 
     await supabase
