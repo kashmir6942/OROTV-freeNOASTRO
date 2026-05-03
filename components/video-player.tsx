@@ -22,6 +22,7 @@ import {
   Monitor
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
+import { Screenbug } from "@/components/screenbug"
 
 // Mock Supabase client to resolve import error in preview environment
 const createClient = () => ({
@@ -1563,7 +1564,7 @@ export function VideoPlayer({
 
       <div className={`flex-1 relative overflow-hidden`}>
         <div className={`absolute inset-0 flex items-center justify-center bg-black`}>
-          <div className={`${getContainerAspectRatio()} max-w-full max-h-full`}>
+          <div className={`${getContainerAspectRatio()} max-w-full max-h-full relative`}>
             <video
               ref={videoRef}
               className={`w-full h-full bg-black ${embedded ? 'object-contain' : getVideoStyle()}`}
@@ -1585,6 +1586,8 @@ export function VideoPlayer({
                 appearance: "none",
               }}
             />
+            {/* Channel screenbug — stretches/scales with the video container */}
+            {!isLoading && !error && <Screenbug channel={channel} />}
           </div>
         </div>
 
@@ -1627,21 +1630,21 @@ export function VideoPlayer({
       {/* SATELLITE TV EPG BOTTOM BAR */}
       {!isTraditionalMode && !isUIHidden && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-40 backdrop-blur-sm border-t border-[#333] text-white p-2 sm:p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+          className={`absolute bottom-0 left-0 right-0 z-40 backdrop-blur-sm border-t border-[#333] text-white px-1.5 py-1 sm:p-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
           style={{ 
-            paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)',
+            paddingBottom: 'max(env(safe-area-inset-bottom), 0.25rem)',
             backgroundColor: `rgba(10, 10, 10, ${uiTransparency / 100})` 
           }}
         >
           {/* Top Row: Channel Info & Time */}
-          <div className="flex justify-between items-center mb-1.5 sm:mb-8">
+          <div className="flex justify-between items-center mb-1 sm:mb-8 gap-1">
             {/* Left side: Channel details and icons */}
-            <div className="flex items-center gap-1 sm:gap-4 flex-wrap">
-              <span className="text-sm sm:text-2xl font-black tracking-wider w-6 sm:w-12 text-center">
+            <div className="flex items-center gap-0.5 sm:gap-4 min-w-0 flex-shrink">
+              <span className="text-[11px] sm:text-2xl font-black tracking-wider w-5 sm:w-12 text-center flex-shrink-0">
                 {String(currentChannelIndex + 1).padStart(3, '0')}
               </span>
               
-              <div className="relative h-5 w-8 sm:h-10 sm:w-16 bg-white/5 rounded-sm sm:rounded-md flex items-center justify-center overflow-hidden border border-white/10">
+              <div className="relative h-4 w-6 sm:h-10 sm:w-16 bg-white/5 rounded-sm sm:rounded-md flex items-center justify-center overflow-hidden border border-white/10 flex-shrink-0">
                 <img 
                   src={channel.logo || "/placeholder.svg?height=40&width=64"} 
                   alt={channel.name} 
@@ -1649,16 +1652,16 @@ export function VideoPlayer({
                 />
               </div>
 
-              <span className="text-sm sm:text-2xl font-bold tracking-tight ml-1 sm:ml-2 truncate max-w-[80px] sm:max-w-[200px] md:max-w-none">
+              <span className="text-[11px] sm:text-2xl font-bold tracking-tight ml-0.5 sm:ml-2 truncate max-w-[60px] sm:max-w-[200px] md:max-w-none">
                 {channel.name.toUpperCase()}
               </span>
 
-              <span className="border border-white/40 text-[8px] sm:text-[10px] font-black px-1 py-0.5 rounded bg-white/10 ml-1 sm:ml-2">
+              <span className="border border-white/40 text-[7px] sm:text-[10px] font-black px-0.5 sm:px-1 py-0 sm:py-0.5 rounded bg-white/10 ml-0.5 sm:ml-2 flex-shrink-0">
                 {channel.isHD ? 'HD' : 'SD'}
               </span>
 
               {/* Action Icons */}
-              <div className="flex items-center gap-0.5 sm:gap-1.5 ml-1 sm:ml-4" style={{ pointerEvents: "auto" }}>
+              <div className="flex items-center gap-0 sm:gap-1.5 ml-0.5 sm:ml-4 flex-shrink-0" style={{ pointerEvents: "auto" }}>
                 {/* Restored Media Controls */}
                 {!isMobile && (
                   <button onClick={() => switchChannel("prev")} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Previous Channel">
@@ -1666,8 +1669,8 @@ export function VideoPlayer({
                   </button>
                 )}
                 
-                <button onClick={togglePlayPause} className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Play/Pause">
-                  {isPlaying ? <Pause className="w-3.5 h-3.5 sm:w-5 sm:h-5" /> : <Play className="w-3.5 h-3.5 sm:w-5 sm:h-5" />}
+                <button onClick={togglePlayPause} className="p-0.5 sm:p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white" title="Play/Pause">
+                  {isPlaying ? <Pause className="w-3 h-3 sm:w-5 sm:h-5" /> : <Play className="w-3 h-3 sm:w-5 sm:h-5" />}
                 </button>
                 
                 {!isMobile && (
@@ -1689,7 +1692,7 @@ export function VideoPlayer({
                 {/* STB Accented Icons (Matching Reference Image) */}
                 <button 
                   onClick={() => setShowSettings(!showSettings)} 
-                  className="p-1 sm:p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md ml-0.5 sm:ml-0"
+                  className="p-0.5 sm:p-2 bg-white hover:bg-gray-200 rounded-full transition-colors active:scale-95 shadow-md ml-0.5 sm:ml-0"
                   title="Settings"
                 >
                   <Settings className="w-3 h-3 sm:w-5 sm:h-5 text-black" />
@@ -1707,25 +1710,25 @@ export function VideoPlayer({
             </div>
 
             {/* Right side: Live badge, Time, Close */}
-            <div className="flex items-center gap-1 sm:gap-5">
+            <div className="flex items-center gap-0.5 sm:gap-5 flex-shrink-0">
               <span className="bg-[#2a2a2a] text-white/90 text-[9px] sm:text-[11px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#444] tracking-widest hidden md:block">
                 LIVE
               </span>
-              <span className="text-xs sm:text-xl md:text-2xl font-bold tracking-tight tabular-nums">
+              <span className="text-[10px] sm:text-xl md:text-2xl font-bold tracking-tight tabular-nums">
                 {currentTime || "00:00"}
               </span>
               <button 
                 onClick={onClose} 
-                className="p-1 sm:p-2 hover:bg-white/10 rounded-full transition-colors ml-0.5 sm:ml-2"
+                className="p-0.5 sm:p-2 hover:bg-white/10 rounded-full transition-colors ml-0 sm:ml-2"
                 style={{ pointerEvents: "auto" }}
               >
-                <X className="w-4 h-4 sm:w-6 sm:h-6 text-white/70 hover:text-white" />
+                <X className="w-3.5 h-3.5 sm:w-6 sm:h-6 text-white/70 hover:text-white" />
               </button>
             </div>
           </div>
 
-          {/* Bottom Row: EPG Columns */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-6 md:gap-12 relative">
+          {/* Bottom Row: EPG Columns — hidden on phones to free up viewport */}
+          <div className="hidden sm:grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-6 md:gap-12 relative">
             {/* NOW */}
             <div className="relative">
               <div className="text-[9px] sm:text-[11px] text-white/40 font-black mb-0.5 sm:mb-2 tracking-widest uppercase">NOW</div>
