@@ -1952,11 +1952,20 @@ export function VideoPlayer({
                   alert("Please select at least one channel")
                   return
                 }
-                // Navigate to multiview with params
-                const params = new URLSearchParams()
-                params.set('layout', multiViewLayout)
-                selected.forEach((id, i) => params.set(`ch${i}`, id))
-                window.location.href = `/multiview?${params.toString()}`
+                // Stay on same page - add multivideo param to current URL
+                const url = new URL(window.location.href)
+                url.searchParams.set('multivideo', 'true')
+                url.searchParams.set('layout', multiViewLayout)
+                // Clear previous channel params
+                for (let i = 0; i < 4; i++) url.searchParams.delete(`ch${i}`)
+                selected.forEach((id, i) => url.searchParams.set(`ch${i}`, id))
+                // Use history.pushState to avoid full page reload
+                window.history.pushState({}, '', url.toString())
+                // Trigger a custom event so the page can react
+                window.dispatchEvent(new CustomEvent('lighttv:multivideo', {
+                  detail: { layout: multiViewLayout, channels: selected }
+                }))
+                setShowMultiViewModal(false)
               }}
               className="px-6 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
             >

@@ -5,6 +5,10 @@ import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getDeviceId } from "@/lib/device-id"
 import IPTVContent from "@/components/iptv-content"
+import { allChannels } from "@/data/channels/all-channels"
+import type { Channel } from "@/data/types/channel"
+import { MultiViewPlayer } from "@/components/multi-view-player"
+import { ArrowLeft, X } from "lucide-react"
 
 const ROTATE_BEFORE_MS = 60 * 1000 // rotate ~1 minute before token expires
 
@@ -39,6 +43,11 @@ export default function UserPage() {
   const tokenRef = useRef<string>(initialToken)
   const expiresAtRef = useRef<number>(0)
   const rotatingRef = useRef(false)
+
+  // Multi-view state
+  const [isMultiView, setIsMultiView] = useState(false)
+  const [multiViewLayout, setMultiViewLayout] = useState<'2' | '3' | '4'>('2')
+  const [multiViewChannels, setMultiViewChannels] = useState<(Channel | null)[]>([null, null, null, null])
 
   // Initial token validation against the DB
   const validate = useCallback(async () => {
@@ -89,6 +98,54 @@ export default function UserPage() {
   useEffect(() => {
     validate()
   }, [validate])
+
+  // Check URL for multivideo param on mount and listen for changes
+  useEffect(() => {
+    const checkMultiView = () => {
+      const url = new URL(window.location.href)
+      const mv = url.searchParams.get('multivideo')
+      if (mv === 'true') {
+        const layout = url.searchParams.get('layout') as '2' | '3' | '4' || '2'
+        setMultiViewLayout(layout)
+        const channels: (Channel | null)[] = [null, null, null, null]
+        for (let i = 0; i < 4; i++) {
+          const chId = url.searchParams.get(`ch${i}`)
+          if (chId) {
+            const found = allChannels.find(c => c.id === chId)
+            if (found) channels[i] = found
+          }
+        }
+        setMultiViewChannels(channels)
+        setIsMultiView(true)
+      } else {
+        setIsMultiView(false)
+      }
+    }
+
+    // Check on mount
+    checkMultiView()
+
+    // Listen for custom event from video player
+    const handleMultiVideoEvent = (e: CustomEvent) => {
+      const { layout, channels: channelIds } = e.detail
+      setMultiViewLayout(layout)
+      const channels: (Channel | null)[] = [null, null, null, null]
+      channelIds.forEach((id: string, i: number) => {
+        const found = allChannels.find(c => c.id === id)
+        if (found) channels[i] = found
+      })
+      setMultiViewChannels(channels)
+      setIsMultiView(true)
+    }
+
+    window.addEventListener('lighttv:multivideo', handleMultiVideoEvent as EventListener)
+    window.addEventListener('popstate', checkMultiView)
+
+    return () => {
+      window.removeEventListener('lighttv:multivideo', handleMultiVideoEvent as EventListener)
+      window.removeEventListener('popstate', checkMultiView)
+    }
+  }, [])
 
   // Periodically check if it's time to rotate. We rotate ~1 minute before
   // the current token expires so the user never sees a flash.
@@ -166,6 +223,69 @@ export default function UserPage() {
           >
             Go to Login
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Exit multi-view handler
+  const exitMultiView = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('multivideo')
+    url.searchParams.delete('layout')
+    for (let i = 0; i < 4; i++) url.searchParams.delete(`ch${i}`)
+    window.history.pushState({}, '', url.toString())
+    setIsMultiView(false)
+  }
+
+  // Multi-view mode
+  if (isMultiView) {
+    const activeChannels = multiViewChannels.slice(0, parseInt(multiViewLayout)).filter(c => c !== null) as Channel[]
+    const layoutCount = parseInt(multiViewLayout)
+
+    return (
+      <div className="min-h-screen bg-black flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900 border-b border-zinc-800">
+          <button
+            onClick={exitMultiView}
+            className="flex items-center gap-2 text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Exit Multi-View</span>
+          </button>
+          <span className="text-cyan-400 text-sm font-bold">{layoutCount} Channels</span>
+        </div>
+
+        {/* Multi-view grid */}
+        <div className={`flex-1 grid gap-1 p-1 ${
+          layoutCount === 2 ? 'grid-cols-2' :
+          layoutCount === 3 ? 'grid-cols-3' :
+          'grid-cols-2 grid-rows-2'
+        }`}>
+          {Array.from({ length: layoutCount }).map((_, idx) => {
+            const ch = multiViewChannels[idx]
+            if (!ch) {
+              return (
+                <div key={idx} className="bg-zinc-900 rounded-lg flex items-center justify-center">
+                  <span className="text-zinc-600 text-sm">Empty Slot</span>
+                </div>
+              )
+            }
+            return (
+              <div key={idx} className="relative bg-black rounded-lg overflow-hidden">
+                <MultiViewPlayer
+                  channel={ch}
+                  onRemove={() => {
+                    const newChannels = [...multiViewChannels]
+                    newChannels[idx] = null
+                    setMultiViewChannels(newChannels)
+                  }}
+                  onSwap={() => {}}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
     )
