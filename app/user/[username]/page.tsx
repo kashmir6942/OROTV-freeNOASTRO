@@ -5,10 +5,6 @@ import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getDeviceId } from "@/lib/device-id"
 import IPTVContent from "@/components/iptv-content"
-import { allChannels } from "@/data/channels/all-channels"
-import type { Channel } from "@/data/types/channel"
-import { MultiViewPlayer } from "@/components/multi-view-player"
-import { ArrowLeft, X } from "lucide-react"
 
 const ROTATE_BEFORE_MS = 60 * 1000 // rotate ~1 minute before token expires
 
@@ -43,11 +39,6 @@ export default function UserPage() {
   const tokenRef = useRef<string>(initialToken)
   const expiresAtRef = useRef<number>(0)
   const rotatingRef = useRef(false)
-
-  // Multi-view state
-  const [isMultiView, setIsMultiView] = useState(false)
-  const [multiViewLayout, setMultiViewLayout] = useState<'2' | '3' | '4'>('2')
-  const [multiViewChannels, setMultiViewChannels] = useState<(Channel | null)[]>([null, null, null, null])
 
   // Initial token validation against the DB
   const validate = useCallback(async () => {
@@ -98,54 +89,6 @@ export default function UserPage() {
   useEffect(() => {
     validate()
   }, [validate])
-
-  // Check URL for multivideo param on mount and listen for changes
-  useEffect(() => {
-    const checkMultiView = () => {
-      const url = new URL(window.location.href)
-      const mv = url.searchParams.get('multivideo')
-      if (mv === 'true') {
-        const layout = url.searchParams.get('layout') as '2' | '3' | '4' || '2'
-        setMultiViewLayout(layout)
-        const channels: (Channel | null)[] = [null, null, null, null]
-        for (let i = 0; i < 4; i++) {
-          const chId = url.searchParams.get(`ch${i}`)
-          if (chId) {
-            const found = allChannels.find(c => c.id === chId)
-            if (found) channels[i] = found
-          }
-        }
-        setMultiViewChannels(channels)
-        setIsMultiView(true)
-      } else {
-        setIsMultiView(false)
-      }
-    }
-
-    // Check on mount
-    checkMultiView()
-
-    // Listen for custom event from video player
-    const handleMultiVideoEvent = (e: CustomEvent) => {
-      const { layout, channels: channelIds } = e.detail
-      setMultiViewLayout(layout)
-      const channels: (Channel | null)[] = [null, null, null, null]
-      channelIds.forEach((id: string, i: number) => {
-        const found = allChannels.find(c => c.id === id)
-        if (found) channels[i] = found
-      })
-      setMultiViewChannels(channels)
-      setIsMultiView(true)
-    }
-
-    window.addEventListener('lighttv:multivideo', handleMultiVideoEvent as EventListener)
-    window.addEventListener('popstate', checkMultiView)
-
-    return () => {
-      window.removeEventListener('lighttv:multivideo', handleMultiVideoEvent as EventListener)
-      window.removeEventListener('popstate', checkMultiView)
-    }
-  }, [])
 
   // Periodically check if it's time to rotate. We rotate ~1 minute before
   // the current token expires so the user never sees a flash.
