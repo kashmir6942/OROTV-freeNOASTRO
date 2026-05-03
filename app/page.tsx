@@ -175,7 +175,7 @@ const ChannelGuideModal = ({
   )
 }
 
-export default function Home() {
+export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = {}) {
   const { theme } = useTheme()
   const { hasAccess, isCheckingAccess, setHasAccess } = useAccessControl()
 
@@ -783,7 +783,7 @@ export default function Home() {
     )
   }
 
-  if (isCheckingAccess) {
+  if (isCheckingAccess && !bypassAuth) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -794,7 +794,7 @@ export default function Home() {
     )
   }
 
-  if (!hasAccess) {
+  if (!hasAccess && !bypassAuth) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
         {/* Subtle grid pattern background */}
