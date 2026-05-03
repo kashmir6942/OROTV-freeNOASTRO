@@ -19,7 +19,6 @@ import { ReportModal } from "@/components/report-modal"
 import { AnnouncementsSystem } from "@/components/announcements-system"
 import { IOSUnsupportedModal } from "@/components/ios-unsupported-modal"
 import { MultiViewPlayer } from "@/components/multi-view-player"
-import type { Channel } from "@/types/channel"
 import { useAccessControl } from "@/lib/hooks/useAccessControl"
 import { LightLogo } from "@/components/light-logo"
 import { getFavorites, addFavorite, removeFavorite, isFavorite, addToRecentlyWatched, getRecentlyWatched } from "@/lib/favorites"
@@ -286,22 +285,28 @@ export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = 
 
   // Multi-view mode: parse URL params on mount and listen for video player events
   useEffect(() => {
+    console.log("[v0] Setting up multi-view listener")
     const checkMultiView = () => {
       if (typeof window === 'undefined') return
       const url = new URL(window.location.href)
       const mv = url.searchParams.get('multivideo')
+      console.log("[v0] checkMultiView: multivideo=", mv)
       if (mv === 'true') {
         const layout = (url.searchParams.get('layout') as '2' | '3' | '4') || '2'
+        console.log("[v0] Multi-view enabled from URL: layout=", layout)
         setMultiViewLayout(layout)
         const channels: (typeof allChannels)[] = []
         for (let i = 0; i < parseInt(layout); i++) {
           const chId = url.searchParams.get(`ch${i}`)
+          console.log("[v0] Looking for channel slot", i, "id=", chId)
           if (chId) {
             const found = allChannels.find(c => c.id === chId)
+            console.log("[v0] Found channel:", found?.name)
             if (found) channels[i] = found
           }
         }
         setMultiViewChannels(channels)
+        console.log("[v0] Setting isMultiView to true")
         setIsMultiView(true)
       } else {
         setIsMultiView(false)
@@ -312,13 +317,17 @@ export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = 
 
     // Listen for custom event from video player modal
     const handleMultiVideoEvent = (e: any) => {
+      console.log("[v0] Received lighttv:multivideo event:", e.detail)
       const { layout, channels: channelIds } = e.detail
+      console.log("[v0] Setting multi-view from event: layout=", layout, "channelIds=", channelIds)
       setMultiViewLayout(layout)
       const channels: (typeof allChannels)[] = []
       channelIds.forEach((id: string, i: number) => {
         const found = allChannels.find(c => c.id === id)
+        console.log("[v0] Event channel", i, "id=", id, "found=", found?.name)
         if (found) channels[i] = found
       })
+      console.log("[v0] Setting isMultiView to true from event")
       setMultiViewChannels(channels)
       setIsMultiView(true)
     }
@@ -330,7 +339,7 @@ export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = 
       window.removeEventListener('lighttv:multivideo', handleMultiVideoEvent)
       window.removeEventListener('popstate', checkMultiView)
     }
-  }, [allChannels])
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('light-view-mode', viewMode)

@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
 import { SessionTimer } from "@/components/session-timer"
+import { allChannels } from "@/data/channels/all-channels"
 
 // Mock Supabase client to resolve import error in preview environment
 const createClient = () => ({
@@ -1897,7 +1898,7 @@ export function VideoPlayer({
           <div className="flex-1 overflow-y-auto p-4 border-t border-zinc-800">
             <p className="text-sm text-gray-400 mb-3">Tap a channel to add it to the next empty slot:</p>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-              {(availableChannels || []).map((ch, idx) => {
+              {(allChannels || []).map((ch, idx) => {
                 const isSelected = multiViewChannels.some(c => c?.id === ch.id)
                 return (
                   <button
@@ -1948,6 +1949,7 @@ export function VideoPlayer({
                   .slice(0, parseInt(multiViewLayout))
                   .filter(c => c !== null)
                   .map(c => c!.id)
+                console.log("[v0] Multi-view start: layout=", multiViewLayout, "channels=", selected)
                 if (selected.length === 0) {
                   alert("Please select at least one channel")
                   return
@@ -1959,9 +1961,11 @@ export function VideoPlayer({
                 // Clear previous channel params
                 for (let i = 0; i < 4; i++) url.searchParams.delete(`ch${i}`)
                 selected.forEach((id, i) => url.searchParams.set(`ch${i}`, id))
+                console.log("[v0] New URL:", url.toString())
                 // Use history.pushState to avoid full page reload
                 window.history.pushState({}, '', url.toString())
                 // Trigger a custom event so the page can react
+                console.log("[v0] Dispatching lighttv:multivideo event")
                 window.dispatchEvent(new CustomEvent('lighttv:multivideo', {
                   detail: { layout: multiViewLayout, channels: selected }
                 }))
