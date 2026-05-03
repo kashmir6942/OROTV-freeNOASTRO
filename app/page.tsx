@@ -18,6 +18,8 @@ import { SupportPopup } from "@/components/support-popup"
 import { ReportModal } from "@/components/report-modal"
 import { AnnouncementsSystem } from "@/components/announcements-system"
 import { IOSUnsupportedModal } from "@/components/ios-unsupported-modal"
+import { MultiViewPlayer } from "@/components/multi-view-player"
+import type { Channel } from "@/types/channel"
 import { useAccessControl } from "@/lib/hooks/useAccessControl"
 import { LightLogo } from "@/components/light-logo"
 import { getFavorites, addFavorite, removeFavorite, isFavorite, addToRecentlyWatched, getRecentlyWatched } from "@/lib/favorites"
@@ -222,6 +224,11 @@ export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = 
   const [pendingBitrateMode, setPendingBitrateMode] = useState<"high-bitrate" | "optimized" | null>(null)
   const pendingChannelRef = useRef<Channel | null>(null)
   const [restoreUIHidden, setRestoreUIHidden] = useState(false)
+  
+  // Multi-view mode state
+  const [isMultiView, setIsMultiView] = useState(false)
+  const [multiViewLayout, setMultiViewLayout] = useState<'2' | '3' | '4'>('2')
+  const [multiViewChannels, setMultiViewChannels] = useState<(Channel | null)[]>([null, null, null, null])
   const [channelGuideSearch, setChannelGuideSearch] = useState("")
   const [epgData, setEpgData] = useState<any>({})
   const [currentPrograms, setCurrentPrograms] = useState<any>({})
@@ -276,6 +283,54 @@ export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = 
     setFavorites(getFavorites())
     setRecentlyWatched(getRecentlyWatched())
   }, [])
+
+  // Multi-view mode: parse URL params on mount and listen for video player events
+  useEffect(() => {
+    const checkMultiView = () => {
+      if (typeof window === 'undefined') return
+      const url = new URL(window.location.href)
+      const mv = url.searchParams.get('multivideo')
+      if (mv === 'true') {
+        const layout = (url.searchParams.get('layout') as '2' | '3' | '4') || '2'
+        setMultiViewLayout(layout)
+        const channels: (typeof allChannels)[] = []
+        for (let i = 0; i < parseInt(layout); i++) {
+          const chId = url.searchParams.get(`ch${i}`)
+          if (chId) {
+            const found = allChannels.find(c => c.id === chId)
+            if (found) channels[i] = found
+          }
+        }
+        setMultiViewChannels(channels)
+        setIsMultiView(true)
+      } else {
+        setIsMultiView(false)
+      }
+    }
+
+    checkMultiView()
+
+    // Listen for custom event from video player modal
+    const handleMultiVideoEvent = (e: any) => {
+      const { layout, channels: channelIds } = e.detail
+      setMultiViewLayout(layout)
+      const channels: (typeof allChannels)[] = []
+      channelIds.forEach((id: string, i: number) => {
+        const found = allChannels.find(c => c.id === id)
+        if (found) channels[i] = found
+      })
+      setMultiViewChannels(channels)
+      setIsMultiView(true)
+    }
+
+    window.addEventListener('lighttv:multivideo', handleMultiVideoEvent)
+    window.addEventListener('popstate', checkMultiView)
+
+    return () => {
+      window.removeEventListener('lighttv:multivideo', handleMultiVideoEvent)
+      window.removeEventListener('popstate', checkMultiView)
+    }
+  }, [allChannels])
 
   useEffect(() => {
     localStorage.setItem('light-view-mode', viewMode)
@@ -1191,6 +1246,72 @@ export default function Home({ bypassAuth = false }: { bypassAuth?: boolean } = 
         <QuickChannelSwitch isOpen={showQuickSwitch} onClose={() => setShowQuickSwitch(false)} allChannels={allChannels} onChannelSelect={handleChannelSelect} currentChannel={selectedChannel} />
         <ChannelStats isOpen={showChannelStats} onClose={() => setShowChannelStats(false)} allChannels={allChannels} onChannelSelect={handleChannelSelect} />
         <PipMode isActive={isPipActive} channel={pipChannel} onClose={deactivatePip} onMaximize={() => { if (pipChannel) { handleChannelSelect(pipChannel); deactivatePip() } }} />
+      </div>
+    )
+  }
+
+  // Exit multi-view handler
+  const exitMultiView = () => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    url.searchParams.delete('multivideo')
+    url.searchParams.delete('layout')
+    for (let i = 0; i < 4; i++) url.searchParams.delete(`ch${i}`)
+    window.history.pushState({}, '', url.toString())
+    setIsMultiView(false)
+  }
+
+  // Multi-view mode
+  if (isMultiView) {
+    const activeChannels = multiViewChannels.filter(c => c !== null) as typeof allChannels
+    const layoutCount = parseInt(multiViewLayout)
+
+    return (
+      <div className="min-h-screen bg-black flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900 border-b border-zinc-800">
+          <button
+            onClick={exitMultiView}
+            className="flex items-center gap-2 text-gray-400 hover:text-white"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="text-sm font-medium">Exit Multi-View</span>
+          </button>
+          <span className="text-cyan-400 text-sm font-bold">{layoutCount} Channels</span>
+        </div>
+
+        {/* Multi-view grid */}
+        <div className={`flex-1 grid gap-1 p-1 ${
+          layoutCount === 2 ? 'grid-cols-2' :
+          layoutCount === 3 ? 'grid-cols-3' :
+          'grid-cols-2 grid-rows-2'
+        }`}>
+          {Array.from({ length: layoutCount }).map((_, idx) => {
+            const ch = multiViewChannels[idx]
+            if (!ch) {
+              return (
+                <div key={idx} className="bg-zinc-900 rounded-lg flex items-center justify-center">
+                  <span className="text-zinc-600 text-sm">Empty Slot</span>
+                </div>
+              )
+            }
+            return (
+              <div key={idx} className="relative bg-black rounded-lg overflow-hidden">
+                <MultiViewPlayer
+                  channel={ch}
+                  onRemove={() => {
+                    const newChannels = [...multiViewChannels]
+                    newChannels[idx] = null
+                    setMultiViewChannels(newChannels)
+                  }}
+                  onSwap={() => {}}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
