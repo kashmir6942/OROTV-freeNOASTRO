@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { VideoPlayer } from "@/components/video-player"
 import { allChannels as staticChannels } from "@/data/channels/all-channels"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Search, Menu, HomeIcon, Tv, X, Heart, Star, Clock, PictureInPicture, Keyboard, Zap, TrendingUp, LayoutGrid, List, LogOut } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, Menu, HomeIcon, Tv, X, Heart, Star, Clock, PictureInPicture, Keyboard, Zap, TrendingUp, LayoutGrid, List, LogOut, Grid2x2 } from "lucide-react"
 import type { Channel } from "@/data/types/channel"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SetupCheck } from "@/components/setup-check"
@@ -24,6 +24,7 @@ import { QuickChannelSwitch } from "@/components/quick-channel-switch"
 import { ChannelStats } from "@/components/channel-stats"
 import { PipMode, usePipMode } from "@/components/pip-mode"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 interface IPTVContentProps {
   username: string
@@ -225,6 +226,11 @@ export default function IPTVContent({ username }: IPTVContentProps) {
             >
               <Tv className="w-4 h-4 mr-1" /> Live TV
             </Button>
+            <Link href="/multiview">
+              <Button variant="ghost" size="sm" className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10">
+                <Grid2x2 className="w-4 h-4 mr-1" /> Multi-View
+              </Button>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
