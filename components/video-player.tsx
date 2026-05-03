@@ -20,7 +20,8 @@ import {
   PictureInPicture,
   Signal,
   Monitor,
-  Grid2x2
+  Grid2x2,
+  Plus
 } from "lucide-react"
 import type { VideoPlayerProps } from "@/types/video-player"
 import { SessionTimer } from "@/components/session-timer"
@@ -157,6 +158,9 @@ export function VideoPlayer({
   const [showTechnicalDifficulties, setShowTechnicalDifficulties] = useState(false)
   const [viewerSessionId, setViewerSessionId] = useState<string | null>(null)
   const [audioTracks, setAudioTracks] = useState<any[]>([])
+  const [showMultiViewModal, setShowMultiViewModal] = useState(false)
+  const [multiViewLayout, setMultiViewLayout] = useState<'2' | '3' | '4'>('2')
+  const [multiViewChannels, setMultiViewChannels] = useState<(typeof channel | null)[]>([null, null, null, null])
   const [subtitleTracks, setSubtitleTracks] = useState<any[]>([])
   const [currentAudioTrack, setCurrentAudioTrack] = useState<number>(-1)
   const [currentSubtitleTrack, setCurrentSubtitleTrack] = useState<number>(-1)
@@ -1663,16 +1667,20 @@ export function VideoPlayer({
               <SessionTimer className="ml-1 sm:ml-2" />
 
               {/* Multi-View shortcut */}
-              <a
-                href="/multiview"
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  // Pre-fill current channel in slot 0
+                  setMultiViewChannels([channel, null, null, null])
+                  setShowMultiViewModal(true)
+                }}
                 className="ml-1 sm:ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-200 text-[9px] sm:text-[11px] font-bold tracking-wider transition-colors"
                 title="Multi-View: watch up to 4 channels at once"
-                onClick={(e) => e.stopPropagation()}
                 style={{ pointerEvents: "auto" }}
               >
                 <Grid2x2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 <span className="hidden sm:inline">Multi</span>
-              </a>
+              </button>
 
               {/* Action Icons */}
               <div className="flex items-center gap-0.5 sm:gap-1.5 ml-1 sm:ml-4" style={{ pointerEvents: "auto" }}>
@@ -1791,6 +1799,169 @@ export function VideoPlayer({
                 {laterProg?.start ? formatTime(laterProg.start) : "--:--"}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-View Modal */}
+      {showMultiViewModal && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/95 flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Modal Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowMultiViewModal(false)}
+                className="p-2 hover:bg-zinc-800 rounded-lg text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h2 className="text-lg font-bold text-cyan-400">Multi-View Setup</h2>
+            </div>
+
+            {/* Layout Selector */}
+            <div className="flex items-center gap-2 bg-zinc-800 rounded-lg p-1">
+              <button
+                onClick={() => setMultiViewLayout('2')}
+                className={`px-3 py-1.5 rounded text-sm font-bold ${multiViewLayout === '2' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                2
+              </button>
+              <button
+                onClick={() => setMultiViewLayout('3')}
+                className={`px-3 py-1.5 rounded text-sm font-bold ${multiViewLayout === '3' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                3
+              </button>
+              <button
+                onClick={() => setMultiViewLayout('4')}
+                className={`px-3 py-1.5 rounded text-sm font-bold ${multiViewLayout === '4' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                4
+              </button>
+            </div>
+          </div>
+
+          {/* Slot Preview */}
+          <div className="p-4">
+            <p className="text-sm text-gray-400 mb-3">Select channels for each slot:</p>
+            <div className={`grid gap-2 ${multiViewLayout === '2' ? 'grid-cols-2' : multiViewLayout === '3' ? 'grid-cols-3' : 'grid-cols-2 grid-rows-2'}`}>
+              {Array.from({ length: parseInt(multiViewLayout) }).map((_, idx) => {
+                const ch = multiViewChannels[idx]
+                return (
+                  <div
+                    key={idx}
+                    className={`relative aspect-video rounded-lg border-2 flex items-center justify-center cursor-pointer transition-all ${
+                      ch ? 'border-cyan-500 bg-zinc-800' : 'border-dashed border-zinc-600 hover:border-cyan-500 bg-zinc-900'
+                    }`}
+                    onClick={() => {
+                      // Show channel list for this slot
+                      const newChannels = [...multiViewChannels]
+                      // Mark this slot as "selecting"
+                      setMultiViewChannels(newChannels)
+                    }}
+                  >
+                    {ch ? (
+                      <div className="flex flex-col items-center gap-1 p-2">
+                        {ch.logo && (
+                          <img src={ch.logo} alt={ch.name} className="w-8 h-8 object-contain" />
+                        )}
+                        <span className="text-xs text-white font-medium text-center truncate max-w-full">{ch.name}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const newChannels = [...multiViewChannels]
+                            newChannels[idx] = null
+                            setMultiViewChannels(newChannels)
+                          }}
+                          className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 rounded-full"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-zinc-500">
+                        <Plus className="w-6 h-6" />
+                        <span className="text-xs">Slot {idx + 1}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Channel Selection Grid */}
+          <div className="flex-1 overflow-y-auto p-4 border-t border-zinc-800">
+            <p className="text-sm text-gray-400 mb-3">Tap a channel to add it to the next empty slot:</p>
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+              {(availableChannels || []).map((ch, idx) => {
+                const isSelected = multiViewChannels.some(c => c?.id === ch.id)
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => {
+                      if (isSelected) return
+                      // Find first empty slot
+                      const emptyIdx = multiViewChannels.findIndex((c, i) => c === null && i < parseInt(multiViewLayout))
+                      if (emptyIdx !== -1) {
+                        const newChannels = [...multiViewChannels]
+                        newChannels[emptyIdx] = ch
+                        setMultiViewChannels(newChannels)
+                      }
+                    }}
+                    disabled={isSelected}
+                    className={`rounded-xl aspect-square flex flex-col items-center justify-center p-1 transition-all ${
+                      isSelected
+                        ? 'bg-cyan-500/30 border-2 border-cyan-500 opacity-60'
+                        : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700'
+                    }`}
+                  >
+                    {ch.logo ? (
+                      <img src={ch.logo} alt={ch.name} className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
+                    ) : (
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-zinc-600 flex items-center justify-center">
+                        <span className="text-white font-bold text-xs">{ch.name.charAt(0)}</span>
+                      </div>
+                    )}
+                    <span className="text-[8px] sm:text-[10px] text-white/80 mt-1 truncate w-full text-center">{ch.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-zinc-800 bg-zinc-900 flex items-center justify-between">
+            <button
+              onClick={() => setShowMultiViewModal(false)}
+              className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                // Build query string with selected channel IDs
+                const selected = multiViewChannels
+                  .slice(0, parseInt(multiViewLayout))
+                  .filter(c => c !== null)
+                  .map(c => c!.id)
+                if (selected.length === 0) {
+                  alert("Please select at least one channel")
+                  return
+                }
+                // Navigate to multiview with params
+                const params = new URLSearchParams()
+                params.set('layout', multiViewLayout)
+                selected.forEach((id, i) => params.set(`ch${i}`, id))
+                window.location.href = `/multiview?${params.toString()}`
+              }}
+              className="px-6 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
+            >
+              Start Multi-View
+            </button>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { allChannels } from "@/data/channels/all-channels"
 import type { Channel } from "@/data/types/channel"
@@ -21,12 +22,35 @@ import { MultiViewPlayer } from "@/components/multi-view-player"
 type LayoutMode = '2' | '3' | '4'
 
 export default function MultiViewPage() {
+  const searchParams = useSearchParams()
   const [layout, setLayout] = useState<LayoutMode>('2')
   const [selectedChannels, setSelectedChannels] = useState<(Channel | null)[]>([null, null, null, null])
   const [selectingSlot, setSelectingSlot] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [fullscreenSlot, setFullscreenSlot] = useState<number | null>(null)
+  const [initialized, setInitialized] = useState(false)
+
+  // Parse query params on mount
+  useEffect(() => {
+    if (initialized) return
+    const layoutParam = searchParams.get('layout') as LayoutMode | null
+    if (layoutParam && ['2', '3', '4'].includes(layoutParam)) {
+      setLayout(layoutParam)
+    }
+    
+    // Load channels from params
+    const newChannels: (Channel | null)[] = [null, null, null, null]
+    for (let i = 0; i < 4; i++) {
+      const chId = searchParams.get(`ch${i}`)
+      if (chId) {
+        const found = allChannels.find(c => c.id === chId)
+        if (found) newChannels[i] = found
+      }
+    }
+    setSelectedChannels(newChannels)
+    setInitialized(true)
+  }, [searchParams, initialized])
 
   // Categories
   const categories = useMemo(() => {
