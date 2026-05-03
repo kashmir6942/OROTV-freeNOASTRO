@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ExternalLink,
 } from "lucide-react"
+import { LightLogo } from "@/components/light-logo"
 
 const PHC_OWNER_URL = "https://phcorner.org/direct-messages/add?to=PHC-SVWG"
 
@@ -92,14 +93,17 @@ export default function RegisterPage() {
               "radial-gradient(circle at 25% 25%, rgba(6, 182, 212, 0.08) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(34, 197, 94, 0.05) 0%, transparent 50%)",
           }}
         />
-        <div className="relative z-10 w-full max-w-md">
-          <div className="bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+        <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+          <div className="mb-6">
+            <LightLogo size="md" variant="light" />
+          </div>
+          <div className="w-full bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mb-4">
                 <CheckCircle2 className="h-8 w-8 text-green-400" />
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 text-balance">
-                Registration Successful!
+                Welcome to Light TV!
               </h1>
               <p className="text-sm text-zinc-400 text-pretty leading-relaxed">
                 Your account has been created and is pending approval.
@@ -164,10 +168,13 @@ export default function RegisterPage() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-md py-8">
-        <div className="bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+      <div className="relative z-10 w-full max-w-md py-8 flex flex-col items-center">
+        <div className="mb-6">
+          <LightLogo size="md" variant="light" />
+        </div>
+        <div className="w-full bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
           <div className="text-center space-y-2 mb-6">
-            <h1 className="text-2xl font-bold text-white">Create your account</h1>
+            <h1 className="text-2xl font-bold text-white">Create your Light TV account</h1>
             <p className="text-sm text-zinc-400">PHCorner verification required</p>
           </div>
 

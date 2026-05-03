@@ -19,6 +19,7 @@ import { ReportModal } from "@/components/report-modal"
 import { AnnouncementsSystem } from "@/components/announcements-system"
 import { IOSUnsupportedModal } from "@/components/ios-unsupported-modal"
 import { useAccessControl } from "@/lib/hooks/useAccessControl"
+import { LightLogo } from "@/components/light-logo"
 import { getFavorites, addFavorite, removeFavorite, isFavorite, addToRecentlyWatched, getRecentlyWatched } from "@/lib/favorites"
 import { QuickChannelSwitch } from "@/components/quick-channel-switch"
 import { ChannelStats } from "@/components/channel-stats"
@@ -806,16 +807,16 @@ export default function Home() {
         />
 
         <div className="relative z-10 w-full max-w-md flex flex-col items-center">
-          {/* Brand label */}
-          <p className="text-xs tracking-[0.4em] text-zinc-500 font-medium mb-6 uppercase">
-            Smart Streaming
-          </p>
+          {/* Brand wordmark */}
+          <div className="mb-8">
+            <LightLogo size="lg" variant="light" />
+          </div>
 
           {/* Card */}
           <div className="w-full bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl md:text-3xl font-bold text-white text-balance leading-tight">
-                Welcome to OROTV
+                Welcome to Light TV
               </h1>
               <p className="text-sm text-zinc-400 text-pretty leading-relaxed">
                 Sign in to access premium streaming content

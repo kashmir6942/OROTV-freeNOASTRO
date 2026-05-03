@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { Eye, EyeOff, AlertTriangle, User, Lock, ArrowRight, ExternalLink } from "lucide-react"
 import { setUserPreference } from "@/lib/user-preferences"
 import { getDeviceId } from "@/lib/device-id"
+import { LightLogo } from "@/components/light-logo"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -74,11 +75,14 @@ export default function LoginPage() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+        <div className="mb-6">
+          <LightLogo size="md" variant="light" />
+        </div>
+        <div className="w-full bg-[#0e0e10] border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
           <div className="text-center space-y-2 mb-6">
             <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-            <p className="text-sm text-zinc-400">Sign in to continue to OROTV</p>
+            <p className="text-sm text-zinc-400">Sign in to continue to Light TV</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
